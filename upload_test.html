@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoleFlipper Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 SoleFlipper Upload Test</h1>
+        
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="file">CSV-Datei auswählen:</label>
+                <input type="file" id="file" name="file" accept=".csv" required>
+            </div>
+            
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="validate_only" name="validate_only" checked>
+                    <label for="validate_only">Nur validieren (nicht importieren)</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="batch_size">Batch-Größe:</label>
+                <select id="batch_size" name="batch_size">
+                    <option value="100">100</option>
+                    <option value="500">500</option>
+                    <option value="1000" selected>1000</option>
+                    <option value="5000">5000</option>
+                </select>
+            </div>
+            
+            <button type="submit" id="uploadBtn">Upload starten</button>
+        </form>
+        
+        <div class="progress" id="progress" style="display: none;">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const result = document.getElementById('result');
+        const progress = document.getElementById('progress');
+        const progressBar = document.getElementById('progressBar');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('Bitte wählen Sie eine Datei aus.', 'error');
+                return;
+            }
+            
+            // UI Updates
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            progress.style.display = 'block';
+            progressBar.style.width = '10%';
+            showResult('Upload wird verarbeitet...', 'loading');
+            
+            // FormData erstellen
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('validate_only', document.getElementById('validate_only').checked);
+            formData.append('batch_size', document.getElementById('batch_size').value);
+            
+            try {
+                progressBar.style.width = '50%';
+                
+                const response = await fetch('http://localhost:8000/api/v1/integration/webhooks/stockx/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                progressBar.style.width = '90%';
+                
+                const data = await response.json();
+                
+                progressBar.style.width = '100%';
+                
+                if (response.ok) {
+                    let message = `✅ Upload erfolgreich!
+                    
+Dateiname: ${data.filename}
+Status: ${data.status}
+Datensätze: ${data.total_records}
+Validierungsfehler: ${data.validation_errors.length}
+Nachricht: ${data.message}`;
+                    
+                    if (data.batch_id) {
+                        message += `\nBatch-ID: ${data.batch_id}`;
+                    }
+                    
+                    if (data.validation_errors.length > 0) {
+                        message += `\n\nFehler:\n${data.validation_errors.slice(0, 5).join('\n')}`;
+                        if (data.validation_errors.length > 5) {
+                            message += `\n... und ${data.validation_errors.length - 5} weitere`;
+                        }
+                    }
+                    
+                    showResult(message, 'success');
+                } else {
+                    showResult(`❌ Fehler: ${data.detail || 'Unbekannter Fehler'}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult(`❌ Netzwerkfehler: ${error.message}`, 'error');
+            } finally {
+                // UI zurücksetzen
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload starten';
+                setTimeout(() => {
+                    progress.style.display = 'none';
+                    progressBar.style.width = '0%';
+                }, 1000);
+            }
+        });
+        
+        function showResult(message, type) {
+            result.innerHTML = message;
+            result.className = `result ${type}`;
+        }
+        
+        // File input change handler
+        document.getElementById('file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const size = (file.size / 1024 / 1024).toFixed(2);
+                showResult(`Datei ausgewählt: ${file.name} (${size} MB)`, 'loading');
+            }
+        });
+    </script>
+</body>
+</html>

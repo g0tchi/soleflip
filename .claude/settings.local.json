@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(taskkill:*)",
+      "Bash(start /B python:*)",
+      "Bash(timeout:*)",
+      "Bash(pkill:*)",
+      "Bash(grep:*)",
+      "Bash(powershell:*)",
+      "Bash(exit)",
+      "Bash(kill:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}

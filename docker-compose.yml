@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Datenbank
+  postgres:
+    image: postgres:15
+    container_name: soleflip-postgres
+    environment:
+      POSTGRES_DB: soleflip
+      POSTGRES_USER: soleflip_user
+      POSTGRES_PASSWORD: soleflip_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - soleflip-network
+
+  # SoleFlipper API
+  api:
+    build: .
+    container_name: soleflip-api
+    environment:
+      DATABASE_URL: postgresql://soleflip_user:soleflip_pass@postgres:5432/soleflip
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+    networks:
+      - soleflip-network
+
+  # Metabase für Analytics
+  metabase:
+    image: metabase/metabase:latest
+    container_name: soleflip-metabase
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: soleflip_user
+      MB_DB_PASS: soleflip_pass
+      MB_DB_HOST: postgres
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - soleflip-network
+
+volumes:
+  postgres_data:
+
+networks:
+  soleflip-network:
+    driver: bridge
