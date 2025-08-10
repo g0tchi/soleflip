@@ -197,7 +197,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ### Database Connection
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/soleflip
+# Copy .env.example to .env and configure:
+DATABASE_URL=postgresql://username:your-secure-password@localhost:5432/soleflip
+
+# Or use Docker Compose with override file:
+cp docker-compose.override.yml.example docker-compose.override.yml
+# Edit docker-compose.override.yml with your secure passwords
 ```
 
 ### External Services
