@@ -13,12 +13,12 @@ from enum import Enum
 import structlog
 from pathlib import Path
 
-from shared.database.connection import get_db_session
 from shared.database.models import ImportBatch, ImportRecord
-from .validators import StockXValidator, NotionValidator, SalesValidator, ValidationResult
+from .validators import StockXValidator, NotionValidator, SalesValidator, AliasValidator, ValidationResult
 from .parsers import CSVParser, JSONParser, ExcelParser
 from .transformers import DataTransformer
 import uuid
+from decimal import Decimal
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +33,7 @@ class SourceType(Enum):
     STOCKX = "stockx"
     NOTION = "notion"
     SALES = "sales"
+    ALIAS = "alias"
     MANUAL = "manual"
 
 @dataclass
@@ -62,7 +63,8 @@ class ImportProcessor:
         self.validators = {
             SourceType.STOCKX: StockXValidator(),
             SourceType.NOTION: NotionValidator(),
-            SourceType.SALES: SalesValidator()
+            SourceType.SALES: SalesValidator(),
+            SourceType.ALIAS: AliasValidator()
         }
         
         self.parsers = {
@@ -78,7 +80,8 @@ class ImportProcessor:
         self,
         source_type: SourceType,
         data: List[Dict[str, Any]],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        raw_data: Optional[List[Dict[str, Any]]] = None  # Add raw_data parameter
     ) -> ImportResult:
         """
         Process pre-parsed data through the import pipeline
@@ -139,16 +142,27 @@ class ImportProcessor:
             
             if source_type == SourceType.STOCKX:
                 transform_result = transformer.transform_stockx_data(validation_result.normalized_data)
+            elif source_type == SourceType.ALIAS:
+                transform_result = transformer.transform_alias_data(validation_result.normalized_data)
             else:
                 # Generic transformation
                 transform_result = transformer.transform(validation_result.normalized_data, [], source_type.value)
             
-            # Store transformed data
+            # Store transformed data with original source data
             processed_count = await self._store_records(
                 batch_id=batch.id,
                 records=transform_result.transformed_data,
-                source_type=source_type
+                source_type=source_type,
+                original_data=raw_data or data  # Use raw_data if available, fallback to data
             )
+            
+            # Extract products from imported data
+            logger.info("About to start product extraction", batch_id=batch.id, processed_count=processed_count)
+            await self._extract_products_from_batch(batch.id, processed_count)
+            
+            # Create sales transactions from imported data
+            logger.info("About to start transaction creation", batch_id=batch.id, processed_count=processed_count)
+            await self._create_transactions_from_batch(batch.id, processed_count)
             
             # Update batch status
             await self._update_batch_status(
@@ -250,7 +264,13 @@ class ImportProcessor:
                 batch_size
             )
             
-            # 6. Update batch status
+            # 6. Extract products from imported data
+            await self._extract_products_from_batch(batch.id, processed_count)
+            
+            # 7. Create transactions from imported data
+            await self._create_transactions_from_batch(batch.id, processed_count)
+            
+            # 8. Update batch status
             await self._complete_import_batch(
                 batch.id,
                 processed_count,
@@ -323,8 +343,13 @@ class ImportProcessor:
         if file_extension not in self.parsers:
             raise ValueError(f"Unsupported file format: {file_extension}")
         
+        # Read file content first
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
         parser = self.parsers[file_extension]
-        return await parser.parse(file_path)
+        result = parser.parse(content)
+        return result.data
     
     async def _detect_source_type(self, data: List[Dict[str, Any]]) -> SourceType:
         """Auto-detect the source type based on data structure"""
@@ -337,6 +362,11 @@ class ImportProcessor:
         stockx_patterns = ['Order Number', 'Sale Date', 'Item', 'Listing Price']
         if all(field in sample for field in stockx_patterns):
             return SourceType.STOCKX
+        
+        # Alias detection patterns
+        alias_patterns = ['ORDER_NUMBER', 'NAME', 'PRODUCT_PRICE_CENTS_SALE_PRICE', 'CREDIT_DATE']
+        if all(field in sample for field in alias_patterns):
+            return SourceType.ALIAS
         
         # Notion detection patterns  
         notion_patterns = ['id', 'properties', 'database_id']
@@ -430,7 +460,8 @@ class ImportProcessor:
         self,
         batch_id: str,
         records: List[Dict[str, Any]],
-        source_type: SourceType
+        source_type: SourceType,
+        original_data: Optional[List[Dict[str, Any]]] = None
     ) -> int:
         """Store transformed records in database"""
         from shared.database.connection import db_manager
@@ -457,16 +488,24 @@ class ImportProcessor:
         stored_count = 0
         
         async with db_manager.get_session() as db:
-            for record in records:
+            for idx, record in enumerate(records):
                 try:
-                    # Serialize the record for JSONB storage
-                    serialized_record = serialize_for_jsonb(record)
+                    # Serialize the processed record for JSONB storage
+                    serialized_processed = serialize_for_jsonb(record)
                     
-                    # Create import record
+                    # Get corresponding original data if available
+                    original_record = None
+                    if original_data and idx < len(original_data):
+                        original_record = serialize_for_jsonb(original_data[idx])
+                    else:
+                        # Fallback to processed data if no original available
+                        original_record = serialized_processed
+                    
+                    # Create import record with separate source and processed data
                     import_record = ImportRecord(
                         batch_id=batch_id,
-                        source_data=serialized_record,
-                        processed_data=serialized_record,
+                        source_data=original_record,  # Original CSV data
+                        processed_data=serialized_processed,  # Transformed data
                         status="processed"
                     )
                     
@@ -524,18 +563,37 @@ class ImportProcessor:
         data_chunk: List[Dict[str, Any]]
     ):
         """Create import record entries in database"""
-        async with get_db_session() as db:
+        from shared.database.connection import db_manager
+        
+        def serialize_for_jsonb(obj):
+            """Convert Python objects to JSON-serializable format for JSONB"""
+            import math
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, Decimal):
+                return float(obj)
+            elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+                return None  # Convert NaN and Inf to null
+            elif isinstance(obj, dict):
+                return {k: serialize_for_jsonb(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [serialize_for_jsonb(item) for item in obj]
+            else:
+                return obj
+        
+        async with db_manager.get_session() as db:
             records = []
             
             for record_data in data_chunk:
-                # Transform data using our transformer
-                normalized_data = await self.transformer.transform(record_data)
+                # Serialize the record for JSONB storage
+                serialized_record = serialize_for_jsonb(record_data)
                 
+                # Create import record with source data
                 record = ImportRecord(
                     batch_id=batch_id,
-                    raw_data=record_data,
-                    normalized_data=normalized_data,
-                    processed=True,
+                    source_data=serialized_record,
+                    processed_data=serialized_record,
+                    status="processed",
                     processing_started_at=datetime.now(timezone.utc),
                     processing_completed_at=datetime.now(timezone.utc),
                 )
@@ -552,7 +610,9 @@ class ImportProcessor:
         status: ImportStatus
     ):
         """Update import batch with final status"""
-        async with get_db_session() as db:
+        from shared.database.connection import db_manager
+        
+        async with db_manager.get_session() as db:
             batch = await db.get(ImportBatch, batch_id)
             if batch:
                 batch.processed_records = processed_count
@@ -561,6 +621,76 @@ class ImportProcessor:
                 batch.completed_at = datetime.now(timezone.utc)
                 
                 await db.commit()
+    
+    async def _extract_products_from_batch(self, batch_id: str, processed_count: int):
+        """Extract products from successfully imported batch"""
+        if processed_count == 0:
+            logger.info("No records to process for product extraction", batch_id=batch_id)
+            return
+            
+        try:
+            from domains.products.services.product_processor import ProductProcessor
+            
+            logger.info("Starting product extraction", batch_id=batch_id, records_count=processed_count)
+            
+            processor = ProductProcessor()
+            
+            # Extract product candidates from batch
+            candidates = await processor.extract_products_from_batch(str(batch_id))
+            
+            if not candidates:
+                logger.info("No product candidates found", batch_id=batch_id)
+                return
+            
+            # Create products in database
+            stats = await processor.create_products_from_candidates(candidates)
+            
+            logger.info(
+                "Product extraction completed",
+                batch_id=batch_id,
+                candidates=len(candidates),
+                **stats
+            )
+            
+        except Exception as e:
+            logger.error(
+                "Product extraction failed",
+                batch_id=batch_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            # Don't fail the entire import if product extraction fails
+    
+    async def _create_transactions_from_batch(self, batch_id: str, processed_count: int):
+        """Create sales transactions from successfully imported batch"""
+        if processed_count == 0:
+            logger.info("No records to process for transaction creation", batch_id=batch_id)
+            return
+            
+        try:
+            from domains.sales.services.transaction_processor import TransactionProcessor
+            
+            logger.info("Starting transaction creation", batch_id=batch_id, records_count=processed_count)
+            
+            processor = TransactionProcessor()
+            
+            # Create transactions from batch
+            stats = await processor.create_transactions_from_batch(str(batch_id))
+            
+            logger.info(
+                "Transaction creation completed",
+                batch_id=batch_id,
+                **stats
+            )
+            
+        except Exception as e:
+            logger.error(
+                "Transaction creation failed",
+                batch_id=batch_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            # Don't fail the entire import if transaction creation fails
 
 # Singleton instance
 import_processor = ImportProcessor()

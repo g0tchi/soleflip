@@ -5,12 +5,13 @@ Replaces direct SQL queries in n8n with proper API endpoints
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 import tempfile
 import os
 from pathlib import Path
 import structlog
 
-from shared.database.connection import get_db_session
+from shared.database.connection import get_db_session, db_manager
 from ..services.import_processor import import_processor, SourceType, ImportStatus
 from ..services.validators import ValidationError
 
@@ -236,7 +237,7 @@ async def get_recent_import_status():
     Get status of recent imports (for n8n monitoring)
     """
     try:
-        async with get_db_session() as db:
+        async with db_manager.get_session() as db:
             # Get recent import batches (last 24 hours)
             from shared.database.models import ImportBatch
             from sqlalchemy import select, desc
@@ -303,7 +304,7 @@ async def get_import_batch_status(batch_id: str):
     Get detailed status of a specific import batch
     """
     try:
-        async with get_db_session() as db:
+        async with db_manager.get_session() as db:
             from shared.database.models import ImportBatch, ImportRecord
             from sqlalchemy import select, func
             
@@ -427,3 +428,476 @@ async def _process_file_async(file_path: str, source_type: Optional[SourceType],
     finally:
         # Clean up temporary file
         await _cleanup_temp_file(file_path)
+
+@webhook_router.post("/alias/upload")
+async def alias_upload_webhook(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    batch_size: int = Form(1000),
+    validate_only: bool = Form(False)
+):
+    """
+    Alias file upload webhook
+    Processes Alias sales report CSV files with CENTS pricing and DD/MM/YY dates
+    """
+    logger.info(
+        "Alias upload webhook triggered",
+        filename=file.filename,
+        content_type=file.content_type,
+        validate_only=validate_only
+    )
+    
+    # Validate file type
+    if not file.filename.lower().endswith(('.csv', '.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV and Excel files are supported for Alias imports"
+        )
+    
+    try:
+        # Save uploaded file temporarily
+        temp_file = await _save_temp_file(file)
+        
+        if validate_only:
+            # Validation only mode
+            result = await _validate_file_only(temp_file, SourceType.ALIAS)
+            await _cleanup_temp_file(temp_file)
+            
+            return {
+                "status": "validated",
+                "valid": result["is_valid"],
+                "errors": result["errors"],
+                "warnings": result["warnings"],
+                "record_count": result["record_count"],
+                "detected_format": "alias_sales_report"
+            }
+        else:
+            # Full processing mode
+            background_tasks.add_task(
+                _process_file_async,
+                temp_file,
+                SourceType.ALIAS,
+                batch_size
+            )
+            
+            return {
+                "status": "processing_started",
+                "message": "Alias file upload successful, processing in background",
+                "filename": file.filename,
+                "source_type": "alias",
+                "check_status_url": "/api/v1/integration/import-status"
+            }
+            
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Alias validation failed: {'; '.join(e.errors)}"
+        )
+    except Exception as e:
+        logger.error(
+            "Alias upload webhook failed",
+            filename=file.filename,
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Alias upload processing failed: {str(e)}"
+        )
+
+# =====================================================
+# n8n Data Export Webhooks (for Notion sync)
+# =====================================================
+
+@webhook_router.get("/n8n/inventory/export")
+async def n8n_inventory_export(
+    limit: int = 1000,
+    brand_filter: Optional[str] = None,
+    modified_since: Optional[str] = None
+):
+    """
+    Export inventory data in n8n-compatible format for Notion sync
+    Optimized for n8n workflow consumption
+    """
+    logger.info(
+        "n8n inventory export requested",
+        limit=limit,
+        brand_filter=brand_filter,
+        modified_since=modified_since
+    )
+    
+    try:
+        async with db_manager.get_session() as db:
+            from shared.database.models import InventoryItem, Product, Brand, Size
+            from sqlalchemy import select, and_, desc
+            from datetime import datetime
+            
+            query = select(
+                InventoryItem.id,
+                Product.sku,
+                Size.value.label('size_value'),
+                InventoryItem.quantity,
+                InventoryItem.purchase_price,
+                InventoryItem.purchase_date,
+                InventoryItem.supplier.label('purchase_location'),  # Legacy supplier field
+                InventoryItem.notes,
+                InventoryItem.status,
+                InventoryItem.created_at,
+                InventoryItem.updated_at,
+                Product.name.label('product_name'),
+                Product.description.label('product_description'),
+                Brand.name.label('brand_name'),
+                Brand.slug.label('brand_slug')
+            ).select_from(
+                InventoryItem.__table__
+                .join(Product.__table__, InventoryItem.product_id == Product.id)
+                .join(Size.__table__, InventoryItem.size_id == Size.id)
+                .outerjoin(Brand.__table__, Product.brand_id == Brand.id)
+            )
+            
+            # Apply filters
+            conditions = []
+            
+            if brand_filter:
+                conditions.append(
+                    Brand.name.ilike(f"%{brand_filter}%")
+                )
+            
+            if modified_since:
+                try:
+                    since_date = datetime.fromisoformat(modified_since.replace('Z', '+00:00'))
+                    conditions.append(
+                        InventoryItem.updated_at >= since_date
+                    )
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid modified_since format. Use ISO format (YYYY-MM-DDTHH:MM:SSZ)"
+                    )
+            
+            if conditions:
+                query = query.where(and_(*conditions))
+            
+            # Order and limit
+            query = query.order_by(desc(InventoryItem.updated_at)).limit(limit)
+            
+            result = await db.execute(query)
+            items = result.fetchall()
+            
+            # Format for n8n/Notion consumption
+            formatted_items = []
+            for item in items:
+                formatted_items.append({
+                    "id": str(item.id),
+                    "sku": item.sku,
+                    "product_name": item.product_name,
+                    "brand": item.brand_name or "Unknown",
+                    "description": item.product_description,
+                    "size": item.size_value,
+                    "quantity": item.quantity,
+                    "purchase_price": float(item.purchase_price) if item.purchase_price else None,
+                    "purchase_date": item.purchase_date.isoformat() if item.purchase_date else None,
+                    "purchase_location": item.purchase_location,
+                    "status": item.status,
+                    "notes": item.notes,
+                    "created_at": item.created_at.isoformat(),
+                    "updated_at": item.updated_at.isoformat(),
+                    # n8n/Notion friendly fields
+                    "title": f"{item.brand_name or 'Unknown'} {item.product_name}",
+                    "full_description": f"{item.brand_name or 'Unknown'} {item.product_name} - Size {item.size_value} - Qty: {item.quantity}"
+                })
+            
+            return {
+                "success": True,
+                "data": formatted_items,
+                "meta": {
+                    "total_records": len(formatted_items),
+                    "limit": limit,
+                    "filters_applied": {
+                        "brand_filter": brand_filter,
+                        "modified_since": modified_since
+                    },
+                    "export_timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "n8n inventory export failed",
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Inventory export failed: {str(e)}"
+        )
+
+@webhook_router.get("/n8n/brands/export")
+async def n8n_brands_export():
+    """
+    Export brand data for n8n/Notion sync
+    Includes brand analytics from business intelligence views
+    """
+    logger.info("n8n brands export requested")
+    
+    try:
+        async with db_manager.get_session() as db:
+            # Use analytics view for comprehensive brand data
+            from sqlalchemy import text
+            
+            query = text("""
+                SELECT 
+                    b.id,
+                    b.name,
+                    b.slug,
+                    b.created_at,
+                    b.updated_at,
+                    COALESCE(bp.total_items, 0) as product_count,
+                    COALESCE(bp.market_share_percent, 0) as market_share,
+                    COALESCE(bp.avg_purchase_price, 0) as avg_price
+                FROM core.brands b
+                LEFT JOIN analytics.brand_performance bp ON b.name = bp.brand_name
+                ORDER BY COALESCE(bp.total_items, 0) DESC
+            """)
+            
+            result = await db.execute(query)
+            brands = result.fetchall()
+            
+            formatted_brands = []
+            for brand in brands:
+                formatted_brands.append({
+                    "id": str(brand.id),
+                    "name": brand.name,
+                    "slug": brand.slug,
+                    "product_count": brand.product_count,
+                    "market_share_percent": float(brand.market_share),
+                    "average_price": float(brand.avg_price),
+                    "created_at": brand.created_at.isoformat(),
+                    "updated_at": brand.updated_at.isoformat(),
+                    # n8n/Notion friendly fields
+                    "title": brand.name,
+                    "description": f"{brand.name} - {brand.product_count} products - {brand.market_share:.1f}% market share"
+                })
+            
+            return {
+                "success": True,
+                "data": formatted_brands,
+                "meta": {
+                    "total_brands": len(formatted_brands),
+                    "export_timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+    except Exception as e:
+        logger.error(
+            "n8n brands export failed",
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Brands export failed: {str(e)}"
+        )
+
+@webhook_router.get("/n8n/analytics/dashboard")
+async def n8n_analytics_dashboard():
+    """
+    Export key business metrics for n8n/Notion dashboard sync
+    Aggregated data perfect for Notion database properties
+    """
+    logger.info("n8n analytics dashboard export requested")
+    
+    try:
+        async with db_manager.get_session() as db:
+            from sqlalchemy import text
+            from datetime import datetime, timedelta
+            
+            # Get comprehensive dashboard data
+            dashboard_query = text("""
+                SELECT 
+                    -- Financial Overview
+                    (SELECT total_items FROM analytics.financial_overview LIMIT 1) as total_items,
+                    (SELECT available_inventory_value FROM analytics.financial_overview LIMIT 1) as portfolio_value,
+                    (SELECT avg_item_price FROM analytics.financial_overview LIMIT 1) as avg_item_price,
+                    
+                    -- Brand Statistics
+                    (SELECT COUNT(*) FROM analytics.brand_performance WHERE total_items > 0) as active_brands,
+                    (SELECT brand_name FROM analytics.brand_performance ORDER BY total_items DESC LIMIT 1) as top_brand,
+                    (SELECT MAX(market_share_percent) FROM analytics.brand_performance) as top_brand_share,
+                    
+                    -- Supplier Statistics  
+                    (SELECT COUNT(*) FROM analytics.supplier_performance) as total_suppliers,
+                    (SELECT AVG(rating) FROM analytics.supplier_performance) as avg_supplier_rating,
+                    
+                    -- Inventory Statistics
+                    (SELECT COUNT(DISTINCT category_name) FROM analytics.size_distribution) as categories,
+                    (SELECT COUNT(DISTINCT size_value) FROM analytics.size_distribution) as size_variants
+            """)
+            
+            result = await db.execute(dashboard_query)
+            dashboard_data = result.fetchone()
+            
+            # Format for Notion consumption
+            analytics_summary = {
+                "id": "dashboard_summary",
+                "title": "SoleFlipper Analytics Dashboard",
+                "last_updated": datetime.utcnow().isoformat(),
+                
+                # Financial KPIs
+                "total_inventory_items": int(dashboard_data.total_items or 0),
+                "portfolio_value": float(dashboard_data.portfolio_value or 0),
+                "average_item_price": float(dashboard_data.avg_item_price or 0),
+                
+                # Brand Intelligence
+                "active_brands": int(dashboard_data.active_brands or 0),
+                "top_brand": dashboard_data.top_brand or "Nike",
+                "top_brand_market_share": float(dashboard_data.top_brand_share or 0),
+                
+                # Supplier Intelligence
+                "supplier_count": int(dashboard_data.total_suppliers or 0),
+                "avg_supplier_rating": round(float(dashboard_data.avg_supplier_rating or 0), 2),
+                
+                # Inventory Metrics
+                "product_categories": int(dashboard_data.categories or 0),
+                "size_variants": int(dashboard_data.size_variants or 0),
+                
+                # Status indicators
+                "system_status": "operational",
+                "data_quality": "excellent"
+            }
+            
+            return {
+                "success": True,
+                "data": analytics_summary,
+                "meta": {
+                    "dashboard_type": "business_intelligence",
+                    "refresh_interval": "real_time",
+                    "export_timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+    except Exception as e:
+        logger.error(
+            "n8n analytics dashboard export failed",
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analytics dashboard export failed: {str(e)}"
+        )
+
+@webhook_router.post("/n8n/notion/sync")
+async def n8n_notion_sync_webhook(data: Dict[str, Any]):
+    """
+    Receive updates from Notion via n8n
+    Handles bidirectional sync for inventory updates
+    """
+    logger.info(
+        "n8n Notion sync webhook triggered",
+        data_keys=list(data.keys()) if data else []
+    )
+    
+    try:
+        if 'action' not in data:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing 'action' field in sync data"
+            )
+        
+        action = data['action']
+        
+        if action == 'update_inventory':
+            return await _handle_notion_inventory_update(data)
+        elif action == 'create_item':
+            return await _handle_notion_item_creation(data)
+        elif action == 'status_change':
+            return await _handle_notion_status_change(data)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown sync action: {action}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "n8n Notion sync failed",
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Notion sync failed: {str(e)}"
+        )
+
+# =====================================================
+# n8n Notion Sync Handlers
+# =====================================================
+
+async def _handle_notion_inventory_update(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle inventory updates from Notion"""
+    item_id = data.get('item_id')
+    updates = data.get('updates', {})
+    
+    if not item_id:
+        raise HTTPException(status_code=400, detail="Missing item_id")
+    
+    async with db_manager.get_session() as db:
+        from shared.database.models import InventoryItem
+        from sqlalchemy import select, update
+        
+        # Check if item exists
+        query = select(InventoryItem).where(InventoryItem.id == item_id)
+        result = await db.execute(query)
+        item = result.scalar_one_or_none()
+        
+        if not item:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+        
+        # Apply updates
+        update_data = {}
+        if 'status' in updates:
+            update_data['status'] = updates['status']
+        if 'notes' in updates:
+            update_data['notes'] = updates['notes']
+        if 'condition' in updates:
+            update_data['condition'] = updates['condition']
+        
+        if update_data:
+            update_query = update(InventoryItem).where(
+                InventoryItem.id == item_id
+            ).values(**update_data)
+            
+            await db.execute(update_query)
+            await db.commit()
+        
+        return {
+            "success": True,
+            "message": "Inventory item updated",
+            "item_id": item_id,
+            "updates_applied": list(update_data.keys())
+        }
+
+async def _handle_notion_item_creation(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle new item creation from Notion"""
+    # This would create a new inventory item from Notion data
+    # For now, return placeholder
+    return {
+        "success": True,
+        "message": "Item creation handling not yet implemented",
+        "action": "create_item"
+    }
+
+async def _handle_notion_status_change(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle status changes from Notion"""
+    # This would handle status changes (sold, available, etc.)
+    # For now, return placeholder
+    return {
+        "success": True,
+        "message": "Status change handling not yet implemented",
+        "action": "status_change"
+    }

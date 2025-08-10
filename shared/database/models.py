@@ -2,7 +2,7 @@
 SQLAlchemy Models for SoleFlipper
 Clean, maintainable model definitions with proper relationships
 """
-from sqlalchemy import Column, String, Integer, Text, DateTime, Numeric, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, DateTime, Numeric, Boolean, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -44,8 +44,8 @@ class Category(Base, TimestampMixin):
     path = Column(String(500))  # Hierarchical path for queries
     
     # Self-referential relationship
-    parent = relationship("Category", remote_side=[id])
-    children = relationship("Category")
+    parent = relationship("Category", remote_side=[id], back_populates="children")
+    children = relationship("Category", back_populates="parent", overlaps="parent")
     
     # Relationships
     products = relationship("Product", back_populates="category")
@@ -65,6 +65,103 @@ class Size(Base, TimestampMixin):
     category = relationship("Category")
     inventory_items = relationship("InventoryItem", back_populates="size")
 
+class Supplier(Base, TimestampMixin):
+    """Suppliers with comprehensive business information"""
+    __tablename__ = "suppliers"
+    __table_args__ = {'schema': 'core'}
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Basic Information
+    name = Column(String(100), nullable=False)
+    slug = Column(String(100), nullable=False, unique=True)
+    display_name = Column(String(150))
+    
+    # Business Classification
+    supplier_type = Column(String(50), nullable=False)  # 'brand_official', 'authorized_retailer', 'reseller', etc.
+    business_size = Column(String(30))  # 'enterprise', 'small_business', 'individual'
+    
+    # Contact Information
+    contact_person = Column(String(100))
+    email = Column(String(100))
+    phone = Column(String(50))
+    website = Column(String(200))
+    
+    # Address Information
+    address_line1 = Column(String(200))
+    address_line2 = Column(String(200))
+    city = Column(String(100))
+    state_province = Column(String(100))
+    postal_code = Column(String(20))
+    country = Column(String(50), default="Germany")
+    
+    # Business Details
+    tax_id = Column(String(50))
+    vat_number = Column(String(50))
+    business_registration = Column(String(100))
+    
+    # Return Policy & Terms
+    return_policy_days = Column(Integer)
+    return_policy_text = Column(Text)
+    return_conditions = Column(String(500))
+    accepts_exchanges = Column(Boolean, default=True)
+    restocking_fee_percent = Column(Numeric(5, 2))
+    
+    # Payment & Trading Terms
+    payment_terms = Column(String(100))
+    credit_limit = Column(Numeric(12, 2))
+    discount_percent = Column(Numeric(5, 2))
+    minimum_order_amount = Column(Numeric(10, 2))
+    
+    # Performance & Status
+    rating = Column(Numeric(3, 2))  # 1.00 to 5.00
+    reliability_score = Column(Integer)  # 1 to 10
+    quality_score = Column(Integer)  # 1 to 10
+    status = Column(String(20), nullable=False, default="active")
+    preferred = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    
+    # Operational Information
+    average_processing_days = Column(Integer)
+    ships_internationally = Column(Boolean, default=False)
+    accepts_returns_by_mail = Column(Boolean, default=True)
+    provides_authenticity_guarantee = Column(Boolean, default=False)
+    
+    # Integration & Technical
+    has_api = Column(Boolean, default=False)
+    api_endpoint = Column(String(200))
+    api_key_encrypted = Column(Text)
+    
+    # Financial Tracking
+    total_orders_count = Column(Integer, default=0)
+    total_order_value = Column(Numeric(12, 2), default=0.00)
+    average_order_value = Column(Numeric(10, 2))
+    last_order_date = Column(DateTime(timezone=True))
+    
+    # Metadata
+    notes = Column(Text)
+    internal_notes = Column(Text)
+    tags = Column(JSONB)
+    
+    # Relationships
+    inventory_items = relationship("InventoryItem", back_populates="supplier_obj")
+
+
+class Platform(Base, TimestampMixin):
+    """Sales platforms - StockX, Alias, GOAT, etc. (Master Data)"""
+    __tablename__ = "platforms"
+    __table_args__ = {'schema': 'core'}  # ✅ MOVED TO CORE
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, unique=True)
+    slug = Column(String(100), nullable=False, unique=True)
+    fee_percentage = Column(Numeric(5, 2))  # Default fee percentage
+    supports_fees = Column(Boolean, default=True)  # Whether platform has explicit fees
+    active = Column(Boolean, default=True)
+    
+    # Relationships
+    transactions = relationship("Transaction", back_populates="platform")
+
 # =====================================================
 # Product Domain Models
 # =====================================================
@@ -76,11 +173,12 @@ class Product(Base, TimestampMixin):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sku = Column(String(100), nullable=False, unique=True)
-    brand_id = Column(UUID(as_uuid=True), ForeignKey("core.brands.id"), nullable=False)
+    brand_id = Column(UUID(as_uuid=True), ForeignKey("core.brands.id"), nullable=True)
     category_id = Column(UUID(as_uuid=True), ForeignKey("core.categories.id"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    retail_price = Column(Numeric(10, 2))
+    retail_price = Column(Numeric(10, 2))  # Official manufacturer retail price (UVP)
+    avg_resale_price = Column(Numeric(10, 2))  # Average resale price from StockX/GOAT etc.
     release_date = Column(DateTime(timezone=True))
     
     # Relationships
@@ -96,35 +194,23 @@ class InventoryItem(Base, TimestampMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.products.id"), nullable=False)
     size_id = Column(UUID(as_uuid=True), ForeignKey("core.sizes.id"), nullable=False)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id"), nullable=True)  # New normalized supplier
     quantity = Column(Integer, nullable=False, default=1)
     purchase_price = Column(Numeric(10, 2))
     purchase_date = Column(DateTime(timezone=True))
-    supplier = Column(String(100))
+    supplier = Column(String(100))  # Keep for migration compatibility, will be deprecated
     status = Column(String(50), nullable=False, default="in_stock")
     notes = Column(Text)
     
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
     size = relationship("Size", back_populates="inventory_items")
+    supplier_obj = relationship("Supplier", back_populates="inventory_items")  # New relationship
     transactions = relationship("Transaction", back_populates="inventory_item")
 
 # =====================================================
 # Sales Domain Models
 # =====================================================
-
-class Platform(Base, TimestampMixin):
-    """Sales platforms - StockX, GOAT, etc."""
-    __tablename__ = "platforms"
-    __table_args__ = {'schema': 'sales'}
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False, unique=True)
-    slug = Column(String(100), nullable=False, unique=True)
-    fee_percentage = Column(Numeric(5, 2))
-    active = Column(Boolean, default=True)
-    
-    # Relationships
-    transactions = relationship("Transaction", back_populates="platform")
 
 class Transaction(Base, TimestampMixin):
     """Sales transactions with detailed financial tracking"""
@@ -133,7 +219,7 @@ class Transaction(Base, TimestampMixin):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_id = Column(UUID(as_uuid=True), ForeignKey("products.inventory.id"), nullable=False)
-    platform_id = Column(UUID(as_uuid=True), ForeignKey("sales.platforms.id"), nullable=False)
+    platform_id = Column(UUID(as_uuid=True), ForeignKey("core.platforms.id"), nullable=False)  # ✅ UPDATED REFERENCE
     transaction_date = Column(DateTime(timezone=True), nullable=False)
     sale_price = Column(Numeric(10, 2), nullable=False)
     platform_fee = Column(Numeric(10, 2), nullable=False)
@@ -141,6 +227,8 @@ class Transaction(Base, TimestampMixin):
     net_profit = Column(Numeric(10, 2), nullable=False)
     status = Column(String(50), nullable=False, default="pending")
     external_id = Column(String(100))  # Platform-specific ID
+    buyer_destination_country = Column(String(100))  # Country where item was shipped
+    buyer_destination_city = Column(String(100))  # City where item was shipped
     notes = Column(Text)
     
     # Relationships

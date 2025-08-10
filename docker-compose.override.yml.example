@@ -1,0 +1,16 @@
+# Copy this to docker-compose.override.yml and set your own secure passwords
+# This file should NEVER be committed to git
+version: '3.8'
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: your-secure-database-password-here
+      
+  api:
+    environment:
+      DATABASE_URL: postgresql://soleflip_user:your-secure-database-password-here@postgres:5432/soleflip
+      
+  metabase:
+    environment:
+      MB_DB_PASS: your-secure-database-password-here

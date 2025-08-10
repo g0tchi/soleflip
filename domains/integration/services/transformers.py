@@ -298,6 +298,13 @@ class StockXTransformer(DataTransformer):
                 description="Product name/title"
             ),
             FieldMapping(
+                source_field="sku",  # Style field normalized to sku by validator
+                target_field="sku",
+                field_type=FieldType.STRING,
+                required=False,  # Optional, will be generated if missing
+                description="Product SKU from Style field"
+            ),
+            FieldMapping(
                 source_field="size",  # Normalized by validator
                 target_field="size",
                 field_type=FieldType.STRING,
@@ -338,6 +345,20 @@ class StockXTransformer(DataTransformer):
                 field_type=FieldType.DECIMAL,
                 required=False,  # Made optional since it might be missing
                 description="Final payout amount received"
+            ),
+            FieldMapping(
+                source_field="buyer_destination_country",  # Normalized by validator
+                target_field="buyer_destination_country",
+                field_type=FieldType.STRING,
+                required=False,
+                description="Country where item was shipped"
+            ),
+            FieldMapping(
+                source_field="buyer_destination_city",  # Normalized by validator
+                target_field="buyer_destination_city",
+                field_type=FieldType.STRING,
+                required=False,
+                description="City where item was shipped"
             ),
         ]
     
@@ -423,6 +444,153 @@ class NotionTransformer(DataTransformer):
         
         return transformed
 
+class AliasTransformer(DataTransformer):
+    """Specialized transformer for Alias data (GOAT's selling platform) with StockX name prioritization"""
+    
+    @staticmethod
+    def get_field_mappings() -> List[FieldMapping]:
+        """Get standard field mappings for Alias normalized data"""
+        return [
+            FieldMapping(
+                source_field="item_name",
+                target_field="product_name",
+                field_type=FieldType.STRING,
+                required=True,
+                description="Product name from Alias"
+            ),
+            FieldMapping(
+                source_field="brand",
+                target_field="brand",
+                field_type=FieldType.STRING,
+                required=False,
+                description="Brand extracted from product name"
+            ),
+            FieldMapping(
+                source_field="sku",
+                target_field="sku",
+                field_type=FieldType.STRING,
+                required=False,
+                description="Product SKU"
+            ),
+            FieldMapping(
+                source_field="size",
+                target_field="size",
+                field_type=FieldType.STRING,
+                required=False,
+                description="Product size"
+            ),
+            FieldMapping(
+                source_field="order_number",
+                target_field="order_number",
+                field_type=FieldType.STRING,
+                required=True,
+                description="Alias (GOAT) order number"
+            ),
+            FieldMapping(
+                source_field="sale_date",
+                target_field="sale_date",
+                field_type=FieldType.DATETIME,
+                required=True,
+                description="Sale completion date"
+            ),
+            FieldMapping(
+                source_field="sale_price",
+                target_field="sale_price",
+                field_type=FieldType.DECIMAL,
+                required=True,
+                description="Final sale price in USD"
+            ),
+            FieldMapping(
+                source_field="supplier",
+                target_field="supplier",
+                field_type=FieldType.STRING,
+                required=False,
+                description="GOAT/Alias supplier username"
+            ),
+        ]
+    
+    def transform_alias_data(self, data: List[Dict[str, Any]]) -> TransformResult:
+        """Transform Alias (GOAT) CSV data with StockX name prioritization"""
+        logger.info("Transforming Alias (GOAT) data with StockX prioritization", records=len(data))
+        
+        field_mappings = self.get_field_mappings()
+        result = self.transform(data, field_mappings, source_type="alias")
+        
+        # Add Alias (GOAT) specific metadata and StockX prioritization flags
+        for record in result.transformed_data:
+            record['source_platform'] = 'alias'  # Alias = GOAT's selling platform
+            record['import_type'] = 'completed_sales'
+            
+            # Flag records that need StockX name prioritization
+            if record.get('_requires_stockx_name_priority'):
+                record['requires_name_matching'] = True
+                record['prioritize_stockx_names'] = True
+            
+            # Add unique external ID for deduplication
+            if record.get('order_number'):
+                record['external_transaction_id'] = f"alias_{record['order_number']}"
+        
+        return result
+    
+    async def prioritize_stockx_names(self, alias_records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Apply StockX name prioritization for Alias records
+        This method would typically query the database for existing StockX products
+        and replace Alias names with StockX equivalents when matches are found
+        """
+        logger.info("Applying StockX name prioritization", records=len(alias_records))
+        
+        prioritized_records = []
+        
+        for record in alias_records:
+            if not record.get('requires_name_matching'):
+                prioritized_records.append(record)
+                continue
+            
+            # Extract key identifiers for matching
+            sku = record.get('sku', '').strip()
+            size = record.get('size', '').strip()
+            brand = record.get('brand', '').strip()
+            
+            # Find StockX equivalent name (this would query the database in real implementation)
+            stockx_name = await self._find_stockx_equivalent_name(sku, size, brand)
+            
+            if stockx_name:
+                logger.debug("Found StockX equivalent", 
+                           alias_name=record.get('product_name'),
+                           stockx_name=stockx_name,
+                           sku=sku)
+                
+                # Store original Alias name and use StockX name
+                record['original_alias_name'] = record.get('product_name')
+                record['product_name'] = stockx_name
+                record['name_source'] = 'stockx_prioritized'
+            else:
+                # Keep Alias name if no StockX equivalent found
+                record['name_source'] = 'alias_original'
+            
+            prioritized_records.append(record)
+        
+        return prioritized_records
+    
+    async def _find_stockx_equivalent_name(self, sku: str, size: str, brand: str) -> Optional[str]:
+        """
+        Find StockX equivalent product name based on SKU, size, and brand
+        This would query the products database in a real implementation
+        """
+        # Placeholder implementation - in reality this would:
+        # 1. Query the products table for StockX entries with matching SKU
+        # 2. Consider size and brand as additional matching criteria
+        # 3. Return the StockX product name if found
+        
+        # For now, we'll simulate with some logic
+        if not sku:
+            return None
+        
+        # This would be replaced with actual database query:
+        # SELECT name FROM products WHERE sku = %s AND source_platform = 'stockx' LIMIT 1
+        return None  # Placeholder
+
 # Factory function for getting appropriate transformer
 def get_transformer(source_type: str) -> DataTransformer:
     """
@@ -437,6 +605,7 @@ def get_transformer(source_type: str) -> DataTransformer:
     transformers = {
         'stockx': StockXTransformer(),
         'notion': NotionTransformer(),
+        'alias': AliasTransformer(),
         'manual': DataTransformer(),  # Generic transformer
         'sales': DataTransformer(),   # Generic transformer
     }
@@ -468,6 +637,8 @@ def transform_data(data: List[Dict[str, Any]],
         return transformer.transform_stockx_data(data)
     elif source_type.lower() == 'notion' and not custom_mappings:
         return transformer.transform_notion_data(data)
+    elif source_type.lower() == 'alias' and not custom_mappings:
+        return transformer.transform_alias_data(data)
     elif custom_mappings:
         return transformer.transform(data, custom_mappings, source_type)
     else:

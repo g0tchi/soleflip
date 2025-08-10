@@ -1,517 +1,408 @@
-# SoleFlipper - Professional Sneaker Reselling Management System
+# SoleFlipper 
 
-## 🚀 Overview
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/yourusername/soleflip)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-15+-blue.svg)](https://postgresql.org)
 
-SoleFlipper is a comprehensive sneaker reselling management system built with modern Python technologies. It provides automated data import, inventory tracking, sales analytics, and seamless integration with platforms like StockX and Notion.
+> **Professional Sneaker Resale Management System with Advanced Brand Intelligence**
 
-## 🏗️ Architecture
-
-- **FastAPI**: Modern async Python web framework
-- **PostgreSQL**: Primary database with schema separation
-- **SQLAlchemy 2.0**: Async ORM with declarative models
-- **Domain-Driven Design**: Clean architecture with separated concerns
-- **Alembic**: Database migration management
-- **pytest**: Comprehensive testing framework
-- **Metabase**: Analytics and reporting dashboards
-
-## 📁 Project Structure
-
-```
-soleflip/
-├── main.py                     # FastAPI application entry point
-├── alembic.ini                 # Database migration configuration
-├── pyproject.toml              # Python dependencies and project config
-│
-├── shared/                     # Shared utilities and infrastructure
-│   ├── database/
-│   │   ├── connection.py       # Database connection management
-│   │   └── models.py           # SQLAlchemy models and schemas
-│   ├── error_handling/
-│   │   └── exceptions.py       # Custom exception classes
-│   └── logging/
-│       └── logger.py           # Structured logging configuration
-│
-├── domains/                    # Domain-specific business logic
-│   ├── integration/            # Data import and processing
-│   │   ├── api/
-│   │   │   └── webhooks.py     # Webhook endpoints for n8n/external systems
-│   │   └── services/
-│   │       ├── import_processor.py    # Main import processing engine
-│   │       └── validators.py          # Data validation and normalization
-│   └── inventory/              # Inventory management
-│       ├── repositories/
-│       │   ├── base_repository.py     # Base repository pattern
-│       │   └── product_repository.py  # Product-specific data access
-│       └── services/
-│           └── inventory_service.py   # Inventory business logic
-│
-├── migrations/                 # Alembic database migrations
-│   ├── env.py                  # Migration environment configuration
-│   └── versions/               # Individual migration files
-│
-├── tests/                      # Comprehensive test suite
-│   ├── conftest.py             # Test configuration and fixtures
-│   ├── unit/                   # Unit tests for isolated components
-│   ├── integration/            # End-to-end integration tests
-│   └── api/                    # API endpoint tests
-│
-└── docs/                       # Documentation and setup guides
-    ├── openapi.json            # Complete API specification
-    ├── postman_collection.json # API testing collection
-    ├── metabase_annotations.sql # Analytics view definitions
-    └── metabase_setup_guide.md # Dashboard setup instructions
-```
+SoleFlipper is a comprehensive sneaker resale management platform featuring advanced analytics, brand intelligence, and automated data processing capabilities. Built for serious resellers and businesses managing high-volume sneaker transactions.
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
-
-- Python 3.11+
-- PostgreSQL 13+
-- (Optional) Docker and Docker Compose
-
-### 2. Installation
-
 ```bash
-# Clone and enter directory
+# Clone repository
+git clone <repository-url>
 cd soleflip
 
 # Install dependencies
-pip install -e .
+pip install -r requirements.txt
 
-# Or using poetry
-poetry install
+# Setup database
+docker-compose up -d postgres
+
+# Run migrations
+alembic upgrade head
+
+# Start application
+python main.py
 ```
 
-### 3. Database Setup
+📖 **Detailed setup instructions**: [`docs/setup/QUICKSTART.md`](docs/setup/QUICKSTART.md)
 
+## 🏗️ Architecture
+
+### Core Components
+
+- **🔧 Core Application** (`main.py`, `pyproject.toml`) - FastAPI application with async support
+- **🏢 Business Logic** (`domains/`) - Modular domain-driven architecture
+- **🛠️ Utilities** (`scripts/`) - Database, analytics, and processing scripts  
+- **📊 Data Management** (`data/`) - Backups, samples, and development data
+- **⚙️ Configuration** (`config/`) - N8N workflows and external service configs
+- **📈 Analytics** (`sql/`) - Dashboard queries and database improvements
+- **📚 Documentation** (`docs/`) - Comprehensive guides and API documentation
+
+### Directory Structure
+
+```
+soleflip/
+├── 🎯 Core Files
+│   ├── main.py              # FastAPI application entry point
+│   ├── pyproject.toml       # Project configuration and dependencies
+│   └── docker-compose.yml   # Docker services configuration
+│
+├── 🏢 Business Logic
+│   ├── domains/             # Domain-driven architecture
+│   │   ├── integration/     # Data import and processing
+│   │   ├── inventory/       # Product and inventory management
+│   │   ├── products/        # Product processing services
+│   │   └── sales/           # Transaction and sales management
+│   │
+│   ├── shared/              # Shared utilities and models
+│   │   ├── database/        # Database connections and models
+│   │   ├── error_handling/  # Exception handling
+│   │   └── logging/         # Application logging
+│   │
+│   └── migrations/          # Database schema migrations
+│
+├── 🛠️ Scripts & Utilities
+│   ├── scripts/
+│   │   ├── database/        # Backup and database management
+│   │   ├── brand_intelligence/ # Brand analytics and deep dive
+│   │   └── transactions/    # Transaction processing utilities
+│   │
+│   ├── data/
+│   │   ├── backups/         # Database backup files
+│   │   ├── samples/         # Sample data for testing
+│   │   └── dev/             # Development databases
+│   │
+│   ├── config/              # External service configurations
+│   │   └── n8n/             # N8N workflow definitions
+│   │
+│   └── sql/                 # SQL queries and improvements
+│       ├── improvements/    # Database optimization scripts
+│       └── dashboards/      # Analytics and dashboard queries
+│
+├── 📚 Documentation
+│   ├── docs/
+│   │   ├── setup/           # Installation and setup guides
+│   │   ├── guides/          # Feature-specific guides
+│   │   ├── api/             # API documentation and collections
+│   │   └── completed_tasks/ # Project milestone documentation
+│   │
+│   └── temp_cleanup/        # Organized legacy scripts (72 files)
+│
+└── 🧪 Testing
+    └── tests/               # Unit, integration, and API tests
+```
+
+## ✨ Key Features
+
+### 🧠 Brand Intelligence System *(v2.0 New)*
+- **Deep Brand Analytics** - Comprehensive brand profiles with founder info, financial data, sustainability scores
+- **Historical Timeline** - 29+ major brand milestones and innovation events
+- **Collaboration Tracking** - Partnership analysis with success metrics and hype scores
+- **Cultural Impact Analysis** - Brand influence scoring and tier classification
+- **Financial Performance** - Multi-year revenue, growth, and profitability analysis
+
+### 📊 Advanced Analytics
+- **Executive Dashboards** - High-level KPIs and performance metrics
+- **Brand Performance Correlation** - Connect brand intelligence with sales data
+- **Metabase Integration** - Pre-built dashboard queries and visualizations
+- **Real-time Analytics** - Live transaction and inventory tracking
+
+### 🔄 Data Processing
+- **Automated Imports** - CSV processing with validation and transformation
+- **N8N Integration** - Workflow automation for data synchronization
+- **Duplicate Detection** - Intelligent duplicate identification and removal
+- **Data Quality Checks** - Comprehensive validation and integrity monitoring
+
+### 🗄️ Database Management
+- **PostgreSQL Backend** - Robust relational database with advanced schemas
+- **Automated Backups** - Scheduled backups with metadata and integrity checks
+- **Migration System** - Alembic-based schema versioning and upgrades
+- **Multi-Schema Architecture** - Core, Sales, Integration, and Analytics schemas
+
+## 🎯 Recent Enhancements (v2.0)
+
+### Brand Deep Dive System
+- ✅ **Extended Brand Profiles** - 25+ new fields including founder, headquarters, financials
+- ✅ **Historical Events Tracking** - 29 major milestones across top brands
+- ✅ **Collaboration Network** - Nike x Off-White, Adidas x Kanye, and more
+- ✅ **Financial Analytics** - Revenue, growth rates, and profitability metrics
+- ✅ **Sustainability Scoring** - ESG metrics and environmental impact ratings
+
+### Data Architecture Improvements
+- ✅ **Professional File Organization** - 95+ files organized into logical directory structure
+- ✅ **Comprehensive Documentation** - Versioned guides and setup instructions
+- ✅ **Advanced Analytics Views** - 7 new database views for brand intelligence
+- ✅ **Dashboard-Ready Queries** - 30+ pre-built SQL queries for visualization
+
+## 📋 Prerequisites
+
+- **Python 3.11+** - Modern Python with async support
+- **PostgreSQL 15+** - Primary database system
+- **Docker & Docker Compose** - Containerized services
+- **Node.js 16+ *(optional)*** - For N8N automation workflows
+
+## ⚡ Installation
+
+### 1. Environment Setup
 ```bash
-# Create PostgreSQL database
-createdb soleflip
+# Clone repository
+git clone <repository-url>
+cd soleflip
 
-# Configure environment variables
-export DATABASE_URL="postgresql://user:password@localhost/soleflip"
-export ENVIRONMENT="development"
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\\Scripts\\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Database Setup
+```bash
+# Start PostgreSQL with Docker
+docker-compose up -d postgres
 
 # Run database migrations
 alembic upgrade head
+
+# Verify installation
+python scripts/database/check_database_integrity.py
 ```
 
-### 4. Start the Application
-
+### 3. Configuration
 ```bash
-# Development server with hot reload
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Copy environment template
+cp .env.example .env
 
-# Production server
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+# Edit configuration
+nano .env  # Configure database connection, API keys, etc.
 ```
 
-### 5. Verify Installation
-
+### 4. Start Application
 ```bash
-# Health check
-curl http://localhost:8000/health
+# Development mode
+python main.py
 
-# API documentation
-open http://localhost:8000/docs
+# Production mode
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Database Connection
+```env
+DATABASE_URL=postgresql://username:password@localhost:5432/soleflip
+```
 
-Create a `.env` file in the project root:
+### External Services
+- **N8N Automation**: Configure workflows in `config/n8n/`
+- **Metabase Analytics**: Import dashboards from `docs/completed_tasks/`
+- **API Integration**: Setup webhook endpoints for external platforms
 
+## 📊 Analytics & Dashboards
+
+### Brand Intelligence Dashboards
+- **Executive Overview** - Brand performance KPIs and revenue metrics
+- **Historical Timeline** - Brand milestones and innovation events
+- **Collaboration Network** - Partnership analysis with success metrics
+- **Financial Performance** - Multi-year revenue and growth analysis
+- **Cultural Impact** - Brand influence and market position analysis
+
+### Pre-built SQL Queries
+- `sql/dashboards/brand_dashboard_queries.sql` - 30+ analytics queries
+- `sql/improvements/` - Database optimization scripts
+- Ready for import into Metabase, Grafana, or other visualization tools
+
+## 🚀 Usage Examples
+
+### Import Sales Data
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost/soleflip
-DATABASE_POOL_SIZE=20
-DATABASE_MAX_OVERFLOW=30
+# Process CSV sales report
+python domains/integration/api/webhooks.py --import sales_data.csv
 
-# Application
-ENVIRONMENT=development
-LOG_LEVEL=INFO
-API_VERSION=v1
-
-# External Services (optional)
-N8N_WEBHOOK_URL=http://localhost:5678/webhook
-METABASE_URL=http://localhost:3000
-
-# Security (production)
-SECRET_KEY=your-secret-key-here
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+# Verify import
+python scripts/database/check_database_integrity.py
 ```
 
-### Database Configuration
-
-The application uses a multi-schema PostgreSQL setup:
-
-- `core`: Master data (brands, categories, sizes, platforms)
-- `products`: Product catalog and inventory
-- `sales`: Transaction and sales data
-- `integration`: Import tracking and logging
-- `logging`: Application logs and audit trails
-
-## 📊 Data Import
-
-### Supported Sources
-
-1. **StockX**: Sales reports and transaction data
-2. **Notion**: Inventory management database
-3. **Manual**: CSV/Excel files with auto-detection
-4. **Sales**: Custom sales tracking data
-
-### Import Methods
-
-#### Via API Endpoints
-
+### Generate Analytics
 ```bash
-# StockX CSV upload
-curl -X POST "http://localhost:8000/api/v1/integration/webhooks/stockx/upload" \
-  -F "file=@stockx_sales_report.csv" \
-  -F "batch_size=1000" \
-  -F "validate_only=false"
+# Create brand intelligence summary
+python scripts/brand_intelligence/brand_deep_dive_summary.py
 
-# Notion database import
-curl -X POST "http://localhost:8000/api/v1/integration/webhooks/notion/import" \
-  -H "Content-Type: application/json" \
-  -d @notion_export.json
-
-# Manual file upload with auto-detection
-curl -X POST "http://localhost:8000/api/v1/integration/webhooks/manual/upload" \
-  -F "file=@data.csv" \
-  -F "source_type=auto"
+# Export dashboard queries
+python scripts/brand_intelligence/brand_deep_dive_views.py
 ```
 
-#### Via Python API
+### Backup & Restore
+```bash
+# Create comprehensive backup
+python scripts/database/create_backup.py
 
-```python
-from domains.integration.services.import_processor import ImportProcessor
-from domains.integration.services.validators import SourceType
-
-# Initialize processor
-processor = ImportProcessor()
-
-# Process a file
-result = await processor.process_file(
-    file_path="stockx_sales_report.csv",
-    source_type=SourceType.STOCKX,
-    batch_size=1000
-)
-
-print(f"Processed {result.processed_records} records")
+# Restore from backup
+python scripts/database/restore_backup.py backup_file.sql
 ```
-
-### Data Validation
-
-All imports include comprehensive validation:
-
-- **Field validation**: Required fields, data types, formats
-- **Business rules**: Profit calculations, status transitions
-- **Data normalization**: Standardized sizes, currencies, dates
-- **Duplicate detection**: SKU and transaction ID checking
 
 ## 🧪 Testing
 
-### Run All Tests
-
 ```bash
-# Full test suite
+# Run all tests
 pytest
 
-# With coverage report
-pytest --cov=. --cov-report=html
+# Run specific test category
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/api/           # API endpoint tests
 
-# Specific test categories
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only
-pytest -m api          # API endpoint tests only
+# Generate coverage report
+pytest --cov=domains --cov-report=html
 ```
 
-### Test Categories
+## 📦 Dependencies
 
-- **Unit Tests**: Fast, isolated component testing
-- **Integration Tests**: End-to-end data flow testing
-- **API Tests**: HTTP endpoint and webhook testing
-- **Performance Tests**: Load and concurrent processing testing
+### Core Framework
+- **FastAPI** - Modern async web framework
+- **SQLAlchemy** - Python SQL toolkit and ORM
+- **Alembic** - Database migration tool
+- **asyncpg** - High-performance PostgreSQL driver
 
-### Writing Tests
+### Analytics & Processing
+- **Pandas** - Data manipulation and analysis
+- **NumPy** - Numerical computing
+- **Pydantic** - Data validation and settings
 
-```python
-# Unit test example
-@pytest.mark.unit
-async def test_stockx_validator():
-    validator = StockXValidator()
-    result = await validator.validate_record(sample_data, 0)
-    assert result['source'] == 'stockx'
+### Development Tools
+- **Pytest** - Testing framework
+- **Black** - Code formatter
+- **isort** - Import sorting
+- **mypy** - Static type checker
 
-# Integration test example
-@pytest.mark.integration
-async def test_import_pipeline(db_session):
-    processor = ImportProcessor()
-    result = await processor.process_file("test.csv", SourceType.STOCKX)
-    assert result.status == ImportStatus.COMPLETED
-```
+## 🔒 Security & Best Practices
 
-## 📈 Analytics & Reporting
+### Database Security
+- ✅ SQL injection protection via SQLAlchemy ORM
+- ✅ Connection pooling and timeout management
+- ✅ Automated backup encryption
+- ✅ Role-based access control
 
-### Metabase Setup
+### API Security
+- ✅ Request validation with Pydantic
+- ✅ Rate limiting and throttling
+- ✅ CORS configuration
+- ✅ Error handling and logging
 
-1. **Install Metabase** (Docker recommended):
+## 🚀 Deployment
+
+### Docker Deployment
 ```bash
-docker run -d -p 3000:3000 --name metabase metabase/metabase
-```
-
-2. **Configure Database Connection**:
-   - Host: Your PostgreSQL host
-   - Database: soleflip
-   - User: Create dedicated read-only user (see docs/metabase_setup_guide.md)
-
-3. **Import Analytics Views**:
-```bash
-psql -d soleflip -f docs/metabase_annotations.sql
-```
-
-4. **Create Dashboards**:
-   - Business Overview: KPIs, trends, top performers
-   - Inventory Management: Stock levels, size distribution
-   - Import Monitoring: Pipeline health, success rates
-   - Profitability Analysis: Margins, platform performance
-
-### Key Metrics
-
-- **Inventory Value**: Total value of current stock
-- **Profit Margins**: By product, brand, platform
-- **Sell-Through Rate**: Inventory turnover analytics
-- **Import Success Rate**: Data pipeline health
-- **Processing Time**: Performance monitoring
-
-## 🔌 API Reference
-
-### Core Endpoints
-
-#### Import Webhooks
-- `POST /api/v1/integration/webhooks/stockx/upload` - StockX file upload
-- `POST /api/v1/integration/webhooks/notion/import` - Notion data import
-- `POST /api/v1/integration/webhooks/manual/upload` - Manual file upload
-- `GET /api/v1/integration/webhooks/import-status` - Import status overview
-- `GET /api/v1/integration/webhooks/import-status/{batch_id}` - Specific batch status
-
-#### System
-- `GET /health` - System health check
-- `GET /docs` - Interactive API documentation
-- `GET /redoc` - Alternative API documentation
-
-### API Documentation
-
-- **OpenAPI Schema**: Available at `/docs` or `docs/openapi.json`
-- **Postman Collection**: Import `docs/postman_collection.json`
-- **Examples**: Comprehensive request/response examples included
-
-## 🔧 Development
-
-### Code Style
-
-```bash
-# Format code
-black .
-isort .
-
-# Type checking
-mypy .
-
-# Linting
-ruff check .
-```
-
-### Database Migrations
-
-```bash
-# Create new migration
-alembic revision --autogenerate -m "Description of changes"
-
-# Apply migrations
-alembic upgrade head
-
-# Check current version
-alembic current
-
-# Migration history
-alembic history
-```
-
-### Adding New Features
-
-1. **Create Domain Service**:
-```python
-# domains/new_feature/services/feature_service.py
-class FeatureService:
-    async def process(self, data):
-        # Business logic here
-        pass
-```
-
-2. **Add API Endpoints**:
-```python
-# domains/new_feature/api/routes.py
-@router.post("/process")
-async def process_feature(data: FeatureRequest):
-    service = FeatureService()
-    result = await service.process(data)
-    return result
-```
-
-3. **Write Tests**:
-```python
-# tests/unit/test_feature_service.py
-async def test_feature_processing():
-    service = FeatureService()
-    result = await service.process(test_data)
-    assert result.success
-```
-
-### Performance Optimization
-
-- **Database Indexes**: Monitor query performance, add indexes as needed
-- **Connection Pooling**: Configured for 20 base connections, 30 overflow
-- **Async Processing**: All I/O operations use async/await
-- **Batch Processing**: Large imports processed in configurable batches
-- **Caching**: Consider Redis for frequently accessed data
-
-## 🐳 Docker Deployment
-
-### Docker Compose Setup
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/soleflip
-    depends_on:
-      - db
-  
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=soleflip
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-  
-  metabase:
-    image: metabase/metabase
-    ports:
-      - "3000:3000"
-    depends_on:
-      - db
-
-volumes:
-  postgres_data:
-```
-
-### Production Deployment
-
-```bash
-# Build and start services
+# Build and deploy
 docker-compose up -d
 
-# Run migrations
-docker-compose exec app alembic upgrade head
-
-# View logs
-docker-compose logs -f app
+# Scale services
+docker-compose up -d --scale web=3
 ```
 
-## 🔧 Troubleshooting
+### Production Checklist
+- [ ] Environment variables configured
+- [ ] Database migrations applied
+- [ ] SSL certificates installed
+- [ ] Backup system configured
+- [ ] Monitoring and logging setup
+- [ ] Load balancer configured
 
-### Common Issues
+## 📈 Performance
 
-**Database Connection Errors**:
-```bash
-# Check PostgreSQL is running
-pg_isready -h localhost -p 5432
+### Database Optimizations
+- **Indexed Queries** - Strategic indexes on frequently queried columns
+- **Connection Pooling** - Efficient database connection management
+- **Query Optimization** - Analyzed and optimized slow queries
+- **Automated Cleanup** - Regular maintenance and statistics updates
 
-# Verify database exists
-psql -h localhost -U postgres -l | grep soleflip
+### Application Performance
+- **Async Processing** - Non-blocking I/O operations
+- **Caching Strategy** - Redis integration for frequently accessed data
+- **Background Tasks** - Celery integration for heavy processing
+- **Resource Monitoring** - Memory and CPU usage optimization
 
-# Test connection
-psql "postgresql://user:password@localhost/soleflip" -c "SELECT 1;"
-```
-
-**Import Processing Failures**:
-```bash
-# Check import status
-curl http://localhost:8000/api/v1/integration/webhooks/import-status
-
-# View application logs
-tail -f logs/application.log
-
-# Database query for failed imports
-psql -d soleflip -c "SELECT * FROM integration.import_batches WHERE status = 'failed';"
-```
-
-**Performance Issues**:
-```bash
-# Monitor database performance
-psql -d soleflip -c "SELECT query, mean_time, calls FROM pg_stat_statements ORDER BY mean_time DESC LIMIT 10;"
-
-# Check connection pool status
-curl http://localhost:8000/health
-```
-
-### Monitoring
-
-```bash
-# Application health
-curl http://localhost:8000/health
-
-# Database size
-psql -d soleflip -c "SELECT pg_size_pretty(pg_database_size('soleflip'));"
-
-# Import statistics
-psql -d soleflip -c "SELECT source_type, COUNT(*), AVG(processing_time_ms) FROM integration.import_batches GROUP BY source_type;"
-```
-
-## 📝 Contributing
+## 🤝 Contributing
 
 1. **Fork the repository**
-2. **Create feature branch**: `git checkout -b feature/amazing-feature`
-3. **Write tests**: Ensure all new code is tested
-4. **Follow code style**: Use black, isort, and type hints
-5. **Update documentation**: Add docstrings and update README if needed
-6. **Submit pull request**: With clear description of changes
+2. **Create feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit changes** (`git commit -m 'Add amazing feature'`)
+4. **Push to branch** (`git push origin feature/amazing-feature`)
+5. **Open Pull Request**
 
-### Development Setup
+### Development Guidelines
+- Follow PEP 8 style guidelines
+- Add tests for new features
+- Update documentation
+- Use meaningful commit messages
 
-```bash
-# Install development dependencies
-pip install -e ".[dev]"
+## 📋 Changelog
 
-# Install pre-commit hooks
-pre-commit install
+### Version 2.0.0 (2025-08-07) - Brand Intelligence Release
+#### ✨ New Features
+- **Brand Deep Dive System** - Comprehensive brand analytics and intelligence
+- **Historical Timeline Tracking** - Major brand milestones and events
+- **Collaboration Analysis** - Partnership success metrics and hype scoring
+- **Cultural Impact Assessment** - Brand influence and market position analysis
+- **Financial Performance Analytics** - Multi-year revenue and growth analysis
 
-# Run full development check
-make check  # Runs tests, linting, type checking
-```
+#### 🏗️ Infrastructure
+- **Professional File Organization** - Restructured codebase with logical directory hierarchy
+- **Advanced Analytics Views** - 7 new database views for brand intelligence
+- **Dashboard-Ready Queries** - 30+ pre-built SQL queries for visualization tools
+- **Comprehensive Documentation** - Versioned guides and setup instructions
+
+#### 🔧 Improvements
+- **Database Schema Extensions** - 25+ new brand profile fields
+- **Automated Backup System** - Enhanced backup with metadata and integrity checks
+- **Code Organization** - Moved 95+ files from root to organized directory structure
+- **Documentation Versioning** - Professional documentation with version control
+
+### Version 1.x - Legacy Releases
+- Core sneaker resale management functionality
+- Basic analytics and reporting
+- CSV import and data processing
+- N8N workflow integration
+
+## 🐛 Known Issues
+
+- CSV files with special characters may require UTF-8 encoding
+- Large dataset imports may require increased memory allocation
+- N8N workflows require manual configuration after deployment
+
+## 📞 Support
+
+### Documentation
+- **Setup Guide**: [`docs/setup/QUICKSTART.md`](docs/setup/QUICKSTART.md)
+- **API Documentation**: [`docs/api/`](docs/api/)
+- **Feature Guides**: [`docs/guides/`](docs/guides/)
+
+### Getting Help
+- **Issues**: Report bugs and feature requests via GitHub Issues
+- **Discussions**: Community support and questions
+- **Wiki**: Detailed technical documentation and tutorials
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🤝 Support
+## 🙏 Acknowledgments
 
-- **Documentation**: Check `/docs` directory for detailed guides
-- **API Reference**: Visit `/docs` endpoint when server is running
-- **Issues**: Create GitHub issues for bugs or feature requests
-- **Discussions**: Use GitHub discussions for questions and ideas
+- **FastAPI** - For the excellent async web framework
+- **SQLAlchemy** - For robust database ORM capabilities
+- **PostgreSQL** - For reliable data storage and analytics
+- **Metabase** - For powerful dashboard and visualization capabilities
+- **N8N** - For flexible workflow automation
 
 ---
 
-Built with ❤️ for sneaker resellers worldwide
+**SoleFlipper v2.0** - *Professional Sneaker Resale Management with Advanced Brand Intelligence*
+
+*Built with ❤️ for the sneaker community*

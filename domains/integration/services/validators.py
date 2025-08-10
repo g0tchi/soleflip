@@ -74,6 +74,240 @@ class BaseValidator:
         """Normalize record data - to be implemented by subclasses"""
         return record
     
+    def extract_brand_from_name(self, product_name: str) -> Optional[str]:
+        """Universal brand extraction from product names"""
+        if not product_name:
+            return None
+        
+        # Common brand patterns in sneaker/fashion names
+        brand_patterns = {
+            # Nike and Jordan brands
+            r'^Nike\s': 'Nike',
+            r'^Air\s': 'Nike',
+            r'^Wmns\s': 'Nike',
+            r'Jordan\s': 'Nike Jordan',
+            r'Travis Scott x': 'Nike Jordan',
+            r'Air Max': 'Nike',
+            r'Air Force': 'Nike',
+            r'Dunk': 'Nike',
+            r'Blazer': 'Nike',
+            r'Cortez': 'Nike',
+            r'P-6000': 'Nike',
+            r'React': 'Nike',
+            r'Zoom': 'Nike',
+            r'Vapormax': 'Nike',
+            r'Presto': 'Nike',
+            
+            # Adidas
+            r'^adidas': 'Adidas',
+            r'^Yeezy': 'Adidas',
+            r'Campus': 'Adidas',
+            r'Gazelle': 'Adidas',
+            r'Forum': 'Adidas',
+            r'Question': 'Adidas',
+            r'UltraBoost': 'Adidas',
+            r'Bad Bunny x': 'Adidas',
+            r'Gucci x': 'Adidas',
+            r'Samba': 'Adidas',
+            r'Stan Smith': 'Adidas',
+            r'Superstar': 'Adidas',
+            r'NMD': 'Adidas',
+            r'Originals': 'Adidas',
+            
+            # New Balance
+            r'^\d{3,4}[RV]?\s': 'New Balance',  # Model numbers like 2002R, 574, etc.
+            r'^Wmns \d{3}': 'New Balance',
+            r'^New Balance': 'New Balance',
+            
+            # ASICS
+            r'Gel\s': 'ASICS',
+            r'GmbH x': 'ASICS',
+            r'HAL STUDIOS x': 'ASICS',
+            r'Kiko Kostadinov x': 'ASICS',
+            r'^ASICS': 'ASICS',
+            
+            # Converse
+            r'Chuck Taylor': 'Converse',
+            r'All Star': 'Converse',
+            r'^Converse': 'Converse',
+            r'Chuck 70': 'Converse',
+            r'One Star': 'Converse',
+            
+            # Puma
+            r'^Puma': 'Puma',
+            r'Suede': 'Puma',
+            r'Palermo': 'Puma',
+            r'Speedcat': 'Puma',
+            r'RS-X': 'Puma',
+            
+            # Vans
+            r'^Vans': 'Vans',
+            r'Old Skool': 'Vans',
+            r'Authentic': 'Vans',
+            r'Era': 'Vans',
+            r'Slip-On': 'Vans',
+            r'Sk8-Hi': 'Vans',
+            
+            # Stone Island
+            r'Stone Island': 'Stone Island',
+            
+            # Off-White
+            r'Off-White': 'Off-White',
+            r'OFF-WHITE': 'Off-White',
+            
+            # Fear of God
+            r'Fear of God': 'Fear of God',
+            r'FOG': 'Fear of God',
+            r'Essentials': 'Fear of God',
+            
+            # UGG
+            r'UGG': 'UGG',
+            r'Classic Ultra Mini': 'UGG',
+            r'Classic Short': 'UGG',
+            r'Tasman': 'UGG',
+            r'Scuffette': 'UGG',
+            
+            # Timberland  
+            r'Timberland': 'Timberland',
+            r'6-Inch Premium': 'Timberland',
+            
+            # Crocs
+            r'Crocs': 'Crocs',
+            r'Classic Clog': 'Crocs',
+            
+            # Dr. Martens
+            r'Dr\. Martens': 'Dr. Martens',
+            r'1460': 'Dr. Martens',
+            r'1461': 'Dr. Martens',
+            
+            # Salomon
+            r'Salomon': 'Salomon',
+            r'^Salomon': 'Salomon',
+            r'XT-6': 'Salomon',
+            r'XT-4': 'Salomon',
+            r'XT-Wings': 'Salomon',
+            r'Speedcross': 'Salomon',
+            r'S/LAB': 'Salomon',
+            r'ACS Pro': 'Salomon',  # ACS Pro Serie hinzugefügt
+            r'ACS+': 'Salomon',
+            
+            # Hoka
+            r'Hoka': 'Hoka',
+            r'Clifton': 'Hoka',
+            r'Bondi': 'Hoka',
+            
+            # On Running
+            r'^On\s': 'On Running',
+            r'Cloud': 'On Running',
+            
+            # Golden Goose
+            r'Golden Goose': 'Golden Goose',
+            r'Super-Star': 'Golden Goose',
+            
+            # Fashion/Streetwear Brands  
+            r'Telfar': 'Telfar',
+            r'Palace': 'Palace',
+            r'Supreme': 'Supreme',
+            r'Stussy|Stüssy': 'Stussy',
+            r'Kith': 'Kith',
+            r'Essentials': 'Fear of God Essentials',
+            
+            # Luxury/High Fashion
+            r'Louis Vuitton': 'Louis Vuitton',
+            r'Balenciaga': 'Balenciaga',
+            r'Gucci': 'Gucci',
+            r'Bottega Veneta': 'Bottega Veneta',
+            r'Margiela': 'Maison Margiela',
+            r'Maison Margiela': 'Maison Margiela',
+            r'Rick Owens': 'Rick Owens',
+            r'Comme des Garcons': 'Comme des Garcons',
+            r'CDG': 'Comme des Garcons',
+            
+            # Accessories/Bags
+            r'Eastpak': 'Eastpak',
+            r'JanSport': 'JanSport',
+            r'Taschen': 'Taschen',
+            
+            # Toy/Collectibles (wie Mattel aus deinen Daten)
+            r'Mattel': 'Mattel',
+            r'Hot Wheels': 'Mattel',
+            r'Cybertruck': 'Mattel',
+            r'MEGA Construx': 'Mattel',
+            
+            # KAWS Collaborations
+            r'KAWS': 'KAWS',
+            
+            # Artist/Designer Collaborations
+            r'Takashi Murakami': 'Murakami',
+            r'Field Boot': 'Timberland',
+            r'Earthkeepers': 'Timberland',
+            
+            # Telfar
+            r'Telfar': 'Telfar',
+            r'Shopping Bag': 'Telfar',
+            
+            # Eastpak
+            r'Eastpak': 'Eastpak',
+            r'Padded Pak\'r': 'Eastpak',
+            r'Wyoming': 'Eastpak',
+            
+            # The North Face
+            r'The North Face': 'The North Face',
+            r'TNF': 'The North Face',
+            r'North Face': 'The North Face',
+            r'Nuptse': 'The North Face',
+            r'Denali': 'The North Face',
+            r'Base Camp': 'The North Face',
+            
+            # Palace
+            r'Palace': 'Palace',
+            r'P-Cap': 'Palace',
+            
+            # Y-3 (Yohji Yamamoto x Adidas)
+            r'Y-3': 'Y-3',
+            r'Yohji Yamamoto': 'Y-3',
+            r'Kusari': 'Y-3',
+            r'Kaiwa': 'Y-3',
+            r'Runner 4D': 'Y-3',
+            
+            # Salomon
+            r'XT-4': 'Salomon',
+            r'XT-6': 'Salomon',
+            r'Salomon': 'Salomon',
+            r'Speedcross': 'Salomon',
+            
+            # Other brands
+            r'Crocs': 'Crocs',
+            r'Classic Clog': 'Crocs',
+            r'Salehe Bembury x': 'Crocs',
+            r'Tom Sachs x': 'Nike',
+            r'Clifton': 'HOKA',
+            r'Classic Cowboy Boot': 'Dr. Martens',
+            r'Converse': 'Converse',
+            r'Chuck': 'Converse',
+            r'Reebok': 'Reebok',
+            r'Club C': 'Reebok'
+        }
+        
+        # Try to match brand patterns
+        for pattern, brand in brand_patterns.items():
+            if re.search(pattern, product_name, re.IGNORECASE):
+                return brand
+        
+        # If no pattern matches, try to extract first word as potential brand
+        first_word = product_name.split()[0] if product_name.split() else None
+        if first_word and len(first_word) > 2:
+            # Common brand names that might appear as first word
+            known_brands = [
+                'Nike', 'Adidas', 'Yeezy', 'Jordan', 'Converse', 'Vans', 
+                'Puma', 'Reebok', 'ASICS', 'Salomon', 'HOKA', 'Crocs',
+                'UGG', 'Timberland', 'Telfar', 'Eastpak', 'Palace'
+            ]
+            if first_word in known_brands:
+                return first_word
+        
+        return None  # Unable to determine brand
+    
     def normalize_currency(self, value: Any) -> Optional[Decimal]:
         """Normalize currency values"""
         if value is None:
@@ -144,6 +378,111 @@ class ValidationError(Exception):
         self.errors = errors
         super().__init__(f"Validation failed: {'; '.join(errors)}")
 
+class AliasValidator(BaseValidator):
+    """Validator for Alias export data (Alias = GOAT's selling platform)"""
+    
+    def __init__(self):
+        super().__init__()
+        self.required_fields = [
+            'ORDER_NUMBER',
+            'NAME',
+            'PRODUCT_PRICE_CENTS_SALE_PRICE',
+            'CREDIT_DATE'
+        ]
+        self.optional_fields = [
+            'USERNAME',
+            'SKU', 
+            'SIZE',
+            'PURCHASED_DATE'
+        ]
+    
+    async def normalize_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize Alias record"""
+        normalized = {}
+        
+        # Basic field mapping
+        normalized['order_number'] = str(record.get('ORDER_NUMBER', '')).strip()
+        normalized['item_name'] = str(record.get('NAME', '')).strip()
+        normalized['sku'] = str(record.get('SKU', '')).strip()
+        normalized['size'] = self._normalize_size(record.get('SIZE'))
+        normalized['supplier'] = str(record.get('USERNAME', '')).strip()
+        
+        # Brand extraction from product name (Alias doesn't have separate brand columns)
+        normalized['brand'] = self._extract_brand_from_name(normalized['item_name'])
+        
+        # Date normalization - Alias uses DD/MM/YY format
+        normalized['sale_date'] = self.normalize_date(
+            record.get('CREDIT_DATE'),
+            ['%d/%m/%y', '%d/%m/%Y', '%d.%m.%y', '%d.%m.%Y']
+        )
+        
+        normalized['purchase_date'] = self.normalize_date(
+            record.get('PURCHASED_DATE'),
+            ['%d/%m/%y', '%d/%m/%Y', '%d.%m.%y', '%d.%m.%Y']
+        )
+        
+        # Currency normalization - Alias PRODUCT_PRICE_CENTS_SALE_PRICE contains full USD amounts
+        sale_price = record.get('PRODUCT_PRICE_CENTS_SALE_PRICE')
+        if sale_price is not None:
+            try:
+                normalized['sale_price'] = Decimal(str(sale_price))  # Direct USD amount, no conversion needed
+            except (InvalidOperation, ValueError):
+                raise ValidationError([f"Invalid price format: {sale_price}"])
+        else:
+            normalized['sale_price'] = None
+        
+        # Alias doesn't provide fees - set defaults
+        normalized['platform_fee'] = None
+        normalized['shipping_fee'] = None
+        normalized['net_profit'] = normalized['sale_price']  # No fees to subtract
+        
+        # Platform identification
+        normalized['platform'] = 'alias'  # Alias = GOAT's selling platform
+        normalized['source_type'] = 'alias'
+        
+        # Generate unique transaction ID for database
+        normalized['external_id'] = f"alias_{normalized['order_number']}"
+        
+        # Additional metadata
+        normalized['status'] = 'completed'  # Alias exports are completed sales
+        
+        # Flag for StockX name prioritization in product matching
+        normalized['_requires_stockx_name_priority'] = True
+        
+        return normalized
+    
+    def _normalize_size(self, size_value: Any) -> Optional[str]:
+        """Normalize size values for Alias"""
+        if size_value is None:
+            return None
+        
+        size_str = str(size_value).strip()
+        if not size_str or size_str.lower() in ['n/a', 'none', '']:
+            return None
+        
+        # Handle clothing sizes (like 106 for pants)
+        if size_str.isdigit() and len(size_str) >= 2:
+            # Could be clothing size or shoe size
+            size_int = int(size_str)
+            if size_int > 50:  # Likely clothing size
+                return f"Size {size_str}"
+            else:
+                return size_str  # Shoe size
+        
+        # Handle decimal shoe sizes
+        try:
+            size_float = float(size_str)
+            if 3 <= size_float <= 20:  # Typical shoe size range
+                return str(size_float)
+        except ValueError:
+            pass
+        
+        return size_str  # Return as-is if can't categorize
+    
+    def _extract_brand_from_name(self, product_name: str) -> Optional[str]:
+        """Extract brand from product name for Alias imports"""
+        return self.extract_brand_from_name(product_name)
+
 class StockXValidator(BaseValidator):
     """Validator for StockX export data"""
     
@@ -157,6 +496,7 @@ class StockXValidator(BaseValidator):
         ]
         self.optional_fields = [
             'SKU',
+            'Style',     # The actual SKU from StockX exports
             'Sku Size',  # Size is optional for non-shoes
             'Size',      # Alternative size field
             'Seller Fee',
@@ -166,6 +506,8 @@ class StockXValidator(BaseValidator):
             'Total Gross Amount (Total Payout)',  # StockX format
             'Seller Name',
             'Buyer Country',
+            'Buyer Destination Country',
+            'Buyer Destination City',
             'Invoice Number'
         ]
     
@@ -176,8 +518,11 @@ class StockXValidator(BaseValidator):
         # Basic field mapping
         normalized['order_number'] = str(record.get('Order Number', '')).strip()
         normalized['item_name'] = str(record.get('Item', '')).strip()
-        normalized['sku'] = str(record.get('SKU', '')).strip()
-        normalized['size'] = self._normalize_size(record.get('Size'))
+        # Try Style first (actual StockX SKU), then fall back to SKU field
+        normalized['sku'] = str(record.get('Style', record.get('SKU', ''))).strip()
+        # Try multiple size field names (StockX uses 'Sku Size')
+        size_value = record.get('Sku Size') or record.get('Size')  
+        normalized['size'] = self._normalize_size(size_value)
         
         # Date normalization - StockX uses UTC timezone format
         normalized['sale_date'] = self.normalize_date(
@@ -202,9 +547,14 @@ class StockXValidator(BaseValidator):
                 normalized['shipping_fee']
             )
         
+        # Brand extraction from product name (StockX doesn't have separate brand column)
+        normalized['brand'] = self.extract_brand_from_name(normalized['item_name'])
+        
         # Additional fields
         normalized['seller_name'] = str(record.get('Seller Name', '')).strip()
         normalized['buyer_country'] = str(record.get('Buyer Country', '')).strip()
+        normalized['buyer_destination_country'] = str(record.get('Buyer Destination Country', '')).strip()
+        normalized['buyer_destination_city'] = str(record.get('Buyer Destination City', '')).strip()
         normalized['invoice_number'] = str(record.get('Invoice Number', '')).strip()
         
         # Metadata
@@ -218,10 +568,16 @@ class StockXValidator(BaseValidator):
         if size_value is None:
             return "Unknown"
         
+        # Handle NaN values from pandas
+        if isinstance(size_value, float):
+            import math
+            if math.isnan(size_value):
+                return "One Size"  # NaN often means "not applicable" for size
+        
         size_str = str(size_value).strip().upper()
         
         # Handle common size formats
-        if size_str in ['N/A', '', 'NULL']:
+        if size_str in ['N/A', '', 'NULL', 'NAN']:
             return "One Size"
         
         # Add US prefix if it's just a number
@@ -325,6 +681,8 @@ class SalesValidator(BaseValidator):
             'Status'
         ]
         self.optional_fields = [
+            'Product Name',
+            'Brand',
             'Gross Buy',
             'Net Buy', 
             'Gross Sale',
@@ -359,6 +717,13 @@ class SalesValidator(BaseValidator):
         # Calculate profit if possible
         if normalized['net_sale'] and normalized['net_buy']:
             normalized['profit'] = normalized['net_sale'] - normalized['net_buy']
+        
+        # Brand extraction - try Brand column first, then extract from Product Name
+        normalized['brand'] = str(record.get('Brand', '')).strip() or None
+        if not normalized['brand']:
+            product_name = record.get('Product Name')
+            if product_name:
+                normalized['brand'] = self.extract_brand_from_name(str(product_name).strip())
         
         # Platform
         normalized['platform'] = str(record.get('Platform', 'Manual')).strip()

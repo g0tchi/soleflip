@@ -1,0 +1,144 @@
+{
+  "name": "Notion to DB: Transaction Price Updates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notion-transaction-update",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "notion-webhook",
+      "name": "Notion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "notion-transaction-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract transaction update data from Notion\nconst data = $input.first().json;\n\n// Get price and transaction info\nconst salePrice = data.properties['Sale Price']?.number ||\n                  data.properties.sale_price?.number ||\n                  data.properties.price?.number;\n\nconst platformFee = data.properties['Platform Fee']?.number ||\n                    data.properties.platform_fee?.number ||\n                    data.properties.fee?.number;\n\nconst shippingCost = data.properties['Shipping Cost']?.number ||\n                     data.properties.shipping_cost?.number ||\n                     data.properties.shipping?.number;\n\n// Get identifier info\nconst orderNumber = data.properties['Order Number']?.rich_text?.[0]?.text?.content ||\n                    data.properties.order_number?.rich_text?.[0]?.text?.content;\n\nconst externalId = data.properties['External ID']?.rich_text?.[0]?.text?.content ||\n                   data.properties.external_id?.rich_text?.[0]?.text?.content;\n\n// Get product info for additional matching\nconst productName = data.properties.Product?.title?.[0]?.text?.content ||\n                    data.properties.product?.title?.[0]?.text?.content;\n\n// Additional metadata\nconst notionPageId = data.id;\nconst updatedAt = new Date().toISOString();\n\n// Calculate net profit if we have all components\nlet netProfit = null;\nif (salePrice && platformFee !== undefined && shippingCost !== undefined) {\n    netProfit = salePrice - (platformFee || 0) - (shippingCost || 0);\n}\n\nreturn [{\n  json: {\n    sale_price: salePrice,\n    platform_fee: platformFee,\n    shipping_cost: shippingCost,\n    net_profit: netProfit,\n    order_number: orderNumber,\n    external_id: externalId,\n    product_name: productName,\n    notion_page_id: notionPageId,\n    updated_at: updatedAt,\n    // Clean identifiers for SQL matching\n    clean_order_number: orderNumber?.replace(/[^a-zA-Z0-9-_]/g, ''),\n    clean_external_id: externalId?.replace(/[^a-zA-Z0-9-_]/g, '')\n  }\n}];"
+      },
+      "id": "extract-transaction-data",
+      "name": "Extract Transaction Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Find the transaction to update\nSELECT \n    t.id as transaction_id,\n    t.external_id,\n    t.sale_price as current_sale_price,\n    t.platform_fee as current_platform_fee,\n    t.shipping_cost as current_shipping_cost,\n    t.net_profit as current_net_profit,\n    p.name as product_name\nFROM sales.transactions t\nLEFT JOIN products.inventory i ON t.inventory_id = i.id\nLEFT JOIN products.products p ON i.product_id = p.id\nWHERE \n    -- Match by external_id first\n    (t.external_id = '{{ $json.external_id }}' AND '{{ $json.external_id }}' != '')\n    OR\n    -- Match by order number pattern\n    (t.external_id ILIKE '%{{ $json.clean_order_number }}%' AND '{{ $json.clean_order_number }}' != '')\n    OR \n    -- Match by product name if provided\n    (p.name ILIKE '%{{ $json.product_name }}%' AND '{{ $json.product_name }}' != '')\nORDER BY t.updated_at DESC\nLIMIT 5;",
+        "options": {}
+      },
+      "id": "find-transaction",
+      "name": "Find Transaction",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Update transaction with new pricing information\nUPDATE sales.transactions\nSET \n    sale_price = CASE \n        WHEN '{{ $json.sale_price }}' != '' AND '{{ $json.sale_price }}' != 'null' \n        THEN {{ $json.sale_price }}::NUMERIC(10,2)\n        ELSE sale_price \n    END,\n    platform_fee = CASE \n        WHEN '{{ $json.platform_fee }}' != '' AND '{{ $json.platform_fee }}' != 'null' \n        THEN {{ $json.platform_fee }}::NUMERIC(10,2)\n        ELSE platform_fee \n    END,\n    shipping_cost = CASE \n        WHEN '{{ $json.shipping_cost }}' != '' AND '{{ $json.shipping_cost }}' != 'null' \n        THEN {{ $json.shipping_cost }}::NUMERIC(10,2)\n        ELSE shipping_cost \n    END,\n    net_profit = CASE \n        WHEN '{{ $json.net_profit }}' != '' AND '{{ $json.net_profit }}' != 'null' \n        THEN {{ $json.net_profit }}::NUMERIC(10,2)\n        ELSE (\n            COALESCE(\n                CASE WHEN '{{ $json.sale_price }}' != '' AND '{{ $json.sale_price }}' != 'null' \n                     THEN {{ $json.sale_price }}::NUMERIC(10,2) ELSE sale_price END, 0\n            ) - \n            COALESCE(\n                CASE WHEN '{{ $json.platform_fee }}' != '' AND '{{ $json.platform_fee }}' != 'null' \n                     THEN {{ $json.platform_fee }}::NUMERIC(10,2) ELSE platform_fee END, 0\n            ) - \n            COALESCE(\n                CASE WHEN '{{ $json.shipping_cost }}' != '' AND '{{ $json.shipping_cost }}' != 'null' \n                     THEN {{ $json.shipping_cost }}::NUMERIC(10,2) ELSE shipping_cost END, 0\n            )\n        )\n    END,\n    notes = CASE \n        WHEN notes IS NULL THEN 'Pricing updated via Notion on {{ $json.updated_at }}'\n        ELSE notes || ' | Pricing updated via Notion on {{ $json.updated_at }}'\n    END,\n    updated_at = CURRENT_TIMESTAMP\nWHERE \n    -- Use same matching logic\n    (external_id = '{{ $json.external_id }}' AND '{{ $json.external_id }}' != '')\n    OR\n    (external_id ILIKE '%{{ $json.clean_order_number }}%' AND '{{ $json.clean_order_number }}' != '')\n    OR\n    (id IN (\n        SELECT t2.id FROM sales.transactions t2\n        LEFT JOIN products.inventory i2 ON t2.inventory_id = i2.id\n        LEFT JOIN products.products p2 ON i2.product_id = p2.id\n        WHERE p2.name ILIKE '%{{ $json.product_name }}%' AND '{{ $json.product_name }}' != ''\n        ORDER BY t2.updated_at DESC\n        LIMIT 1\n    ))\nRETURNING id, external_id, sale_price, platform_fee, shipping_cost, net_profit;",
+        "options": {}
+      },
+      "id": "update-transaction",
+      "name": "Update Transaction",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Verify the update and show before/after\nSELECT \n    t.id as transaction_id,\n    t.external_id,\n    t.sale_price,\n    t.platform_fee,\n    t.shipping_cost,\n    t.net_profit,\n    t.updated_at,\n    p.name as product_name,\n    i.status as inventory_status\nFROM sales.transactions t\nLEFT JOIN products.inventory i ON t.inventory_id = i.id\nLEFT JOIN products.products p ON i.product_id = p.id\nWHERE \n    t.updated_at >= (CURRENT_TIMESTAMP - INTERVAL '5 minutes')\n    AND (\n        (t.external_id = '{{ $json.external_id }}' AND '{{ $json.external_id }}' != '')\n        OR\n        (t.external_id ILIKE '%{{ $json.clean_order_number }}%' AND '{{ $json.clean_order_number }}' != '')\n        OR\n        (p.name ILIKE '%{{ $json.product_name }}%' AND '{{ $json.product_name }}' != '')\n    )\nORDER BY t.updated_at DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "id": "verify-transaction-update",
+      "name": "Verify Transaction Update",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1120, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Notion Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Transaction Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Transaction Data": {
+      "main": [
+        [
+          {
+            "node": "Find Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Transaction": {
+      "main": [
+        [
+          {
+            "node": "Update Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Transaction": {
+      "main": [
+        [
+          {
+            "node": "Verify Transaction Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-06T12:30:00.000Z",
+      "updatedAt": "2025-08-06T12:30:00.000Z",
+      "id": "notion-transaction-sync",
+      "name": "notion-transaction-sync"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-06T12:30:00.000Z",
+  "versionId": "1"
+}

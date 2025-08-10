@@ -1,0 +1,157 @@
+{
+  "name": "Notion to DB: Supplier Updates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notion-supplier-update",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "notion-webhook",
+      "name": "Notion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "notion-supplier-update"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "exists"
+          },
+          "conditions": [
+            {
+              "id": "has-supplier",
+              "leftValue": "={{ $json.properties.Supplier }}",
+              "rightValue": "",
+              "operation": "exists"
+            },
+            {
+              "id": "has-order-number", 
+              "leftValue": "={{ $json.properties['Order Number'] }}",
+              "rightValue": "",
+              "operation": "exists"
+            }
+          ],
+          "combineOperation": "all"
+        }
+      },
+      "id": "filter-valid-updates",
+      "name": "Filter Valid Updates",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract data from Notion webhook\nconst data = $input.first().json;\n\n// Get supplier info\nconst supplierName = data.properties.Supplier?.select?.name || \n                     data.properties.Supplier?.rich_text?.[0]?.text?.content;\n\n// Get order number for matching\nconst orderNumber = data.properties['Order Number']?.rich_text?.[0]?.text?.content ||\n                    data.properties.order_number?.rich_text?.[0]?.text?.content;\n\n// Get additional metadata\nconst notionPageId = data.id;\nconst updatedAt = new Date().toISOString();\n\nreturn [{\n  json: {\n    supplier_name: supplierName,\n    order_number: orderNumber,\n    notion_page_id: notionPageId,\n    updated_at: updatedAt,\n    // Clean order number for SQL search\n    clean_order_number: orderNumber?.replace(/[^a-zA-Z0-9-_]/g, '')\n  }\n}];"
+      },
+      "id": "extract-supplier-data",
+      "name": "Extract Supplier Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Update transaction with new supplier info\nUPDATE sales.transactions \nSET notes = CASE \n    WHEN notes IS NULL THEN 'Supplier updated via Notion: {{ $json.supplier_name }}'\n    ELSE notes || ' | Supplier updated via Notion: {{ $json.supplier_name }}'\nEND,\nupdated_at = CURRENT_TIMESTAMP\nWHERE external_id ILIKE '%{{ $json.clean_order_number }}%'\n   OR external_id ILIKE '%{{ $json.order_number }}%';\n\n-- Also update inventory supplier if we can find it\nUPDATE products.inventory \nSET supplier = '{{ $json.supplier_name }}',\n    notes = CASE \n        WHEN notes IS NULL THEN 'Supplier updated via Notion on {{ $json.updated_at }}'\n        ELSE notes || ' | Supplier updated via Notion on {{ $json.updated_at }}'\n    END,\n    updated_at = CURRENT_TIMESTAMP\nWHERE id IN (\n    SELECT t.inventory_id \n    FROM sales.transactions t \n    WHERE t.external_id ILIKE '%{{ $json.clean_order_number }}%'\n       OR t.external_id ILIKE '%{{ $json.order_number }}%'\n);",
+        "options": {}
+      },
+      "id": "update-supplier-db",
+      "name": "Update Supplier in DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Log the update for tracking\nSELECT \n    t.id as transaction_id,\n    t.external_id,\n    t.notes,\n    i.supplier,\n    t.updated_at\nFROM sales.transactions t\nLEFT JOIN products.inventory i ON t.inventory_id = i.id\nWHERE t.external_id ILIKE '%{{ $json.clean_order_number }}%'\n   OR t.external_id ILIKE '%{{ $json.order_number }}%'\nORDER BY t.updated_at DESC\nLIMIT 5;",
+        "options": {}
+      },
+      "id": "verify-update",
+      "name": "Verify Update",
+      "type": "n8n-nodes-base.postgres", 
+      "typeVersion": 2.4,
+      "position": [1120, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Notion Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Updates": {
+      "main": [
+        [
+          {
+            "node": "Extract Supplier Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Supplier Data": {
+      "main": [
+        [
+          {
+            "node": "Update Supplier in DB", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Supplier in DB": {
+      "main": [
+        [
+          {
+            "node": "Verify Update",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-06T12:00:00.000Z",
+      "updatedAt": "2025-08-06T12:00:00.000Z", 
+      "id": "notion-db-sync",
+      "name": "notion-db-sync"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-06T12:00:00.000Z",
+  "versionId": "1"
+}

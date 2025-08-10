@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "name": "Notion Supplier Sync to SoleFlipper",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notion-supplier-sync",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "notion-trigger",
+      "name": "Notion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "notion-supplier-changes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "exists"
+          },
+          "conditions": [
+            {
+              "id": "supplier-changed",
+              "leftValue": "={{ $json.properties.property_supplier }}",
+              "rightValue": "",
+              "operation": "exists"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "filter-supplier-changes",
+      "name": "Filter Supplier Changes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract relevant data from Notion webhook\nconst notionData = $input.first().json;\n\n// Extract sale_id and supplier from Notion properties\nconst saleId = notionData.properties.property_sale_id?.rich_text?.[0]?.text?.content || \n               notionData.properties.property_order_no?.rich_text?.[0]?.text?.content;\n\nconst supplierName = notionData.properties.property_supplier?.select?.name || \n                     notionData.properties.property_supplier?.rich_text?.[0]?.text?.content;\n\n// Create payload for SoleFlipper API\nconst payload = {\n  action: \"update_supplier\",\n  transaction_data: {\n    sale_id: saleId,\n    supplier_name: supplierName,\n    notion_page_id: notionData.id,\n    updated_at: new Date().toISOString()\n  }\n};\n\nreturn { json: payload };"
+      },
+      "id": "transform-data",
+      "name": "Transform Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/v1/integration/n8n/notion/sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Source",
+              "value": "n8n-notion-sync"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "soleflip-api-call",
+      "name": "SoleFlipper API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "soleflip-api-auth",
+          "name": "SoleFlipper API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "equal"
+          },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operation": "equal"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "check-api-response",
+      "name": "Check API Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "message": "✅ Supplier successfully updated in SoleFlipper",
+        "additionalFields": {
+          "priority": "normal"
+        }
+      },
+      "id": "success-notification",
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "❌ Failed to update supplier in SoleFlipper: {{ $json.error }}",
+        "additionalFields": {
+          "priority": "high"
+        }
+      },
+      "id": "error-notification",
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Notion Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter Supplier Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Supplier Changes": {
+      "main": [
+        [
+          {
+            "node": "Transform Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Data": {
+      "main": [
+        [
+          {
+            "node": "SoleFlipper API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoleFlipper API Call": {
+      "main": [
+        [
+          {
+            "node": "Check API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check API Response": {
+      "main": [
+        [
+          {
+            "node": "Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-05T10:00:00.000Z",
+      "updatedAt": "2025-08-05T10:00:00.000Z",
+      "id": "notion-sync",
+      "name": "notion-sync"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-05T10:00:00.000Z",
+  "versionId": "1"
+}

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "soleflip"
-version = "2.0.0"
-description = "Professional sneaker reselling management system"
+version = "2.1.0"
+description = "Professional sneaker reselling management system with multi-platform support"
 authors = [{name = "SoleFlipper Team", email = "info@soleflip.com"}]
 readme = "README.md"
 license = {text = "MIT"}

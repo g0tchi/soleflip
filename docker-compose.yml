@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: soleflip
       POSTGRES_USER: soleflip_user
-      POSTGRES_PASSWORD: soleflip_pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -21,7 +21,7 @@ services:
     build: .
     container_name: soleflip-api
     environment:
-      DATABASE_URL: postgresql://soleflip_user:soleflip_pass@postgres:5432/soleflip
+      DATABASE_URL: postgresql://soleflip_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/soleflip
       ENVIRONMENT: development
     ports:
       - "8000:8000"
@@ -41,7 +41,7 @@ services:
       MB_DB_DBNAME: metabase
       MB_DB_PORT: 5432
       MB_DB_USER: soleflip_user
-      MB_DB_PASS: soleflip_pass
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-changeme}
       MB_DB_HOST: postgres
     ports:
       - "3000:3000"

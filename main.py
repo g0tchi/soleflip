@@ -5,17 +5,15 @@ logging, and monitoring.
 """
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
+from contextlib import asynccontextmanager
 import pandas as pd
 import io
 import uvicorn
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func
 from datetime import datetime
-import uuid
 import os
 from dotenv import load_dotenv
 
@@ -35,8 +33,50 @@ def check_database_availability():
         return False
 
 DATABASE_AVAILABLE = check_database_availability()
-print(f"STARTUP: DATABASE_AVAILABLE = {DATABASE_AVAILABLE}")
-print(f"STARTUP: DATABASE_URL = {os.getenv('DATABASE_URL')}")
+
+# Lifespan event handler (replaces deprecated on_event)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup and shutdown events"""
+    # Startup
+    print("[STARTUP] SoleFlipper API starting up...")
+    print(f"[INFO] DATABASE_AVAILABLE = {DATABASE_AVAILABLE}")
+    print(f"[INFO] DATABASE_URL = {os.getenv('DATABASE_URL')}")
+    if DATABASE_AVAILABLE:
+        try:
+            from shared.database.connection import db_manager
+            await db_manager.initialize()
+            # Also run migrations to create tables
+            await db_manager.run_migrations()
+            print("[SUCCESS] Database connection initialized and tables created")
+        except Exception as e:
+            print(f"Warning: Database initialization failed: {e}")
+            print("Running in demo mode without database")
+    else:
+        print("Running in demo mode - database modules not available")
+    
+    # Load webhooks after database is ready
+    if DATABASE_AVAILABLE:
+        try:
+            from domains.integration.api.webhooks import webhook_router
+            app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integration"])
+            print("[SUCCESS] Integration webhooks loaded")
+        except ImportError as e:
+            print(f"Warning: Could not load webhook routers: {e}")
+    
+    yield  # Application runs here
+    
+    # Shutdown
+    print("[SHUTDOWN] SoleFlipper API shutting down...")
+    if DATABASE_AVAILABLE:
+        try:
+            from shared.database.connection import db_manager
+            await db_manager.close()
+            print("[SUCCESS] Database connections closed")
+        except Exception as e:
+            print(f"Warning: Database cleanup failed: {e}")
+        except:
+            pass
 
 # Response models
 class APIInfo(BaseModel):
@@ -58,34 +98,52 @@ class UploadResponse(BaseModel):
     imported: Optional[bool] = None
     batch_id: Optional[str] = None
 
-# Create FastAPI application
+# Create FastAPI application with lifespan handler
 app = FastAPI(
     title="SoleFlipper API",
     description="""
     ## Professional Sneaker Reselling Management System
     
-    Upload and manage your sneaker inventory from various marketplaces.
+    Upload and manage your sneaker inventory from various marketplaces with intelligent data processing.
     
     ### Supported Platforms
-    * **StockX** - CSV exports with sales data
-    * **GOAT** - Coming soon
-    * **eBay** - Coming soon
+    * **StockX** ✅ - CSV exports with complete sales data and fee breakdown
+    * **Alias (GOAT)** ✅ - GOAT's selling platform CSV reports with smart brand extraction
+    * **Notion** 🚧 - Database integration (in development)
+    * **eBay** 🔮 - Coming soon
+    * **Manual CSV** ✅ - Custom CSV formats for other platforms
     
-    ### Features  
-    * **File Validation** - Verify data before importing
-    * **Batch Processing** - Handle large datasets efficiently
-    * **Error Reporting** - Detailed validation feedback
+    ### Key Features  
+    * **Smart Data Processing** - Automatic brand extraction from product names
+    * **StockX Name Prioritization** - Prefers StockX product names for consistency
+    * **Multi-Format Support** - Handles different date formats (DD/MM/YY) and currencies
+    * **File Validation** - Comprehensive validation before importing
+    * **Batch Processing** - Handle large datasets efficiently in background
+    * **Error Reporting** - Detailed validation feedback with field-level errors
     * **Real-time Processing** - Instant upload and validation
+    * **Audit Trail** - Complete import history with source data preservation
     
     ### Getting Started
-    1. Go to **StockX Upload** endpoint below
-    2. Choose your CSV file
-    3. Enable validation to check format first
-    4. Import your data when ready
+    1. Choose your platform: **StockX Upload** or **Alias Upload** endpoints below
+    2. Upload your CSV file
+    3. Enable validation to check format first (recommended)
+    4. Import your data when validation passes
+    5. Monitor processing status via the import-status endpoints
+    
+    ### Recent Updates (v2.1.0)
+    * ✅ Added full Alias platform support with intelligent CSV processing
+    * ✅ Smart brand extraction from product names (50+ sneaker brands)
+    * ✅ StockX name prioritization for consistent product matching
+    * ✅ Enhanced size normalization (shoes vs. clothing detection)
+    * ✅ Multi-format date handling (DD/MM/YY, MM/DD/YY, ISO)
+    * ✅ Currency handling improvements (USD direct amounts)
+    * ✅ Comprehensive error handling and validation feedback
+    * ✅ Clean codebase organization and documentation
     """,
-    version="2.0.0",
+    version="2.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,  # Modern lifespan handler
     contact={
         "name": "SoleFlipper Support", 
         "email": "support@soleflip.com",
@@ -105,33 +163,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database connection on startup"""
-    if DATABASE_AVAILABLE:
-        try:
-            from shared.database.connection import db_manager
-            await db_manager.initialize()
-            # Also run migrations to create tables
-            await db_manager.run_migrations()
-            print("[SUCCESS] Database connection initialized and tables created")
-        except Exception as e:
-            print(f"Warning: Database initialization failed: {e}")
-            print("Running in demo mode without database")
-    else:
-        print("Running in demo mode - database modules not available")
-
-@app.on_event("shutdown") 
-async def shutdown_event():
-    """Close database connections on shutdown"""
-    if DATABASE_AVAILABLE:
-        try:
-            from shared.database.connection import db_manager
-            await db_manager.close()
-        except:
-            pass
-
 @app.get("/", response_model=APIInfo, tags=["System"])
 async def root():
     """
@@ -141,7 +172,7 @@ async def root():
     """
     return APIInfo(
         name="SoleFlipper API",
-        version="2.0.0",
+        version="2.1.0",
         status="running",
         docs="/docs",
         health="/health"
@@ -204,7 +235,7 @@ async def upload_page():
                     <input type="file" id="file" accept=".csv" required>
                 </div>
                 <div class="form-group">
-                    <label><input type="checkbox" id="validate_only" checked> Nur validieren</label>
+                    <label><input type="checkbox" id="validate_only"> Nur validieren</label>
                 </div>
                 <button type="submit">Upload</button>
             </form>
@@ -351,22 +382,15 @@ async def upload_stockx_file(
         actual_columns = list(df.columns)
         
         # Validate required columns for StockX historical seller report
-        required_columns = ['Item', 'Sku Size', 'Order Number', 'Sale Date', 'Listing Price', 'Seller Fee', 'Total Gross Amount (Total Payout)']
+        required_columns = ['Item', 'Order Number', 'Sale Date', 'Listing Price']
         df.columns = df.columns.str.strip()  # Remove whitespace
         
-        # Create a mapping for case-insensitive matching
-        column_mapping = {}
+        # Check for required columns (but don't rename - keep original structure)
+        missing_columns = []
         for req_col in required_columns:
-            found = False
-            for actual_col in df.columns:
-                if req_col.lower() == actual_col.lower():
-                    column_mapping[req_col] = actual_col
-                    found = True
-                    break
+            found = any(req_col.lower() == actual_col.lower() for actual_col in df.columns)
             if not found:
-                column_mapping[req_col] = None
-        
-        missing_columns = [col for col, mapped in column_mapping.items() if mapped is None]
+                missing_columns.append(req_col)
         
         if missing_columns:
             raise HTTPException(
@@ -374,20 +398,18 @@ async def upload_stockx_file(
                 detail=f"Missing required columns: {missing_columns}"
             )
         
-        # Use mapped column names for validation
-        mapped_df = df.rename(columns={v: k for k, v in column_mapping.items() if v is not None})
+        # Keep the original DataFrame structure - don't rename columns!
+        # This preserves important columns like 'Style' that the StockXValidator needs
+        mapped_df = df
         
-        # Basic validation
+        # Basic validation - use original column names
         validation_errors = []
         for idx, row in mapped_df.iterrows():
             if pd.isna(row.get('Order Number')) or str(row.get('Order Number')).strip() == '':
                 validation_errors.append(f"Row {idx + 2}: Missing Order Number")
             if pd.isna(row.get('Item')) or str(row.get('Item')).strip() == '':
                 validation_errors.append(f"Row {idx + 2}: Missing Item name")
-            # Size validation - allow empty/NaN for non-shoe items (books, accessories)
-            size_value = row.get('Sku Size')
-            # Only report as error if it's truly missing data, not intentionally empty for non-shoe items
-            # StockX leaves size empty (NaN) for books, accessories, etc. which is valid
+            # Note: We don't validate Style or Sku Size here - let the StockXValidator handle that
         
         if validation_errors and len(validation_errors) > 10:
             validation_errors = validation_errors[:10] + [f"... and {len(validation_errors) - 10} more errors"]
@@ -401,30 +423,42 @@ async def upload_stockx_file(
             if validation_errors:
                 raise HTTPException(status_code=400, detail="Cannot import file with validation errors")
             
-            # Always try database import
+            # Always try database import with automatic product creation
             try:
                 print(f"UPLOAD: Attempting database import for {len(df)} records")
-                from domains.integration.services.import_processor import ImportProcessor, SourceType
+                from domains.integration.services.import_processor import import_processor, SourceType
                 
-                processor = ImportProcessor()
-                records = mapped_df.to_dict('records')
+                # Save CSV data to temporary file for processing
+                import tempfile
+                import os
                 
-                import_result = await processor.process_import(
-                    source_type=SourceType.STOCKX,
-                    data=records,
-                    metadata={
-                        "filename": file.filename,
-                        "batch_size": batch_size
-                    }
-                )
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_file:
+                    mapped_df.to_csv(temp_file.name, index=False)
+                    temp_path = temp_file.name
                 
-                batch_id = import_result.batch_id
-                message = f"Successfully processed {import_result.processed_records} of {import_result.total_records} records (Batch: {batch_id[:8]}) - Database"
-                imported = True
-                print(f"SUCCESS: Database import completed - {import_result.processed_records}/{import_result.total_records} records")
-                
-                if import_result.error_records > 0:
-                    validation_errors.extend(import_result.validation_errors)
+                try:
+                    # Convert DataFrame to list of dicts (raw CSV data)
+                    raw_csv_data = mapped_df.to_dict('records')
+                    
+                    # Use process_import directly with raw CSV data preserved
+                    import_result = await import_processor.process_import(
+                        source_type=SourceType.STOCKX,
+                        data=raw_csv_data,  # Raw CSV data for validation
+                        metadata={'filename': file.filename, 'batch_size': batch_size},
+                        raw_data=raw_csv_data  # Keep original CSV structure
+                    )
+                    
+                    batch_id = import_result.batch_id
+                    message = f"Successfully processed {import_result.processed_records} of {import_result.total_records} records (Batch: {batch_id[:8]}) - Database + Products"
+                    imported = True
+                    print(f"SUCCESS: Complete import with product extraction - {import_result.processed_records}/{import_result.total_records} records")
+                    
+                    if import_result.error_records > 0:
+                        validation_errors.extend(import_result.validation_errors)
+                        
+                finally:
+                    # Clean up temporary file
+                    os.unlink(temp_path)
                     
             except Exception as e:
                 import traceback

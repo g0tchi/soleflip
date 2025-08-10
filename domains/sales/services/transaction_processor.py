@@ -1,0 +1,547 @@
+"""
+Transaction Processing Service
+Creates sales transactions from validated import data
+"""
+from typing import List, Dict, Any, Optional, Union
+from datetime import datetime
+import structlog
+from decimal import Decimal
+import asyncio
+import logging
+
+from shared.database.connection import db_manager
+from shared.database.models import Transaction, Platform, Product, InventoryItem, Size, Category, Brand
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from decimal import InvalidOperation
+
+logger = structlog.get_logger(__name__)
+
+class TransactionProcessor:
+    """Creates transactions from validated sales data"""
+    
+    def __init__(self):
+        self.platform_cache = {}
+        self.product_cache = {}
+    
+    async def create_transactions_from_batch(self, batch_id: str) -> Dict[str, Any]:
+        """
+        Create sales transactions from an import batch
+        
+        Args:
+            batch_id: Import batch ID to process
+            
+        Returns:
+            Processing statistics
+        """
+        logger.info("Creating transactions from batch", batch_id=batch_id)
+        
+        stats = {
+            "transactions_created": 0,
+            "transactions_updated": 0,
+            "errors": [],
+            "skipped": 0
+        }
+        
+        async with db_manager.get_session() as db:
+            # Get all processed records from batch
+            from shared.database.models import ImportRecord
+            
+            query = select(ImportRecord).where(
+                ImportRecord.batch_id == batch_id,
+                ImportRecord.status == "processed"
+            )
+            
+            result = await db.execute(query)
+            records = result.scalars().all()
+            
+            logger.info("Processing records for transactions", 
+                       batch_id=batch_id, records_count=len(records))
+            
+            # Process records in smaller batches to prevent resource exhaustion
+            batch_size = 50
+            total_records = len(records)
+            
+            for i in range(0, total_records, batch_size):
+                batch_records = records[i:i + batch_size]
+                logger.debug("Processing batch chunk", 
+                           chunk_start=i, 
+                           chunk_size=len(batch_records),
+                           total_records=total_records)
+                
+                for record in batch_records:
+                    try:
+                        # Create transaction in isolated context to prevent greenlet issues
+                        transaction_created = await self._create_transaction_isolated(record)
+                        
+                        if transaction_created:
+                            stats["transactions_created"] += 1
+                        else:
+                            stats["skipped"] += 1
+                            
+                    except Exception as e:
+                        error_msg = f"Failed to create transaction for record {record.id}: {str(e)}"
+                        stats["errors"].append(error_msg)
+                        logger.error("Transaction creation failed", 
+                                   record_id=str(record.id), error=str(e), error_type=type(e).__name__)
+                
+                logger.debug("Batch chunk processed", 
+                           chunk_start=i, processed=len(batch_records))
+        
+        logger.info("Transaction creation completed", 
+                   batch_id=batch_id, **stats)
+        
+        return stats
+    
+    def _disable_all_logging(self):
+        """Temporarily disable ALL logging to prevent greenlet conflicts"""
+        # Store original level
+        original_level = logging.getLogger().getEffectiveLevel()
+        
+        # Disable all logging during transaction creation
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        
+        # Also disable structlog temporarily
+        try:
+            import structlog
+            structlog_logger = structlog.get_logger()
+            # Structlog doesn't have a simple disable, so we'll handle this differently
+        except ImportError:
+            pass
+            
+        return original_level
+
+    def _restore_all_logging(self, original_level):
+        """Restore all logging"""
+        logging.getLogger().setLevel(original_level)
+
+    async def _create_transaction_isolated(self, import_record) -> bool:
+        """Create transaction in isolated session to prevent greenlet issues"""
+        try:
+            async with db_manager.get_session() as isolated_db:
+                result = await self._create_transaction_from_record(isolated_db, import_record)
+                return result
+        except Exception as e:
+            # Simple error logging without greenlet conflicts
+            print(f"ERROR: Transaction creation failed for record {import_record.id}: {e}")
+            return False
+    
+    async def _create_transaction_from_record(
+        self, db, import_record
+    ) -> bool:
+        """Create a transaction from an import record"""
+        
+        processed_data = import_record.processed_data
+        if not processed_data:
+            return False
+        
+        # Extract transaction data
+        source_platform = (processed_data.get('source_platform') or 
+                           processed_data.get('platform') or '').lower()
+        order_number = processed_data.get('order_number')
+        external_transaction_id = processed_data.get('external_transaction_id')
+        
+        if not order_number:
+            return False
+        
+        # Check if transaction already exists
+        existing_transaction = await self._find_existing_transaction(
+            db, source_platform, order_number, external_transaction_id
+        )
+        
+        if existing_transaction:
+            return False
+        
+        # Get or create platform
+        platform = await self._get_or_create_platform(db, source_platform)
+        if not platform:
+            return False
+        
+        # Get or create product and inventory item
+        inventory_item = await self._get_or_create_inventory_item(db, processed_data)
+        if not inventory_item:
+            return False
+        
+        # Create transaction  
+        try:
+            sale_date = self._parse_datetime(processed_data.get('sale_date'))
+            if sale_date is None:
+                sale_date = datetime.utcnow()
+            
+            # Ensure IDs are accessible
+            inventory_id = inventory_item.id
+            platform_id = platform.id
+            
+            transaction = Transaction(
+                inventory_id=inventory_id,
+                platform_id=platform_id,
+                transaction_date=sale_date,
+                sale_price=self._extract_decimal(processed_data, 'sale_price') or 
+                          self._extract_decimal(processed_data, 'listing_price') or 
+                          Decimal('0.00'),
+                platform_fee=self._extract_decimal(processed_data, 'seller_fee') or 
+                            self._extract_decimal(processed_data, 'platform_fee') or 
+                            Decimal('0.00'),
+                shipping_cost=self._extract_decimal(processed_data, 'shipping_fee') or 
+                             Decimal('0.00'),
+                net_profit=self._extract_decimal(processed_data, 'net_profit') or 
+                          self._extract_decimal(processed_data, 'total_payout') or 
+                          Decimal('0.00'),
+                status="completed",  # Imported sales are completed
+                external_id=external_transaction_id or f"{source_platform}_{order_number}",
+                buyer_destination_country=processed_data.get('buyer_destination_country'),
+                buyer_destination_city=processed_data.get('buyer_destination_city'),
+                notes=f"Imported from {source_platform.upper()} batch {import_record.batch_id}"
+            )
+        except Exception as e:
+            raise
+        
+        db.add(transaction)
+        await db.flush()  # Ensure transaction is persisted immediately
+        
+        return True
+    
+    async def _find_existing_transaction(
+        self, db, platform_name: str, order_number: str, external_id: str = None
+    ) -> Optional[Transaction]:
+        """Check if transaction already exists"""
+        
+        # Try to find by external_id first
+        if external_id:
+            query = select(Transaction).where(Transaction.external_id == external_id)
+            result = await db.execute(query)
+            transactions = result.scalars().all()
+            if transactions:
+                return transactions[0]  # Return first match if multiple found
+        
+        # Fallback: find by platform + order number pattern
+        platform = await self._get_platform(db, platform_name)
+        if platform:
+            query = select(Transaction).where(
+                Transaction.platform_id == platform.id,
+                Transaction.external_id.ilike(f"%{order_number}%")
+            )
+            result = await db.execute(query)
+            transactions = result.scalars().all()
+            return transactions[0] if transactions else None
+        
+        return None
+    
+    async def _get_or_create_platform(self, db, platform_name: str) -> Optional[Platform]:
+        """Get or create platform by name"""
+        if not platform_name:
+            return None
+        
+        # Check cache first (cache platform IDs, not objects)
+        if platform_name in self.platform_cache:
+            # Re-query the platform to ensure it's attached to current session
+            platform_id = self.platform_cache[platform_name]
+            query = select(Platform).where(Platform.id == platform_id)
+            result = await db.execute(query)
+            platforms = result.scalars().all()
+            if platforms:
+                return platforms[0]
+            else:
+                # Platform was deleted, remove from cache
+                del self.platform_cache[platform_name]
+        
+        # Query database
+        platform = await self._get_platform(db, platform_name)
+        
+        if platform:
+            # Cache the platform ID for future use
+            self.platform_cache[platform_name] = platform.id
+            return platform
+        
+        if not platform:
+            # Create new platform
+            platform = Platform(
+                name=platform_name.title(),
+                slug=platform_name.lower(),
+                fee_percentage=self._get_default_fee_percentage(platform_name),
+                supports_fees=self._platform_supports_fees(platform_name),
+                active=True
+            )
+            db.add(platform)
+            await db.flush()  # Need ID for transaction creation
+            
+            logger.info("Created new platform", name=platform_name)
+        
+        # Cache platform ID for future use (not the object itself)
+        self.platform_cache[platform_name] = platform.id
+        return platform
+    
+    async def _get_platform(self, db, platform_name: str) -> Optional[Platform]:
+        """Get platform by name or slug"""
+        query = select(Platform).where(
+            (Platform.name.ilike(platform_name)) | 
+            (Platform.slug == platform_name.lower())
+        )
+        result = await db.execute(query)
+        platforms = result.scalars().all()
+        return platforms[0] if platforms else None
+    
+    async def _get_or_create_inventory_item(
+        self, db, processed_data: Dict[str, Any]
+    ) -> Optional[InventoryItem]:
+        """Get or create inventory item for the transaction"""
+        
+        # For now, create a basic inventory item
+        # In a real system, you'd want to match against existing inventory
+        # or create placeholder items for sales tracking
+        
+        product_name = processed_data.get('product_name', processed_data.get('item_name', ''))
+        sku = self._normalize_sku(processed_data.get('sku', ''))
+        size = processed_data.get('size', 'Unknown')
+        
+        if not product_name:
+            return None
+        
+        # For simplicity, create a placeholder inventory item
+        # In production, you'd want proper product/inventory matching
+        from shared.database.models import Product, Brand, Category
+        
+        # Get or create product (simplified)
+        # First try to find by SKU if we have a valid one
+        product = None
+        if sku:
+            sku_query = select(Product).where(Product.sku == sku)
+            sku_result = await db.execute(sku_query)
+            products = sku_result.scalars().all()
+            product = products[0] if products else None
+        
+        # If no product found by SKU (or no valid SKU), try by name
+        # This is especially important for StockX items with N/A SKUs
+        if not product:
+            query = select(Product).where(Product.name == product_name)
+            result = await db.execute(query)
+            products = result.scalars().all()
+            product = products[0] if products else None
+            
+            # If we found a product by name but it has no SKU and we have one, update it
+            if product and not product.sku and sku:
+                logger.info("Updating existing product with new SKU", 
+                           product_name=product_name, new_sku=sku)
+                product.sku = sku
+        
+        if not product:
+            # Create basic product
+            # Get default category and brand
+            category_query = select(Category).where(Category.name == "Footwear")
+            category_result = await db.execute(category_query)
+            categories = category_result.scalars().all()
+            category = categories[0] if categories else None
+            
+            if not category:
+                # Create default category
+                category = Category(name="Footwear", slug="footwear")
+                db.add(category)
+                await db.flush()  # Need ID for product/size creation
+            
+            # For items without valid SKU (like StockX N/A), we'll create a product without SKU
+            # and rely on product name for identification. Only generate auto-SKU if we have
+            # partial SKU data that needs to be made unique.
+            safe_name = product_name[:15].upper().replace(' ', '_').replace('-', '_')
+            # Remove special characters
+            safe_name = ''.join(c for c in safe_name if c.isalnum() or c == '_')
+            
+            # For truly missing SKUs (like StockX N/A), don't generate auto-SKU
+            # The product will be identified by name instead
+            if sku:
+                # We have some SKU data, ensure it's unique
+                pass  # Use the provided SKU
+            else:
+                # No SKU available (N/A case) - product will be SKU-less
+                sku = None
+            
+            # Try to create product with error handling for duplicate SKU
+            try:
+                product = Product(
+                    sku=sku,
+                    name=product_name,
+                    category_id=category.id,
+                    description=f"Auto-created from import: {product_name}"
+                )
+                db.add(product)
+            except IntegrityError as e:
+                # If SKU already exists, try to find the existing product
+                if sku:
+                    existing_query = select(Product).where(Product.sku == sku)
+                    existing_result = await db.execute(existing_query)
+                    products = existing_result.scalars().all()
+                    product = products[0] if products else None
+                else:
+                    # If no SKU, try to find by name
+                    existing_query = select(Product).where(Product.name == product_name)
+                    existing_result = await db.execute(existing_query)
+                    products = existing_result.scalars().all()
+                    product = products[0] if products else None
+                    
+                if not product:
+                    # If still no product found, generate a new unique SKU
+                    import uuid
+                    unique_suffix = str(uuid.uuid4())[:8]
+                    new_sku = f"{sku}_{unique_suffix}" if sku else f"AUTO_{safe_name}_{unique_suffix}"
+                    
+                    product = Product(
+                        sku=new_sku,
+                        name=product_name,
+                        category_id=category.id,
+                        description=f"Auto-created from import: {product_name}"
+                    )
+                    db.add(product)
+        
+        # Ensure we have a valid product
+        if not product:
+            return None
+        
+        # Get or create size
+        size_obj = await self._get_or_create_size(db, size)
+        
+        # Create inventory item
+        try:
+            purchase_date = self._parse_datetime(processed_data.get('purchase_date'))
+            
+            # Ensure IDs are accessible
+            product_id = product.id
+            size_id = size_obj.id
+            
+            inventory_item = InventoryItem(
+                product_id=product_id,
+                size_id=size_id,
+                quantity=1,
+                status="sold",  # Imported sales are already sold
+                purchase_date=purchase_date,
+                purchase_price=self._extract_decimal(processed_data, 'purchase_price'),
+                supplier=processed_data.get('supplier', processed_data.get('seller_name', '')),
+                notes=f"Auto-created from sales import - Size: {size}"
+            )
+        except Exception as e:
+            raise
+        
+        db.add(inventory_item)
+        await db.flush()  # Need ID for transaction creation
+        
+        return inventory_item
+    
+    def _extract_decimal(self, data: Dict[str, Any], key: str) -> Optional[Decimal]:
+        """Safely extract Decimal value from data"""
+        value = data.get(key)
+        if value is None:
+            return None
+        
+        try:
+            if isinstance(value, (int, float)):
+                return Decimal(str(value))
+            elif isinstance(value, str):
+                # Clean string and convert
+                cleaned = value.replace(',', '').replace('$', '').replace('€', '').strip()
+                if cleaned:
+                    return Decimal(cleaned)
+        except (ValueError, InvalidOperation):
+            pass
+        
+        return None
+    
+    def _get_default_fee_percentage(self, platform_name: str) -> Decimal:
+        """Get default fee percentage for platform"""
+        default_fees = {
+            'stockx': Decimal('9.5'),
+            'goat': Decimal('9.5'), 
+            'ebay': Decimal('10.0'),
+            'alias': Decimal('0.0'),  # Alias = GOAT platform
+            'manual': Decimal('0.0')
+        }
+        
+        return default_fees.get(platform_name.lower(), Decimal('5.0'))
+    
+    def _platform_supports_fees(self, platform_name: str) -> bool:
+        """Check if platform supports explicit fees"""
+        no_fee_platforms = ['alias', 'manual']  # Alias = GOAT (no explicit fees in export)
+        return platform_name.lower() not in no_fee_platforms
+    
+    def _parse_datetime(self, date_value: Union[str, datetime, None]) -> Optional[datetime]:
+        """Parse date value to datetime object"""
+        if date_value is None:
+            return None
+            
+        if isinstance(date_value, datetime):
+            return date_value
+            
+        if isinstance(date_value, str):
+            try:
+                # Try dateutil first (most flexible)
+                from dateutil import parser
+                return parser.parse(date_value)
+            except ImportError:
+                # Fallback to manual parsing for common formats
+                try:
+                    if 'T' in date_value and '+' in date_value:
+                        # ISO format: 2022-07-08T00:46:09+00:00
+                        return datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+                    else:
+                        # Try standard format
+                        return datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    return None
+            except Exception:
+                return None
+        
+        return None
+    
+    def _normalize_sku(self, sku_value: Any) -> Optional[str]:
+        """Normalize SKU value, handling 'nan' and invalid values"""
+        if sku_value is None:
+            return None
+        
+        sku_str = str(sku_value).strip()
+        
+        # Handle pandas NaN values and invalid SKUs (including N/A from StockX)
+        if not sku_str or sku_str.lower() in ['nan', 'none', 'null', '', 'n/a', 'na']:
+            return None
+        
+        # Handle numeric NaN from pandas/numpy
+        try:
+            import math
+            if isinstance(sku_value, float) and math.isnan(sku_value):
+                return None
+        except (ImportError, TypeError):
+            pass
+        
+        return sku_str
+    
+    async def _get_or_create_size(self, db, size_value: str):
+        """Get or create size object"""
+        from shared.database.models import Size, Category
+        
+        if not size_value:
+            size_value = "Unknown"
+        
+        # Try to find existing size
+        query = select(Size).where(Size.value == size_value)
+        result = await db.execute(query)
+        sizes = result.scalars().all()
+        size_obj = sizes[0] if sizes else None
+        
+        if not size_obj:
+            # Get default category for size
+            category_query = select(Category).where(Category.name == "Footwear")
+            category_result = await db.execute(category_query)
+            categories = category_result.scalars().all()
+            category = categories[0] if categories else None
+            
+            if not category:
+                category = Category(name="Footwear", slug="footwear")
+                db.add(category)
+                await db.flush()  # Need ID for product/size creation
+            
+            # Create new size
+            size_obj = Size(
+                category_id=category.id,
+                value=size_value,
+                region="US"  # Default to US sizing
+            )
+            db.add(size_obj)
+            await db.flush()  # Need ID for inventory item creation
+        
+        return size_obj

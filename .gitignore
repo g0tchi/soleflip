@@ -39,3 +39,13 @@ test_single_date.csv
 # Temporary files
 *.tmp
 *.temp
+
+# Security - NEVER commit these files
+.env.local
+.env.production
+docker-compose.override.yml
+config/secrets.json
+*.key
+*.pem
+*.p12
+*.pfx
