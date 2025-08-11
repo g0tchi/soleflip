@@ -104,7 +104,7 @@ class StockXImportRequest(BaseModel):
     from_date: date
     to_date: date
 
-@webhook_router.post("/stockx/import-orders", tags=["StockX"])
+@webhook_router.post("/stockx/import-orders", tags=["StockX Integration"])
 async def stockx_import_orders_webhook(
     request: StockXImportRequest,
     background_tasks: BackgroundTasks,
@@ -135,21 +135,14 @@ async def stockx_import_orders_webhook(
 
             logger.info(f"Fetched {len(orders_data)} orders from StockX. Starting import process.")
             # 2. Process data using the existing import processor
-            # We use process_import because we have structured data, not a file
             await import_processor.process_import(
                 source_type=SourceType.STOCKX,
                 data=orders_data,
-                raw_data=orders_data, # Pass raw data for accurate record keeping
+                raw_data=orders_data,
                 metadata={"filename": f"stockx_api_import_{request.from_date}_to_{request.to_date}.json"}
             )
             logger.info("Background task finished: Import processing complete.")
 
-        except ValueError as e:
-            # Specific handling for configuration errors (e.g., missing credentials)
-            logger.error(
-                "StockX API import failed due to configuration error",
-                error=str(e),
-            )
         except Exception as e:
             # General error handling for the background task
             logger.error(

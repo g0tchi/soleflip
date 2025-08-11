@@ -1,9 +1,9 @@
 import httpx
 import asyncio
 import structlog
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import select
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
@@ -11,65 +11,122 @@ from shared.database.models import SystemConfig
 logger = structlog.get_logger(__name__)
 
 STOCKX_API_BASE_URL = "https://api.stockx.com/v2"
+STOCKX_AUTH_URL = "https://accounts.stockx.com/oauth/token"
 
 class StockXCredentials:
-    """A simple data class for holding StockX credentials."""
-    def __init__(self, api_key: str, jwt_token: str):
+    """A data class for holding all necessary StockX credentials."""
+    def __init__(self, client_id: str, client_secret: str, refresh_token: str, api_key: str):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.refresh_token = refresh_token
         self.api_key = api_key
-        self.jwt_token = jwt_token
 
 class StockXService:
     """
-    A service to interact with the StockX Public API.
-    Handles credential management, API requests, pagination, and error handling.
+    A service to interact with the StockX Public API, handling the OAuth2 refresh token flow.
     """
+    def __init__(self):
+        self._access_token: Optional[str] = None
+        self._token_expiry: Optional[datetime] = None
+        self._credentials: Optional[StockXCredentials] = None
+        self._lock = asyncio.Lock()
 
-    async def _get_credentials(self) -> StockXCredentials:
+    async def _load_credentials(self) -> StockXCredentials:
         """
-        Fetches StockX API credentials from the database.
+        Fetches StockX API credentials from the database. Caches them in memory.
         """
-        logger.info("Fetching StockX credentials from database...")
+        if self._credentials:
+            return self._credentials
+
+        logger.info("Loading StockX credentials from database for the first time.")
         async with db_manager.get_session() as session:
-            # Fetch API Key
-            api_key_result = await session.execute(
-                select(SystemConfig).where(SystemConfig.key == "stockx_api_key")
+            keys = ["stockx_client_id", "stockx_client_secret", "stockx_refresh_token", "stockx_api_key"]
+            results = await session.execute(
+                select(SystemConfig).where(SystemConfig.key.in_(keys))
             )
-            api_key_config = api_key_result.scalar_one_or_none()
-            if not api_key_config:
-                logger.error("StockX API key not found in system_config table.")
-                raise ValueError("StockX API key ('stockx_api_key') is not configured in the database.")
+            configs = {row.key: row.get_value() for row in results.scalars()}
 
-            # Fetch JWT
-            jwt_result = await session.execute(
-                select(SystemConfig).where(SystemConfig.key == "stockx_jwt_token")
-            )
-            jwt_config = jwt_result.scalar_one_or_none()
-            if not jwt_config:
-                logger.error("StockX JWT token not found in system_config table.")
-                raise ValueError("StockX JWT token ('stockx_jwt_token') is not configured in the database.")
+            for key in keys:
+                if key not in configs:
+                    raise ValueError(f"Missing required StockX credential in system_config: {key}")
 
-            credentials = StockXCredentials(
-                api_key=api_key_config.get_value(),
-                jwt_token=jwt_config.get_value()
+            self._credentials = StockXCredentials(
+                client_id=configs["stockx_client_id"],
+                client_secret=configs["stockx_client_secret"],
+                refresh_token=configs["stockx_refresh_token"],
+                api_key=configs["stockx_api_key"]
             )
-            logger.info("Successfully fetched StockX credentials.")
-            return credentials
+            return self._credentials
+
+    async def _refresh_access_token(self) -> None:
+        """
+        Uses the refresh token to get a new access token from StockX Auth service.
+        """
+        creds = await self._load_credentials()
+        logger.info("Attempting to refresh StockX access token.")
+
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "refresh_token": creds.refresh_token,
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(STOCKX_AUTH_URL, data=payload)
+                response.raise_for_status()
+                token_data = response.json()
+
+                self._access_token = token_data["access_token"]
+                # Set expiry with a 60-second buffer for safety
+                expires_in = token_data.get("expires_in", 3600) - 60
+                self._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+                logger.info("Successfully refreshed StockX access token.", expires_at=self._token_expiry)
+
+            except httpx.HTTPStatusError as e:
+                logger.error(
+                    "Failed to refresh StockX access token",
+                    status_code=e.response.status_code,
+                    response=e.response.text
+                )
+                # If refresh fails, credentials might be bad. Clear local cache.
+                self._access_token = None
+                self._token_expiry = None
+                raise Exception("Could not refresh StockX access token. Please check your credentials.") from e
+
+    async def _get_valid_access_token(self) -> str:
+        """
+        Ensures a valid, non-expired access token is available, refreshing if necessary.
+        This method is thread-safe using an async lock.
+        """
+        async with self._lock:
+            if self._access_token and self._token_expiry and self._token_expiry > datetime.now(timezone.utc):
+                return self._access_token
+
+            # If token is missing or expired, refresh it
+            await self._refresh_access_token()
+            if not self._access_token:
+                 raise Exception("Failed to obtain a valid access token.")
+            return self._access_token
 
     async def get_historical_orders(self, from_date: date, to_date: date) -> List[Dict[str, Any]]:
         """
-        Fetches all historical orders within a given date range, handling pagination.
+        Fetches all historical orders within a given date range, handling authentication and pagination.
         """
-        creds = await self._get_credentials()
-        all_orders = []
-        page = 1
+        access_token = await self._get_valid_access_token()
+        api_key = (await self._load_credentials()).api_key
 
         headers = {
-            "x-api-key": creds.api_key,
-            "Authorization": f"Bearer {creds.jwt_token}",
+            "x-api-key": api_key,
+            "Authorization": f"Bearer {access_token}",
             "User-Agent": "SoleFlipperApp/1.0"
         }
 
-        logger.info("Starting to fetch historical orders from StockX", from_date=from_date, to_date=to_date)
+        all_orders = []
+        page = 1
+        logger.info("Starting to fetch historical orders from StockX API.", from_date=from_date, to_date=to_date)
 
         async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
             while True:
@@ -77,49 +134,41 @@ class StockXService:
                     "fromDate": from_date.isoformat(),
                     "toDate": to_date.isoformat(),
                     "pageNumber": page,
-                    "pageSize": 100  # Max page size as per docs
+                    "pageSize": 100
                 }
 
                 try:
-                    response = await client.get(
-                        "/selling/orders/history",
-                        params=params,
-                        headers=headers,
-                        timeout=30.0
-                    )
-                    response.raise_for_status()  # Raises HTTPError for 4xx/5xx responses
+                    response = await client.get("/selling/orders/history", params=params, headers=headers, timeout=30.0)
+
+                    if response.status_code == 401:
+                        logger.warning("Received 401 Unauthorized. Access token might have expired. Retrying after refresh.")
+                        access_token = await self._get_valid_access_token() # Force refresh
+                        headers["Authorization"] = f"Bearer {access_token}"
+                        response = await client.get("/selling/orders/history", params=params, headers=headers, timeout=30.0)
+
+                    response.raise_for_status()
 
                     data = response.json()
                     orders = data.get("orders", [])
                     all_orders.extend(orders)
 
-                    logger.info(
-                        "Fetched StockX orders page",
-                        page=page,
-                        count=len(orders)
-                    )
+                    logger.info("Fetched StockX orders page", page=page, count=len(orders))
 
                     if not data.get("hasNextPage") or not orders:
-                        break  # Exit loop if no more pages or no orders on current page
+                        break
 
                     page += 1
-                    await asyncio.sleep(1)  # Be a good API citizen, avoid hitting rate limits
+                    await asyncio.sleep(1)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(
-                        "HTTP error fetching StockX orders",
-                        status_code=e.response.status_code,
-                        response_body=e.response.text,
-                        page=page
-                    )
-                    # Re-raise the exception to be handled by the caller (e.g., the API endpoint)
+                    logger.error("HTTP error fetching StockX orders", status_code=e.response.status_code, response=e.response.text)
                     raise
                 except httpx.RequestError as e:
-                    logger.error("Request error fetching StockX orders", error=str(e), page=page)
+                    logger.error("Request error fetching StockX orders", error=str(e))
                     raise
 
-        logger.info("Finished fetching all StockX orders", total_orders=len(all_orders), from_date=from_date, to_date=to_date)
+        logger.info("Finished fetching all StockX orders.", total_orders=len(all_orders))
         return all_orders
 
-# Singleton instance for easy import and use in other parts of the application
+# Singleton instance
 stockx_service = StockXService()

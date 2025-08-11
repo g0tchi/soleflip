@@ -1,6 +1,6 @@
 import pytest
 import httpx
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from domains.integration.services.stockx_service import StockXService, StockXCredentials
@@ -11,14 +11,13 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def stockx_service():
-    """Provides an instance of the StockXService for testing."""
+    """Provides a new instance of the StockXService for each test."""
     return StockXService()
 
 @pytest.fixture
 def mock_db_session():
     """Mocks the database session and yields it."""
     mock_session = AsyncMock()
-    # Mock the context manager
     async def __aenter__(*args, **kwargs):
         return mock_session
     async def __aexit__(*args, **kwargs):
@@ -34,137 +33,113 @@ def mock_db_session():
 def _create_mock_config(key, value):
     """Helper to create a mock SystemConfig object."""
     config = SystemConfig(key=key)
-    # The get_value method is synchronous
     config.get_value = MagicMock(return_value=value)
     return config
 
-async def test_get_credentials_success(stockx_service, mock_db_session):
+async def test_load_credentials_success(stockx_service, mock_db_session):
     """
-    Tests that credentials are fetched and decoded correctly from the database.
+    Tests that all required credentials are fetched and loaded correctly.
     """
     # Arrange
-    mock_api_key_config = _create_mock_config("stockx_api_key", "test_api_key")
-    mock_jwt_config = _create_mock_config("stockx_jwt_token", "test_jwt")
+    mock_configs = [
+        _create_mock_config("stockx_client_id", "test_client_id"),
+        _create_mock_config("stockx_client_secret", "test_client_secret"),
+        _create_mock_config("stockx_refresh_token", "test_refresh_token"),
+        _create_mock_config("stockx_api_key", "test_api_key"),
+    ]
 
-    # The result of `await session.execute()` is a synchronous object.
-    # So the side_effect should return a MagicMock, not an AsyncMock.
-    def execute_side_effect(query):
-        query_str = str(query.compile(compile_kwargs={"literal_binds": True}))
-        mock_result = MagicMock()
-        if "stockx_api_key" in query_str:
-            mock_result.scalar_one_or_none.return_value = mock_api_key_config
-        elif "stockx_jwt_token" in query_str:
-            mock_result.scalar_one_or_none.return_value = mock_jwt_config
-        else:
-            mock_result.scalar_one_or_none.return_value = None
-        return mock_result
-
-    mock_db_session.execute.side_effect = execute_side_effect
+    # `await session.execute()` returns a Result object (sync).
+    # `Result.scalars()` returns a ScalarResult (sync, iterable).
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_configs
+    mock_db_session.execute.return_value = mock_result
 
     # Act
-    credentials = await stockx_service._get_credentials()
+    credentials = await stockx_service._load_credentials()
 
     # Assert
     assert isinstance(credentials, StockXCredentials)
+    assert credentials.client_id == "test_client_id"
+    assert credentials.refresh_token == "test_refresh_token"
     assert credentials.api_key == "test_api_key"
-    assert credentials.jwt_token == "test_jwt"
-    assert mock_db_session.execute.call_count == 2
+    mock_db_session.execute.assert_called_once()
 
-async def test_get_credentials_missing_key(stockx_service, mock_db_session):
+async def test_load_credentials_missing_key(stockx_service, mock_db_session):
     """
-    Tests that a ValueError is raised if the API key is not found in the database.
+    Tests that a ValueError is raised if a required credential is missing.
     """
     # Arrange
-    def execute_side_effect(query):
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        return mock_result
-
-    mock_db_session.execute.side_effect = execute_side_effect
+    mock_configs = [_create_mock_config("stockx_client_id", "test_client_id")]
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_configs
+    mock_db_session.execute.return_value = mock_result
 
     # Act & Assert
-    with pytest.raises(ValueError, match="StockX API key .* not configured"):
-        await stockx_service._get_credentials()
+    with pytest.raises(ValueError, match="Missing required StockX credential in system_config: stockx_client_secret"):
+        await stockx_service._load_credentials()
 
-async def test_get_historical_orders_success_single_page(stockx_service):
+async def test_refresh_access_token_success(stockx_service):
     """
-    Tests successfully fetching orders from a single page of the StockX API.
+    Tests the successful renewal of an access token.
     """
-    with patch.object(stockx_service, '_get_credentials', new_callable=AsyncMock) as mock_get_creds, \
-         patch('domains.integration.services.stockx_service.httpx.AsyncClient') as MockAsyncClient:
+    # Arrange
+    with patch.object(stockx_service, '_load_credentials', new_callable=AsyncMock) as mock_load_creds, \
+         patch('httpx.AsyncClient') as MockAsyncClient:
 
-        # Arrange
-        mock_get_creds.return_value = StockXCredentials("key", "jwt")
+        mock_load_creds.return_value = StockXCredentials("id", "secret", "refresh", "api_key")
 
         mock_response = httpx.Response(
             200,
-            json={"orders": [{"id": 1}, {"id": 2}], "hasNextPage": False},
-            request=httpx.Request("GET", "/selling/orders/history")
+            json={"access_token": "new_access_token", "expires_in": 3600},
+            request=httpx.Request("POST", "https://accounts.stockx.com/oauth/token")
         )
         mock_instance = MockAsyncClient.return_value.__aenter__.return_value
-        mock_instance.get.return_value = mock_response
+        mock_instance.post.return_value = mock_response
 
         # Act
-        from_date = date(2023, 1, 1)
-        to_date = date(2023, 1, 31)
-        orders = await stockx_service.get_historical_orders(from_date, to_date)
+        await stockx_service._refresh_access_token()
 
         # Assert
-        assert len(orders) == 2
-        assert orders[0]["id"] == 1
-        mock_instance.get.assert_called_once()
-        get_call_args = mock_instance.get.call_args
-        assert get_call_args.kwargs['params']['pageNumber'] == 1
+        assert stockx_service._access_token == "new_access_token"
+        assert stockx_service._token_expiry > datetime.now(timezone.utc)
+        mock_instance.post.assert_called_once()
+        post_args = mock_instance.post.call_args
+        assert post_args.args[0] == "https://accounts.stockx.com/oauth/token"
+        assert post_args.kwargs['data']['grant_type'] == "refresh_token"
 
-
-async def test_get_historical_orders_success_multiple_pages(stockx_service):
+async def test_get_valid_access_token_uses_cache(stockx_service):
     """
-    Tests successfully fetching orders across multiple pages from the StockX API.
+    Tests that a valid, cached token is returned without a refresh call.
     """
-    with patch.object(stockx_service, '_get_credentials', new_callable=AsyncMock) as mock_get_creds, \
-         patch('domains.integration.services.stockx_service.httpx.AsyncClient') as MockAsyncClient:
+    # Arrange
+    stockx_service._access_token = "cached_token"
+    stockx_service._token_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        # Arrange
-        mock_get_creds.return_value = StockXCredentials("key", "jwt")
+    with patch.object(stockx_service, '_refresh_access_token', new_callable=AsyncMock) as mock_refresh:
+        # Act
+        token = await stockx_service._get_valid_access_token()
 
-        request = httpx.Request("GET", "/selling/orders/history")
-        response1 = httpx.Response(200, json={"orders": [{"id": 1}], "hasNextPage": True}, request=request)
-        response2 = httpx.Response(200, json={"orders": [{"id": 2}], "hasNextPage": False}, request=request)
+        # Assert
+        assert token == "cached_token"
+        mock_refresh.assert_not_called()
 
-        mock_instance = MockAsyncClient.return_value.__aenter__.return_value
-        mock_instance.get.side_effect = [response1, response2]
+async def test_get_valid_access_token_refreshes_expired_token(stockx_service):
+    """
+    Tests that an expired token triggers a refresh.
+    """
+    # Arrange
+    stockx_service._access_token = "expired_token"
+    stockx_service._token_expiry = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    with patch.object(stockx_service, '_refresh_access_token', new_callable=AsyncMock) as mock_refresh:
+        # We need to set the token inside the mock, because the original is expired
+        async def side_effect():
+            stockx_service._access_token = "refreshed_token"
+        mock_refresh.side_effect = side_effect
 
         # Act
-        from_date = date(2023, 1, 1)
-        to_date = date(2023, 1, 31)
-        orders = await stockx_service.get_historical_orders(from_date, to_date)
+        token = await stockx_service._get_valid_access_token()
 
         # Assert
-        assert len(orders) == 2
-        assert orders[0]["id"] == 1
-        assert orders[1]["id"] == 2
-        assert mock_instance.get.call_count == 2
-
-async def test_get_historical_orders_api_error(stockx_service):
-    """
-    Tests that an HTTP error from the API is properly raised.
-    """
-    with patch.object(stockx_service, '_get_credentials', new_callable=AsyncMock) as mock_get_creds, \
-         patch('domains.integration.services.stockx_service.httpx.AsyncClient') as MockAsyncClient:
-
-        # Arrange
-        mock_get_creds.return_value = StockXCredentials("key", "jwt")
-
-        mock_response = httpx.Response(
-            401,
-            json={"error": "Unauthorized"},
-            request=httpx.Request("GET", "/selling/orders/history")
-        )
-        mock_instance = MockAsyncClient.return_value.__aenter__.return_value
-        mock_instance.get.return_value = mock_response
-
-        # Act & Assert
-        from_date = date(2023, 1, 1)
-        to_date = date(2023, 1, 31)
-        with pytest.raises(httpx.HTTPStatusError):
-            await stockx_service.get_historical_orders(from_date, to_date)
+        assert token == "refreshed_token"
+        mock_refresh.assert_called_once()

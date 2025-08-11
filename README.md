@@ -113,7 +113,7 @@ soleflip/
 - **Real-time Analytics** - Live transaction and inventory tracking
 
 ### 🔄 Data Processing
-- **Direct API Imports** - Automated, scheduled fetching of orders from the StockX API.
+- **Direct API Imports** - Automated, scheduled fetching of orders from the StockX API with OAuth2 support.
 - **Automated Imports (Legacy)** - CSV processing with validation and transformation.
 - **N8N Integration** - Workflow automation for data synchronization.
 - **Duplicate Detection** - Intelligent duplicate identification and removal
@@ -211,29 +211,36 @@ cp docker-compose.override.yml.example docker-compose.override.yml
 - **Metabase Analytics**: Import dashboards from `docs/completed_tasks/`.
 - **API Integration**: Setup webhook endpoints for external platforms.
 
-### StockX API Integration (Automated Imports)
-The recommended way to import StockX data is via the direct API integration. This allows for automated, daily fetching of your sales data without manual CSV exports.
+### StockX API Integration (OAuth2 Setup)
+The recommended way to import StockX data is via the direct API integration. This requires a **one-time manual setup** to authorize the application.
 
-**1. Set Encryption Key:**
-The application uses strong encryption to protect your API credentials in the database. You **must** set an encryption key as an environment variable.
+**1. Set Application Encryption Key:**
+The application uses strong encryption to protect your API credentials. You **must** set this key as an environment variable before running the application.
 
 ```bash
 # Set this in your .env file or your production environment
 export FIELD_ENCRYPTION_KEY='your-strong-random-32-byte-key'
 ```
-You can generate a new key using Python: `from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())`
+> You can generate a new key using Python:
+> `from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())`
 
-**2. Configure Credentials in Database:**
-Once the application is running, you need to add your StockX API credentials to the `core.system_config` table. The application must be restarted after setting credentials for the service to pick them up.
+**2. Get Initial Credentials from StockX:**
+Follow the detailed setup guide to get your initial `refresh_token` and other credentials from the StockX developer portal. This process involves creating an app on StockX, authorizing it in your browser, and using a helper script to get your token.
+> **Full Guide:** [`docs/guides/stockx_auth_setup.md`](docs/guides/stockx_auth_setup.md)
 
--   **`stockx_api_key`**: Your StockX-provided API key.
--   **`stockx_jwt_token`**: Your StockX-provided JWT token.
+**3. Store Credentials in Database:**
+After completing the setup guide, you will have four credentials. These must be stored in the `core.system_config` table for the service to use them.
 
-You can insert these using a SQL client or a database management tool.
-**Important**: The application's model layer expects to do the encryption. For manual insertion via SQL, you would need to handle encryption yourself. A helper script to set these values securely is recommended for production environments.
+| key                    | value_encrypted                               |
+| ---------------------- | --------------------------------------------- |
+| `stockx_client_id`     | *Your Client ID from StockX*                  |
+| `stockx_client_secret` | *Your Client Secret from StockX*              |
+| `stockx_refresh_token` | *Your Refresh Token from the helper script*   |
+| `stockx_api_key`       | *Your general API Key from StockX*            |
 
-**3. Automate with n8n:**
-Follow the guide in [`docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md`](docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md) to set up a workflow that calls the API import endpoint on a daily schedule.
+**4. Automate with n8n:**
+Once configured, you can automate the import process using the simple n8n workflow described in our guide.
+> **n8n Guide:** [`docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md`](docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md)
 
 ## 📊 Analytics & Dashboards
 

@@ -74,22 +74,20 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with database connection"""
-
-    is_sqlite = connection.dialect.name == 'sqlite'
-
     context.configure(
         connection=connection, 
         target_metadata=target_metadata,
-        # Include schema support only for non-SQLite databases
-        include_schemas=not is_sqlite,
-        version_table_schema="public" if not is_sqlite else None,
-        # Schema creation strategy (only for non-SQLite)
-        # This ensures we don't try to create schemas in SQLite
+        # Include schema support
+        include_schemas=True,
+        version_table_schema="public",
+        # Schema creation strategy
         include_name=lambda name, type_, parent_names: (
-            (type_ == "schema" and name in [
+            # Include all schemas we need
+            type_ == "schema" and name in [
                 "core", "products", "sales", "integration", "analytics", "logging"
-            ]) if not is_sqlite else False
+            ]
         ) or (
+            # Include all other objects
             type_ != "schema"
         )
     )
