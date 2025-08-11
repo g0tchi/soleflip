@@ -115,6 +115,17 @@ class StockXService:
         """
         Fetches all historical orders within a given date range, handling authentication and pagination.
         """
+        logger.info("Fetching historical orders from StockX API.", from_date=from_date, to_date=to_date)
+        params = {
+            "fromDate": from_date.isoformat(),
+            "toDate": to_date.isoformat(),
+        }
+        return await self._make_paginated_get_request("/selling/orders/history", params)
+
+    async def _make_paginated_get_request(self, endpoint: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        A generic helper to make paginated GET requests to the StockX API.
+        """
         access_token = await self._get_valid_access_token()
         api_key = (await self._load_credentials()).api_key
 
@@ -124,51 +135,62 @@ class StockXService:
             "User-Agent": "SoleFlipperApp/1.0"
         }
 
-        all_orders = []
+        all_items = []
         page = 1
-        logger.info("Starting to fetch historical orders from StockX API.", from_date=from_date, to_date=to_date)
 
         async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
             while True:
-                params = {
-                    "fromDate": from_date.isoformat(),
-                    "toDate": to_date.isoformat(),
-                    "pageNumber": page,
-                    "pageSize": 100
-                }
+                # Add pagination params to the request
+                request_params = params.copy()
+                request_params["pageNumber"] = page
+                request_params["pageSize"] = 100
 
                 try:
-                    response = await client.get("/selling/orders/history", params=params, headers=headers, timeout=30.0)
+                    response = await client.get(endpoint, params=request_params, headers=headers, timeout=30.0)
 
                     if response.status_code == 401:
-                        logger.warning("Received 401 Unauthorized. Access token might have expired. Retrying after refresh.")
+                        logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
                         access_token = await self._get_valid_access_token() # Force refresh
                         headers["Authorization"] = f"Bearer {access_token}"
-                        response = await client.get("/selling/orders/history", params=params, headers=headers, timeout=30.0)
+                        response = await client.get(endpoint, params=request_params, headers=headers, timeout=30.0)
 
                     response.raise_for_status()
 
                     data = response.json()
-                    orders = data.get("orders", [])
-                    all_orders.extend(orders)
+                    # The API uses the key "orders" for both active and historical orders
+                    items = data.get("orders", [])
+                    all_items.extend(items)
 
-                    logger.info("Fetched StockX orders page", page=page, count=len(orders))
+                    logger.info(f"Fetched page from {endpoint}", page=page, count=len(items))
 
-                    if not data.get("hasNextPage") or not orders:
+                    if not data.get("hasNextPage") or not items:
                         break
 
                     page += 1
                     await asyncio.sleep(1)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error("HTTP error fetching StockX orders", status_code=e.response.status_code, response=e.response.text)
+                    logger.error(f"HTTP error on {endpoint}", status_code=e.response.status_code, response=e.response.text)
                     raise
                 except httpx.RequestError as e:
-                    logger.error("Request error fetching StockX orders", error=str(e))
+                    logger.error(f"Request error on {endpoint}", error=str(e))
                     raise
 
-        logger.info("Finished fetching all StockX orders.", total_orders=len(all_orders))
-        return all_orders
+        logger.info(f"Finished fetching all items from {endpoint}", total_items=len(all_items))
+        return all_items
+
+    async def get_active_orders(self, **kwargs) -> List[Dict[str, Any]]:
+        """
+        Fetches all active orders, handling authentication and pagination.
+        Accepts any valid query parameters for the /selling/orders/active endpoint.
+        """
+        logger.info("Fetching active orders from StockX API.", filters=kwargs)
+
+        # Filter out None values so they aren't sent as query params
+        params = {key: value for key, value in kwargs.items() if value is not None}
+
+        return await self._make_paginated_get_request("/selling/orders/active", params)
+
 
 # Singleton instance
 stockx_service = StockXService()

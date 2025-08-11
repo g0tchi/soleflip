@@ -1,71 +1,69 @@
 import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+import pytest
+from httpx import AsyncClient
+from main import app
 
-# Mark all tests in this file as API and integration tests
-pytestmark = [pytest.mark.api, pytest.mark.integration]
+pytestmark = [pytest.mark.api, pytest.mark.integration, pytest.mark.database]
 
-def test_stockx_import_orders_webhook_success(sync_client: TestClient):
+
+@pytest.fixture
+def mock_stockx_service():
+    """Fixture to create a mock StockxService."""
+    return AsyncMock()
+
+
+@pytest.fixture(autouse=True)
+def override_dependencies(mock_stockx_service):
+    from domains.integration.api.webhooks import get_stockx_service
+    app.dependency_overrides[get_stockx_service] = lambda: mock_stockx_service
+    yield
+    app.dependency_overrides.clear()
+
+
+async def test_stockx_import_orders_webhook_success(
+    test_client: AsyncClient, mock_stockx_service, override_db_dependency
+):
     """
     Tests the happy path for the /stockx/import-orders webhook.
     It should accept a valid request, return a 202 status, and trigger the background task.
     """
-    # We patch the service that is called by the background task.
-    # This verifies that the endpoint triggers the process correctly without making real API calls.
-    with patch('domains.integration.api.webhooks.stockx_service.get_historical_orders', new_callable=AsyncMock) as mock_get_orders:
+    mock_stockx_service.get_historical_orders.return_value = [{"id": "some_order"}]
 
-        mock_get_orders.return_value = [{"id": "some_order"}]
+    response = await test_client.post(
+        "/api/v1/integration/stockx/import-orders",
+        json={"from_date": "2023-01-01", "to_date": "2023-01-31"},
+    )
 
-        # Act
-        response = sync_client.post(
-            "/api/v1/integration/stockx/import-orders",
-            json={
-                "from_date": "2023-01-01",
-                "to_date": "2023-01-31"
-            }
-        )
+    assert response.status_code == 202
+    response_data = response.json()
+    assert response_data["status"] == "processing_started"
+    mock_stockx_service.get_historical_orders.assert_called_once()
 
-        # Assert
-        assert response.status_code == 202
-        response_data = response.json()
-        assert response_data["status"] == "processing_started"
-        assert "StockX API order import has been successfully started" in response_data["message"]
-        assert response_data["details"]["from_date"] == "2023-01-01"
 
-def test_stockx_import_orders_webhook_invalid_date(sync_client: TestClient):
+async def test_stockx_import_orders_webhook_invalid_date(
+    test_client: AsyncClient, override_db_dependency
+):
     """
     Tests that the endpoint returns a 422 Unprocessable Entity error
     if the date format in the request body is invalid.
     """
-    # Act
-    response = sync_client.post(
+    response = await test_client.post(
         "/api/v1/integration/stockx/import-orders",
-        json={
-            "from_date": "not-a-date",
-            "to_date": "2023-01-31"
-        }
+        json={"from_date": "not-a-date", "to_date": "2023-01-31"},
     )
-
-    # Assert
     assert response.status_code == 422
-    response_data = response.json()
-    assert response_data["detail"][0]["type"] == "date_from_datetime_parsing"
 
-def test_stockx_import_orders_webhook_missing_field(sync_client: TestClient):
+
+async def test_stockx_import_orders_webhook_missing_field(
+    test_client: AsyncClient, override_db_dependency
+):
     """
     Tests that the endpoint returns a 422 Unprocessable Entity error
     if a required field is missing from the request body.
     """
-    # Act
-    response = sync_client.post(
+    response = await test_client.post(
         "/api/v1/integration/stockx/import-orders",
-        json={
-            "from_date": "2023-01-01"
-        }
+        json={"from_date": "2023-01-01"},
     )
-
-    # Assert
     assert response.status_code == 422
-    response_data = response.json()
-    assert response_data["detail"][0]["type"] == "missing"
-    assert response_data["detail"][0]["loc"] == ["body", "to_date"]

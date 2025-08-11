@@ -4,8 +4,14 @@ Generates comprehensive API documentation with examples and schemas
 """
 from typing import Dict, Any, List
 import json
+import sys
+import os
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+
+# Add project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from main import app
 
 def generate_openapi_schema() -> Dict[str, Any]:

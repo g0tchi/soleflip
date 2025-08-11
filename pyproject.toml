@@ -69,6 +69,7 @@ dev = [
     "isort>=5.12.0",
     "flake8>=6.0.0",
     "mypy>=1.5.0",
+    "psutil>=5.9.0",
 ]
 
 [tool.pytest.ini_options]

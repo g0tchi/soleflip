@@ -107,6 +107,18 @@ class BaseRepository(Generic[T]):
         """Find single entity by field value"""
         entities = await self.find_by_field(field_name, value)
         return entities[0] if entities else None
+
+    async def find_one_or_create(self, filter_criteria: Dict[str, Any], **kwargs) -> T:
+        """Find one entity or create it if it doesn't exist."""
+        query = select(self.model_class).filter_by(**filter_criteria)
+        result = await self.db.execute(query)
+        instance = result.scalar_one_or_none()
+
+        if instance:
+            return instance
+        else:
+            create_data = {**filter_criteria, **kwargs}
+            return await self.create(**create_data)
     
     async def bulk_create(self, entities_data: List[Dict[str, Any]]) -> List[T]:
         """Create multiple entities in bulk"""

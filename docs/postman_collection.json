@@ -32,91 +32,6 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "stockx_sales_report.csv",
-                  "description": "StockX CSV export file"
-                },
-                {
-                  "key": "batch_size",
-                  "value": "1000",
-                  "type": "text",
-                  "description": "Number of records per batch"
-                },
-                {
-                  "key": "validate_only",
-                  "value": "false",
-                  "type": "text",
-                  "description": "Set to true for validation only"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/integration/webhooks/stockx/upload",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "stockx", "upload"]
-            },
-            "description": "Upload StockX sales data CSV file for processing"
-          },
-          "response": [
-            {
-              "name": "Success - Processing Started",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "formdata",
-                  "formdata": [
-                    {
-                      "key": "file",
-                      "type": "file",
-                      "src": "stockx_sales_report.csv"
-                    },
-                    {
-                      "key": "batch_size",
-                      "value": "1000",
-                      "type": "text"
-                    },
-                    {
-                      "key": "validate_only",
-                      "value": "false",
-                      "type": "text"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/integration/webhooks/stockx/upload",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "integration", "webhooks", "stockx", "upload"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"status\": \"processing_started\",\n  \"message\": \"File uploaded successfully. Processing started in background.\",\n  \"batch_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"filename\": \"stockx_sales_report.csv\",\n  \"record_count\": 150,\n  \"check_status_url\": \"/api/v1/integration/webhooks/import-status/123e4567-e89b-12d3-a456-426614174000\"\n}"
-            }
-          ]
-        },
-        {
-          "name": "StockX Upload - Validation Only",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "multipart/form-data"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
                   "src": "stockx_sales_report.csv"
                 },
                 {
@@ -126,17 +41,25 @@
                 },
                 {
                   "key": "validate_only",
-                  "value": "true",
+                  "value": "false",
                   "type": "text"
                 }
               ]
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/integration/webhooks/stockx/upload",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "stockx", "upload"]
-            },
-            "description": "Validate StockX file without importing"
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "stockx",
+                "upload"
+              ]
+            }
           }
         },
         {
@@ -151,194 +74,64 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"results\": [\n    {\n      \"id\": \"page-123\",\n      \"name\": \"Nike Air Jordan 1\",\n      \"properties\": {\n        \"brand\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"Nike\"\n              }\n            }\n          ]\n        },\n        \"size\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"US 9\"\n              }\n            }\n          ]\n        },\n        \"purchase_price\": {\n          \"number\": 120.0\n        },\n        \"target_price\": {\n          \"number\": 180.0\n        },\n        \"status\": {\n          \"select\": {\n            \"name\": \"In Stock\"\n          }\n        }\n      }\n    }\n  ],\n  \"has_more\": false,\n  \"next_cursor\": null\n}"
+              "raw": "{\n  \"results\": [\n    {\n      \"id\": \"page-123\",\n      \"name\": \"Nike Air Jordan 1\",\n      \"properties\": {\n        \"brand\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"Nike\"\n              }\n            }\n          ]\n        },\n        \"size\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"US 9\"\n              }\n            }\n          ]\n        }\n      }\n    }\n  ],\n  \"has_more\": false\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/integration/webhooks/notion/import?batch_size=1000",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "notion", "import"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "notion",
+                "import"
+              ],
               "query": [
                 {
                   "key": "batch_size",
                   "value": "1000"
                 }
               ]
-            },
-            "description": "Import inventory data from Notion database"
-          }
-        },
-        {
-          "name": "Manual Upload",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "multipart/form-data"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "data_export.csv",
-                  "description": "Any supported file format"
-                },
-                {
-                  "key": "source_type",
-                  "value": "auto",
-                  "type": "text",
-                  "description": "auto, stockx, notion, sales, or manual"
-                },
-                {
-                  "key": "batch_size",
-                  "value": "1000",
-                  "type": "text"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/integration/webhooks/manual/upload",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "manual", "upload"]
-            },
-            "description": "Upload any file with automatic source detection"
+            }
           }
         },
         {
           "name": "Import Status Overview",
           "request": {
             "method": "GET",
-            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/integration/webhooks/import-status",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "import-status"]
-            },
-            "description": "Get summary of all import batches"
-          },
-          "response": [
-            {
-              "name": "Success",
-              "originalRequest": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/integration/webhooks/import-status",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "integration", "webhooks", "import-status"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
+              "host": [
+                "{{baseUrl}}"
               ],
-              "body": "{\n  \"summary\": {\n    \"total_batches\": 15,\n    \"completed\": 12,\n    \"failed\": 2,\n    \"processing\": 1,\n    \"success_rate\": 0.8\n  },\n  \"recent_imports\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"source_type\": \"stockx\",\n      \"source_file\": \"stockx_sales_report.csv\",\n      \"status\": \"completed\",\n      \"created_at\": \"2024-01-15T10:30:00Z\",\n      \"total_records\": 150,\n      \"processed_records\": 150\n    }\n  ]\n}"
-            }
-          ]
-        },
-        {
-          "name": "Get Batch Status",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/integration/webhooks/import-status/{{batch_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "integration", "webhooks", "import-status", "{{batch_id}}"],
-              "variable": [
-                {
-                  "key": "batch_id",
-                  "value": "123e4567-e89b-12d3-a456-426614174000",
-                  "description": "Import batch UUID"
-                }
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "import-status"
               ]
-            },
-            "description": "Get detailed status of specific import batch"
+            }
           }
         }
       ]
     },
     {
-      "name": "System",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
-            },
-            "description": "Check system health and database connectivity"
-          },
-          "response": [
-            {
-              "name": "Healthy",
-              "originalRequest": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/health",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["health"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": \"2024-01-15T10:30:00Z\",\n  \"database\": \"connected\",\n  \"version\": \"2.0.0\"\n}"
-            }
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
           ]
         }
-      ]
-    }
-  ],
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Set timestamp for requests",
-          "pm.globals.set(\"timestamp\", new Date().toISOString());"
-        ]
-      }
-    },
-    {
-      "listen": "test",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Basic response validation",
-          "pm.test(\"Status code is success\", function () {",
-          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]);",
-          "});",
-          "",
-          "pm.test(\"Response has JSON body\", function () {",
-          "    pm.response.to.have.jsonBody();",
-          "});",
-          "",
-          "// Store batch_id if present for follow-up requests",
-          "if (pm.response.json().batch_id) {",
-          "    pm.globals.set(\"batch_id\", pm.response.json().batch_id);",
-          "}"
-        ]
       }
     }
   ]

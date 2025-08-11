@@ -1,9 +1,9 @@
 {
-  "openapi": "3.0.2",
+  "openapi": "3.1.0",
   "info": {
     "title": "SoleFlipper API",
-    "version": "2.0.0",
-    "description": "# SoleFlipper API Documentation\n\n## Overview\nProfessional sneaker reselling management system with inventory tracking, automated imports, and analytics integration.\n\n## Architecture\n- **FastAPI**: Modern async Python framework\n- **PostgreSQL**: Primary database with schema separation\n- **n8n Integration**: Webhook-based automation\n- **Metabase**: Analytics and reporting\n- **Domain-Driven Design**: Clean architecture patterns\n\n## Authentication\nCurrently, most endpoints are open. Authentication will be added in future versions.\n\n## Rate Limiting\nRate limiting is planned but not yet implemented.\n\n## Data Import Sources\n- **StockX**: Sales and transaction data\n- **Notion**: Inventory management database\n- **Manual**: CSV/Excel file uploads with auto-detection\n\n## Error Handling\nAll endpoints return structured error responses with:\n- `error.type`: Error category\n- `error.message`: Human-readable description\n- `error.details`: Additional context (optional)\n\n## Pagination\nList endpoints support query parameters:\n- `limit`: Number of items (default: 50, max: 1000)\n- `offset`: Number of items to skip (default: 0)"
+    "description": "\n# SoleFlipper API Documentation\n\n## Overview\nProfessional sneaker reselling management system with inventory tracking, \nautomated imports, and analytics integration.\n\n## Architecture\n- **FastAPI**: Modern async Python framework\n- **PostgreSQL**: Primary database with schema separation\n- **n8n Integration**: Webhook-based automation\n- **Metabase**: Analytics and reporting\n- **Domain-Driven Design**: Clean architecture patterns\n\n## Authentication\nCurrently, most endpoints are open. Authentication will be added in future versions.\n\n## Rate Limiting\nRate limiting is planned but not yet implemented.\n\n## Data Import Sources\n- **StockX**: Sales and transaction data\n- **Notion**: Inventory management database\n- **Manual**: CSV/Excel file uploads with auto-detection\n\n## Error Handling\nAll endpoints return structured error responses with:\n- `error.type`: Error category\n- `error.message`: Human-readable description\n- `error.details`: Additional context (optional)\n\n## Pagination\nList endpoints support query parameters:\n- `limit`: Number of items (default: 50, max: 1000)\n- `offset`: Number of items to skip (default: 0)\n        ",
+    "version": "2.0.0"
   },
   "servers": [
     {
@@ -19,84 +19,205 @@
     "/api/v1/integration/stockx/import-orders": {
       "post": {
         "tags": [
+          "Integration",
           "StockX Integration"
         ],
-        "summary": "Import StockX orders via API",
-        "description": "Triggers a background task to fetch historical orders directly from the StockX API for a given date range. This is the recommended way for automated, scheduled imports.",
-        "operationId": "stockx_import_orders_webhook",
+        "summary": "Stockx Import Orders Webhook",
+        "operationId": "stockx_import_orders_webhook_api_v1_integration_stockx_import_orders_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "from_date": {
-                    "type": "string",
-                    "format": "date",
-                    "description": "Start date for the order import (YYYY-MM-DD)."
-                  },
-                  "to_date": {
-                    "type": "string",
-                    "format": "date",
-                    "description": "End date for the order import (YYYY-MM-DD)."
-                  }
-                },
-                "required": [
-                  "from_date",
-                  "to_date"
-                ]
-              },
-              "example": {
-                "from_date": "2023-01-01",
-                "to_date": "2023-01-31"
+                "$ref": "#/components/schemas/StockXImportRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "202": {
-            "description": "Accepted. The import process has been started in the background.",
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "processing_started"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "details": {
-                      "type": "object",
-                      "properties": {
-                        "from_date": {
-                          "type": "string",
-                          "format": "date"
-                        },
-                        "to_date": {
-                          "type": "string",
-                          "format": "date"
-                        },
-                        "check_status_url": {
-                          "type": "string",
-                          "format": "uri"
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/active": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Get Active Orders",
+        "description": "Get all active orders from the StockX marketplace.\n\nAn order is considered active from the time it was created to the time the product\nwas received and authenticated by StockX and the seller is paid out.",
+        "operationId": "get_active_orders_api_v1_orders_active_get",
+        "parameters": [
+          {
+            "name": "orderStatus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by order status.",
+              "title": "Orderstatus"
+            },
+            "description": "Filter by order status."
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by product ID.",
+              "title": "Productid"
+            },
+            "description": "Filter by product ID."
+          },
+          {
+            "name": "variantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by variant ID.",
+              "title": "Variantid"
+            },
+            "description": "Filter by variant ID."
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort order for the results.",
+              "default": "CREATEDAT",
+              "title": "Sortorder"
+            },
+            "description": "Sort order for the results."
+          },
+          {
+            "name": "inventoryTypes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated list of inventory types.",
+              "title": "Inventorytypes"
+            },
+            "description": "Comma-separated list of inventory types."
+          },
+          {
+            "name": "initiatedShipmentDisplayIds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by shipment display IDs.",
+              "title": "Initiatedshipmentdisplayids"
+            },
+            "description": "Filter by shipment display IDs."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Active Orders Api V1 Orders Active Get"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation Error. The request body is invalid.",
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIInfo"
                 }
               }
             }
@@ -109,35 +230,13 @@
         "tags": [
           "StockX Integration"
         ],
-        "summary": "Upload StockX CSV file (Legacy)",
-        "description": "Upload StockX sales data CSV file for processing. Supports validation-only mode and batch processing.",
-        "operationId": "stockx_upload_webhook",
+        "summary": "Upload Stockx File",
+        "operationId": "upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post",
         "requestBody": {
-          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "CSV file containing StockX sales data"
-                  },
-                  "batch_size": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "maximum": 10000,
-                    "description": "Number of records to process in each batch"
-                  },
-                  "validate_only": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "If true, only validates the file without importing"
-                  }
-                },
-                "required": ["file"]
+                "$ref": "#/components/schemas/Body_upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post"
               },
               "example": {
                 "file": "stockx_sales_report.csv",
@@ -145,15 +244,16 @@
                 "validate_only": false
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "File uploaded successfully",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportStatus"
+                  "$ref": "#/components/schemas/UploadResponse"
                 },
                 "examples": {
                   "processing_started": {
@@ -173,7 +273,9 @@
                       "status": "validated",
                       "valid": true,
                       "errors": [],
-                      "warnings": ["Some items missing optional fields"],
+                      "warnings": [
+                        "Some items missing optional fields"
+                      ],
                       "record_count": 150
                     }
                   }
@@ -181,321 +283,12 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request - invalid file format or parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": {
-                    "type": "validation_error",
-                    "message": "Only CSV and Excel files are supported",
-                    "details": {
-                      "accepted_formats": [".csv", ".xlsx", ".xls"]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "File too large",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "422": {
-            "description": "Validation error",
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/integration/webhooks/notion/import": {
-      "post": {
-        "tags": ["Integration"],
-        "summary": "Import Notion database data",
-        "description": "Import inventory data from Notion database API response.",
-        "operationId": "notion_import_webhook",
-        "parameters": [
-          {
-            "name": "batch_size",
-            "in": "query",
-            "description": "Number of records to process in each batch",
-            "schema": {
-              "type": "integer",
-              "default": 1000,
-              "minimum": 1,
-              "maximum": 10000
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "results": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "description": "Notion page ID"
-                        },
-                        "name": {
-                          "type": "string",
-                          "description": "Page title"
-                        },
-                        "properties": {
-                          "type": "object",
-                          "description": "Notion page properties"
-                        }
-                      }
-                    }
-                  },
-                  "has_more": {
-                    "type": "boolean",
-                    "description": "Whether there are more results"
-                  },
-                  "next_cursor": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "Cursor for next page of results"
-                  }
-                },
-                "required": ["results"]
-              },
-              "example": {
-                "results": [
-                  {
-                    "id": "page-123",
-                    "name": "Nike Air Jordan 1",
-                    "properties": {
-                      "brand": {"rich_text": [{"text": {"content": "Nike"}}]},
-                      "size": {"rich_text": [{"text": {"content": "US 9"}}]},
-                      "purchase_price": {"number": 120.00},
-                      "status": {"select": {"name": "In Stock"}}
-                    }
-                  }
-                ],
-                "has_more": false,
-                "next_cursor": null
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Import completed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportStatus"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid payload structure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/integration/webhooks/manual/upload": {
-      "post": {
-        "tags": ["Integration"],
-        "summary": "Manual file upload with auto-detection",
-        "description": "Upload any supported file format with automatic source type detection.",
-        "operationId": "manual_upload_webhook",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "File to upload (CSV, Excel, JSON)"
-                  },
-                  "source_type": {
-                    "type": "string",
-                    "enum": ["auto", "stockx", "notion", "sales", "manual"],
-                    "default": "auto",
-                    "description": "Source type override, 'auto' for automatic detection"
-                  },
-                  "batch_size": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "maximum": 10000,
-                    "description": "Number of records to process in each batch"
-                  }
-                },
-                "required": ["file"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "File uploaded successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportStatus"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/integration/webhooks/import-status": {
-      "get": {
-        "tags": ["Integration"],
-        "summary": "Get import status overview",
-        "description": "Get summary of all import batches and recent activity.",
-        "operationId": "get_import_status_overview",
-        "responses": {
-          "200": {
-            "description": "Import status retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportBatchSummary"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/integration/webhooks/import-status/{batch_id}": {
-      "get": {
-        "tags": ["Integration"],
-        "summary": "Get specific batch status",
-        "description": "Get detailed status of a specific import batch.",
-        "operationId": "get_batch_status",
-        "parameters": [
-          {
-            "name": "batch_id",
-            "in": "path",
-            "required": true,
-            "description": "Import batch ID",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Batch status retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {"type": "string", "format": "uuid"},
-                    "source_type": {"type": "string"},
-                    "source_file": {"type": "string"},
-                    "status": {"type": "string"},
-                    "total_records": {"type": "integer"},
-                    "processed_records": {"type": "integer"},
-                    "error_records": {"type": "integer"},
-                    "created_at": {"type": "string", "format": "date-time"},
-                    "started_at": {"type": "string", "format": "date-time"},
-                    "completed_at": {"type": "string", "format": "date-time", "nullable": true},
-                    "processing_time_ms": {"type": "integer", "nullable": true}
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Batch not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "tags": ["System"],
-        "summary": "Health check",
-        "description": "Check system health and dependencies.",
-        "operationId": "health_check",
-        "responses": {
-          "200": {
-            "description": "System is healthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {"type": "string", "example": "healthy"},
-                    "timestamp": {"type": "string", "format": "date-time"},
-                    "database": {"type": "string", "example": "connected"},
-                    "version": {"type": "string", "example": "2.0.0"}
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "System is unhealthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {"type": "string", "example": "unhealthy"},
-                    "errors": {
-                      "type": "array",
-                      "items": {"type": "string"}
-                    }
-                  }
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -506,12 +299,183 @@
   },
   "components": {
     "schemas": {
+      "APIInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "APIInfo"
+      },
+      "Body_upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "validate_only": {
+            "type": "boolean",
+            "title": "Validate Only",
+            "default": false
+          },
+          "batch_size": {
+            "type": "integer",
+            "title": "Batch Size",
+            "default": 1000
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "StockXImportRequest": {
+        "properties": {
+          "from_date": {
+            "type": "string",
+            "format": "date",
+            "title": "From Date"
+          },
+          "to_date": {
+            "type": "string",
+            "format": "date",
+            "title": "To Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_date",
+          "to_date"
+        ],
+        "title": "StockXImportRequest"
+      },
+      "UploadResponse": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "total_records": {
+            "type": "integer",
+            "title": "Total Records"
+          },
+          "validation_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Validation Errors"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "imported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imported"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "total_records",
+          "validation_errors",
+          "status",
+          "message"
+        ],
+        "title": "UploadResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
       "ImportStatus": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["processing_started", "validated", "completed", "failed"],
+            "enum": [
+              "processing_started",
+              "validated",
+              "completed",
+              "failed"
+            ],
             "description": "Current status of the import operation"
           },
           "batch_id": {
@@ -537,7 +501,10 @@
             "description": "URL to check import progress"
           }
         },
-        "required": ["status", "message"]
+        "required": [
+          "status",
+          "message"
+        ]
       },
       "ValidationResult": {
         "type": "object",
@@ -548,12 +515,16 @@
           },
           "errors": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+              "type": "string"
+            },
             "description": "List of validation errors"
           },
           "warnings": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+              "type": "string"
+            },
             "description": "List of validation warnings"
           },
           "record_count": {
@@ -568,11 +539,22 @@
           "summary": {
             "type": "object",
             "properties": {
-              "total_batches": {"type": "integer"},
-              "completed": {"type": "integer"},
-              "failed": {"type": "integer"},
-              "processing": {"type": "integer"},
-              "success_rate": {"type": "number", "format": "float"}
+              "total_batches": {
+                "type": "integer"
+              },
+              "completed": {
+                "type": "integer"
+              },
+              "failed": {
+                "type": "integer"
+              },
+              "processing": {
+                "type": "integer"
+              },
+              "success_rate": {
+                "type": "number",
+                "format": "float"
+              }
             }
           },
           "recent_imports": {
@@ -580,13 +562,29 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {"type": "string", "format": "uuid"},
-                "source_type": {"type": "string"},
-                "source_file": {"type": "string"},
-                "status": {"type": "string"},
-                "created_at": {"type": "string", "format": "date-time"},
-                "total_records": {"type": "integer"},
-                "processed_records": {"type": "integer"}
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_type": {
+                  "type": "string"
+                },
+                "source_file": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "total_records": {
+                  "type": "integer"
+                },
+                "processed_records": {
+                  "type": "integer"
+                }
               }
             }
           }
@@ -611,25 +609,16 @@
                 "description": "Additional error context"
               }
             },
-            "required": ["type", "message"]
+            "required": [
+              "type",
+              "message"
+            ]
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Integration",
-      "description": "Data import and webhook endpoints"
-    },
-    {
-      "name": "StockX Integration",
-      "description": "Endpoints specifically for StockX data import and management."
-    },
-    {
-      "name": "System",
-      "description": "System health and monitoring"
-    }
-  ]
+  }
 }

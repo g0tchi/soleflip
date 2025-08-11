@@ -143,3 +143,22 @@ async def test_get_valid_access_token_refreshes_expired_token(stockx_service):
         # Assert
         assert token == "refreshed_token"
         mock_refresh.assert_called_once()
+
+async def test_get_active_orders_success(stockx_service):
+    """
+    Tests successfully fetching active orders.
+    """
+    # Arrange
+    with patch.object(stockx_service, '_make_paginated_get_request', new_callable=AsyncMock) as mock_paginated_get:
+        mock_paginated_get.return_value = [{"id": "active_order_1"}]
+
+        # Act
+        orders = await stockx_service.get_active_orders(orderStatus="SHIPPED")
+
+        # Assert
+        assert len(orders) == 1
+        assert orders[0]["id"] == "active_order_1"
+        mock_paginated_get.assert_called_once_with(
+            "/selling/orders/active",
+            {"orderStatus": "SHIPPED"}
+        )

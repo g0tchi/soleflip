@@ -309,67 +309,83 @@ class BaseValidator:
         return None  # Unable to determine brand
     
     def normalize_currency(self, value: Any) -> Optional[Decimal]:
-        """Normalize currency values"""
+        """Normalize currency values from various string formats."""
         if value is None:
             return None
-        
-        # Handle NaN values from pandas
+
         if isinstance(value, float):
             import math
             if math.isnan(value) or math.isinf(value):
                 return None
         
-        # Convert to string and clean
         value_str = str(value).strip()
         if not value_str or value_str.lower() in ['nan', 'inf', '-inf']:
             return None
-        
-        # Remove currency symbols and spaces
-        cleaned = re.sub(r'[€$£¥,\s]', '', value_str)
-        
-        # Handle European decimal format (comma as decimal separator)
-        if ',' in cleaned and '.' not in cleaned:
-            cleaned = cleaned.replace(',', '.')
-        elif ',' in cleaned and '.' in cleaned:
-            # Both comma and dot - assume comma is thousands separator
-            cleaned = cleaned.replace(',', '')
-        
+
+        # Remove currency symbols and whitespace
+        cleaned_str = re.sub(r'[€$£¥\s]', '', value_str)
+
+        # Determine if comma or dot is the decimal separator
+        last_dot = cleaned_str.rfind('.')
+        last_comma = cleaned_str.rfind(',')
+
+        if last_comma > last_dot:
+            # Format is likely "1.234,56". Remove dots, replace comma with dot.
+            cleaned_str = cleaned_str.replace('.', '').replace(',', '.')
+        elif last_dot > last_comma:
+            # Format is likely "1,234.56". Remove commas.
+            cleaned_str = cleaned_str.replace(',', '')
+        else:
+            # No separators or only one type, e.g., "1234.56" or "1234,56"
+            cleaned_str = cleaned_str.replace(',', '.')
+
         try:
-            return Decimal(cleaned)
-        except (InvalidOperation, ValueError):
+            return Decimal(cleaned_str)
+        except InvalidOperation:
             raise ValidationError([f"Invalid currency format: {value}"])
-    
+
     def normalize_date(self, value: Any, formats: List[str] = None) -> Optional[datetime]:
-        """Normalize date values"""
+        """Normalize date values from various string formats."""
         if value is None:
             return None
-        
+
         value_str = str(value).strip()
         if not value_str:
             return None
-        
-        # Handle StockX timezone format: convert "+00" to "+0000"
+
+        # Handle special cases like German months before trying standard formats
+        german_months = {
+            'Januar': 'January', 'Februar': 'February', 'März': 'March',
+            'April': 'April', 'Mai': 'May', 'Juni': 'June', 'Juli': 'July',
+            'August': 'August', 'September': 'September', 'Oktober': 'October',
+            'November': 'November', 'Dezember': 'December'
+        }
+        for de, en in german_months.items():
+            value_str = value_str.replace(de, en)
+
+        # Handle StockX timezone format
         if ' +' in value_str and value_str.endswith(' +00'):
             value_str = value_str.replace(' +00', ' +0000')
+
+        # Use dateutil.parser for robust parsing
+        try:
+            from dateutil import parser
+            return parser.parse(value_str)
+        except (ValueError, TypeError):
+            # Fallback to trying specific formats if dateutil fails
+            pass
+
+        default_formats = [
+            '%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d.%m.%Y', '%d/%m/%Y', '%m/%d/%Y',
+            '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%SZ', '%d. %B %Y'
+        ]
         
-        # Default date formats to try
-        if formats is None:
-            formats = [
-                '%Y-%m-%d %H:%M:%S',
-                '%Y-%m-%d',
-                '%d.%m.%Y',
-                '%d/%m/%Y',
-                '%m/%d/%Y',
-                '%Y-%m-%dT%H:%M:%S',
-                '%Y-%m-%dT%H:%M:%SZ'
-            ]
-        
-        for fmt in formats:
+        for fmt in formats or default_formats:
             try:
                 return datetime.strptime(value_str, fmt)
             except ValueError:
                 continue
-        
+
         raise ValidationError([f"Invalid date format: {value}"])
 
 class ValidationError(Exception):

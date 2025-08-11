@@ -18,8 +18,6 @@ from sqlalchemy.pool import StaticPool
 from main import app
 from shared.database.models import Base
 from shared.database.connection import db_manager
-from domains.inventory.services.inventory_service import inventory_service
-from domains.integration.services.import_processor import import_processor
 
 # Configure logging for tests to ensure compatibility with pytest's capture
 structlog.configure(
@@ -80,10 +78,13 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         # Rollback transaction to clean up
         await transaction.rollback()
 
+from httpx import ASGITransport
+
 @pytest.fixture
 async def test_client() -> AsyncGenerator[AsyncClient, None]:
     """Create test HTTP client"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 @pytest.fixture
