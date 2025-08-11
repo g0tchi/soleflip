@@ -16,10 +16,100 @@
     }
   ],
   "paths": {
+    "/api/v1/integration/stockx/import-orders": {
+      "post": {
+        "tags": [
+          "StockX Integration"
+        ],
+        "summary": "Import StockX orders via API",
+        "description": "Triggers a background task to fetch historical orders directly from the StockX API for a given date range. This is the recommended way for automated, scheduled imports.",
+        "operationId": "stockx_import_orders_webhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date for the order import (YYYY-MM-DD)."
+                  },
+                  "to_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date for the order import (YYYY-MM-DD)."
+                  }
+                },
+                "required": [
+                  "from_date",
+                  "to_date"
+                ]
+              },
+              "example": {
+                "from_date": "2023-01-01",
+                "to_date": "2023-01-31"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted. The import process has been started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "processing_started"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "from_date": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "to_date": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "check_status_url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error. The request body is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integration/webhooks/stockx/upload": {
       "post": {
-        "tags": ["Integration"],
-        "summary": "Upload StockX CSV file",
+        "tags": [
+          "StockX Integration"
+        ],
+        "summary": "Upload StockX CSV file (Legacy)",
         "description": "Upload StockX sales data CSV file for processing. Supports validation-only mode and batch processing.",
         "operationId": "stockx_upload_webhook",
         "requestBody": {
@@ -532,6 +622,10 @@
     {
       "name": "Integration",
       "description": "Data import and webhook endpoints"
+    },
+    {
+      "name": "StockX Integration",
+      "description": "Endpoints specifically for StockX data import and management."
     },
     {
       "name": "System",

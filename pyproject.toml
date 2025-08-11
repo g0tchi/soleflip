@@ -53,6 +53,7 @@ dependencies = [
     # Utilities
     "python-dotenv>=1.0.0",
     "click>=8.1.7",
+    "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]
@@ -161,3 +162,6 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[tool.setuptools]
+packages = ["domains", "shared", "scripts", "tests"]

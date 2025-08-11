@@ -8,8 +8,37 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
+from cryptography.fernet import Fernet
+import os
 
 Base = declarative_base()
+
+# --- Encryption Setup ---
+# In a real production environment, this key MUST be set as a persistent environment variable.
+# For development, we generate a temporary key if it's not found.
+# NOTE: If this key is lost, all encrypted data will be unrecoverable.
+ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    print("WARNING: FIELD_ENCRYPTION_KEY not set. Generating ephemeral key for this session.")
+    ENCRYPTION_KEY = Fernet.generate_key().decode()
+
+try:
+    cipher_suite = Fernet(ENCRYPTION_KEY.encode())
+except Exception as e:
+    raise ValueError(f"Invalid FIELD_ENCRYPTION_KEY: {e}")
+# -------------------------
+
+# --- Dialect-specific Type Compilation ---
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.types import JSON
+
+@compiles(JSONB, "sqlite")
+def compile_jsonb_for_sqlite(element, compiler, **kw):
+    """
+    Tells SQLAlchemy to treat JSONB as JSON for SQLite,
+    which has good JSON support. This is for migration generation.
+    """
+    return compiler.visit_json(element, **kw)
 
 class TimestampMixin:
     """Mixin for created_at and updated_at timestamps"""
@@ -161,6 +190,38 @@ class Platform(Base, TimestampMixin):
     
     # Relationships
     transactions = relationship("Transaction", back_populates="platform")
+
+
+class SystemConfig(Base, TimestampMixin):
+    """Stores system-wide configuration and secrets, encrypted."""
+    __tablename__ = "system_config"
+    __table_args__ = {'schema': 'core'}
+
+    key = Column(String(100), primary_key=True)
+    value_encrypted = Column(Text, nullable=False)
+    description = Column(Text)
+
+    def set_value(self, value: str):
+        """Encrypts and sets the value."""
+        if not isinstance(value, str):
+            raise TypeError("Value must be a string")
+        self.value_encrypted = cipher_suite.encrypt(value.encode()).decode()
+
+    def get_value(self) -> str:
+        """Decrypts and returns the value."""
+        if not self.value_encrypted:
+            return ""
+        decrypted_bytes = cipher_suite.decrypt(self.value_encrypted.encode())
+        return decrypted_bytes.decode()
+
+    @staticmethod
+    def get_encryption_key_for_setup() -> str:
+        """
+        Helper method for setup/admin purposes to show the key
+        that needs to be set in the environment.
+        """
+        return ENCRYPTION_KEY
+
 
 # =====================================================
 # Product Domain Models

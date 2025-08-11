@@ -17,19 +17,22 @@ depends_on = None
 
 def upgrade() -> None:
     """Create initial database schema"""
-    
-    # Create extensions
-    op.execute("CREATE EXTENSION IF NOT EXISTS ltree")
-    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto") 
-    op.execute("CREATE EXTENSION IF NOT EXISTS btree_gist")
-    
-    # Create schemas
-    op.execute("CREATE SCHEMA IF NOT EXISTS core")
-    op.execute("CREATE SCHEMA IF NOT EXISTS products")
-    op.execute("CREATE SCHEMA IF NOT EXISTS sales")
-    op.execute("CREATE SCHEMA IF NOT EXISTS integration")
-    op.execute("CREATE SCHEMA IF NOT EXISTS analytics")
-    op.execute("CREATE SCHEMA IF NOT EXISTS logging")
+    bind = op.get_bind()
+    is_postgres = bind.dialect.name == 'postgresql'
+
+    if is_postgres:
+        # Create extensions
+        op.execute("CREATE EXTENSION IF NOT EXISTS ltree")
+        op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+        op.execute("CREATE EXTENSION IF NOT EXISTS btree_gist")
+
+        # Create schemas
+        op.execute("CREATE SCHEMA IF NOT EXISTS core")
+        op.execute("CREATE SCHEMA IF NOT EXISTS products")
+        op.execute("CREATE SCHEMA IF NOT EXISTS sales")
+        op.execute("CREATE SCHEMA IF NOT EXISTS integration")
+        op.execute("CREATE SCHEMA IF NOT EXISTS analytics")
+        op.execute("CREATE SCHEMA IF NOT EXISTS logging")
     
     # Core schema tables
     op.create_table('brands',
@@ -41,7 +44,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('name'),
         sa.UniqueConstraint('slug'),
-        schema='core'
+        schema='core' if is_postgres else None
     )
     
     op.create_table('categories',
@@ -55,7 +58,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['parent_id'], ['core.categories.id'], ),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('slug'),
-        schema='core'
+        schema='core' if is_postgres else None
     )
     
     op.create_table('sizes',
@@ -68,7 +71,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['category_id'], ['core.categories.id'], ),
         sa.PrimaryKeyConstraint('id'),
-        schema='core'
+        schema='core' if is_postgres else None
     )
     
     # Products schema tables
@@ -87,7 +90,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['category_id'], ['core.categories.id'], ),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('sku'),
-        schema='products'
+        schema='products' if is_postgres else None
     )
     
     op.create_table('inventory',
@@ -105,7 +108,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['product_id'], ['products.products.id'], ),
         sa.ForeignKeyConstraint(['size_id'], ['core.sizes.id'], ),
         sa.PrimaryKeyConstraint('id'),
-        schema='products'
+        schema='products' if is_postgres else None
     )
     
     # Sales schema tables
@@ -120,7 +123,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('name'),
         sa.UniqueConstraint('slug'),
-        schema='sales'
+        schema='sales' if is_postgres else None
     )
     
     op.create_table('transactions',
@@ -140,7 +143,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['inventory_id'], ['products.inventory.id'], ),
         sa.ForeignKeyConstraint(['platform_id'], ['sales.platforms.id'], ),
         sa.PrimaryKeyConstraint('id'),
-        schema='sales'
+        schema='sales' if is_postgres else None
     )
     
     # Integration schema tables
@@ -157,7 +160,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
-        schema='integration'
+        schema='integration' if is_postgres else None
     )
     
     op.create_table('import_records',
@@ -174,7 +177,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['batch_id'], ['integration.import_batches.id'], ),
         sa.PrimaryKeyConstraint('id'),
-        schema='integration'
+        schema='integration' if is_postgres else None
     )
     
     # Logging schema tables
@@ -188,86 +191,89 @@ def upgrade() -> None:
         sa.Column('source_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
-        schema='logging'
+        schema='logging' if is_postgres else None
     )
     
     # Create indexes
-    op.create_index('idx_brands_slug', 'brands', ['slug'], unique=False, schema='core')
-    op.create_index('idx_categories_slug', 'categories', ['slug'], unique=False, schema='core')
-    op.create_index('idx_categories_parent', 'categories', ['parent_id'], unique=False, schema='core')
-    op.create_index('idx_sizes_category', 'sizes', ['category_id'], unique=False, schema='core')
+    op.create_index('idx_brands_slug', 'brands', ['slug'], unique=False, schema='core' if is_postgres else None)
+    op.create_index('idx_categories_slug', 'categories', ['slug'], unique=False, schema='core' if is_postgres else None)
+    op.create_index('idx_categories_parent', 'categories', ['parent_id'], unique=False, schema='core' if is_postgres else None)
+    op.create_index('idx_sizes_category', 'sizes', ['category_id'], unique=False, schema='core' if is_postgres else None)
     
-    op.create_index('idx_products_sku', 'products', ['sku'], unique=False, schema='products')
-    op.create_index('idx_products_brand', 'products', ['brand_id'], unique=False, schema='products')
-    op.create_index('idx_products_category', 'products', ['category_id'], unique=False, schema='products')
+    op.create_index('idx_products_sku', 'products', ['sku'], unique=False, schema='products' if is_postgres else None)
+    op.create_index('idx_products_brand', 'products', ['brand_id'], unique=False, schema='products' if is_postgres else None)
+    op.create_index('idx_products_category', 'products', ['category_id'], unique=False, schema='products' if is_postgres else None)
     
-    op.create_index('idx_inventory_product', 'inventory', ['product_id'], unique=False, schema='products')
-    op.create_index('idx_inventory_status', 'inventory', ['status'], unique=False, schema='products')
+    op.create_index('idx_inventory_product', 'inventory', ['product_id'], unique=False, schema='products' if is_postgres else None)
+    op.create_index('idx_inventory_status', 'inventory', ['status'], unique=False, schema='products' if is_postgres else None)
     
-    op.create_index('idx_platforms_slug', 'platforms', ['slug'], unique=False, schema='sales')
+    op.create_index('idx_platforms_slug', 'platforms', ['slug'], unique=False, schema='sales' if is_postgres else None)
     
-    op.create_index('idx_transactions_inventory', 'transactions', ['inventory_id'], unique=False, schema='sales')
-    op.create_index('idx_transactions_platform', 'transactions', ['platform_id'], unique=False, schema='sales')
-    op.create_index('idx_transactions_date', 'transactions', ['transaction_date'], unique=False, schema='sales')
+    op.create_index('idx_transactions_inventory', 'transactions', ['inventory_id'], unique=False, schema='sales' if is_postgres else None)
+    op.create_index('idx_transactions_platform', 'transactions', ['platform_id'], unique=False, schema='sales' if is_postgres else None)
+    op.create_index('idx_transactions_date', 'transactions', ['transaction_date'], unique=False, schema='sales' if is_postgres else None)
     
-    op.create_index('idx_import_batches_source', 'import_batches', ['source_type'], unique=False, schema='integration')
-    op.create_index('idx_import_batches_status', 'import_batches', ['status'], unique=False, schema='integration')
+    op.create_index('idx_import_batches_source', 'import_batches', ['source_type'], unique=False, schema='integration' if is_postgres else None)
+    op.create_index('idx_import_batches_status', 'import_batches', ['status'], unique=False, schema='integration' if is_postgres else None)
     
-    op.create_index('idx_import_records_batch', 'import_records', ['batch_id'], unique=False, schema='integration')
-    op.create_index('idx_import_records_processed', 'import_records', ['processed'], unique=False, schema='integration')
+    op.create_index('idx_import_records_batch', 'import_records', ['batch_id'], unique=False, schema='integration' if is_postgres else None)
+    op.create_index('idx_import_records_processed', 'import_records', ['processed'], unique=False, schema='integration' if is_postgres else None)
     
-    op.create_index('idx_system_logs_level', 'system_logs', ['level'], unique=False, schema='logging')
-    op.create_index('idx_system_logs_component', 'system_logs', ['component'], unique=False, schema='logging')
-    op.create_index('idx_system_logs_created', 'system_logs', ['created_at'], unique=False, schema='logging')
+    op.create_index('idx_system_logs_level', 'system_logs', ['level'], unique=False, schema='logging' if is_postgres else None)
+    op.create_index('idx_system_logs_component', 'system_logs', ['component'], unique=False, schema='logging' if is_postgres else None)
+    op.create_index('idx_system_logs_created', 'system_logs', ['created_at'], unique=False, schema='logging' if is_postgres else None)
 
 def downgrade() -> None:
     """Drop all schema objects"""
+    bind = op.get_bind()
+    is_postgres = bind.dialect.name == 'postgresql'
     
     # Drop indexes first
-    op.drop_index('idx_system_logs_created', table_name='system_logs', schema='logging')
-    op.drop_index('idx_system_logs_component', table_name='system_logs', schema='logging')
-    op.drop_index('idx_system_logs_level', table_name='system_logs', schema='logging')
+    op.drop_index('idx_system_logs_created', table_name='system_logs', schema='logging' if is_postgres else None)
+    op.drop_index('idx_system_logs_component', table_name='system_logs', schema='logging' if is_postgres else None)
+    op.drop_index('idx_system_logs_level', table_name='system_logs', schema='logging' if is_postgres else None)
     
-    op.drop_index('idx_import_records_processed', table_name='import_records', schema='integration')
-    op.drop_index('idx_import_records_batch', table_name='import_records', schema='integration')
+    op.drop_index('idx_import_records_processed', table_name='import_records', schema='integration' if is_postgres else None)
+    op.drop_index('idx_import_records_batch', table_name='import_records', schema='integration' if is_postgres else None)
     
-    op.drop_index('idx_import_batches_status', table_name='import_batches', schema='integration')
-    op.drop_index('idx_import_batches_source', table_name='import_batches', schema='integration')
+    op.drop_index('idx_import_batches_status', table_name='import_batches', schema='integration' if is_postgres else None)
+    op.drop_index('idx_import_batches_source', table_name='import_batches', schema='integration' if is_postgres else None)
     
-    op.drop_index('idx_transactions_date', table_name='transactions', schema='sales')
-    op.drop_index('idx_transactions_platform', table_name='transactions', schema='sales')
-    op.drop_index('idx_transactions_inventory', table_name='transactions', schema='sales')
+    op.drop_index('idx_transactions_date', table_name='transactions', schema='sales' if is_postgres else None)
+    op.drop_index('idx_transactions_platform', table_name='transactions', schema='sales' if is_postgres else None)
+    op.drop_index('idx_transactions_inventory', table_name='transactions', schema='sales' if is_postgres else None)
     
-    op.drop_index('idx_platforms_slug', table_name='platforms', schema='sales')
+    op.drop_index('idx_platforms_slug', table_name='platforms', schema='sales' if is_postgres else None)
     
-    op.drop_index('idx_inventory_status', table_name='inventory', schema='products')
-    op.drop_index('idx_inventory_product', table_name='inventory', schema='products')
+    op.drop_index('idx_inventory_status', table_name='inventory', schema='products' if is_postgres else None)
+    op.drop_index('idx_inventory_product', table_name='inventory', schema='products' if is_postgres else None)
     
-    op.drop_index('idx_products_category', table_name='products', schema='products')
-    op.drop_index('idx_products_brand', table_name='products', schema='products')
-    op.drop_index('idx_products_sku', table_name='products', schema='products')
+    op.drop_index('idx_products_category', table_name='products', schema='products' if is_postgres else None)
+    op.drop_index('idx_products_brand', table_name='products', schema='products' if is_postgres else None)
+    op.drop_index('idx_products_sku', table_name='products', schema='products' if is_postgres else None)
     
-    op.drop_index('idx_sizes_category', table_name='sizes', schema='core')
-    op.drop_index('idx_categories_parent', table_name='categories', schema='core')
-    op.drop_index('idx_categories_slug', table_name='categories', schema='core')
-    op.drop_index('idx_brands_slug', table_name='brands', schema='core')
+    op.drop_index('idx_sizes_category', table_name='sizes', schema='core' if is_postgres else None)
+    op.drop_index('idx_categories_parent', table_name='categories', schema='core' if is_postgres else None)
+    op.drop_index('idx_categories_slug', table_name='categories', schema='core' if is_postgres else None)
+    op.drop_index('idx_brands_slug', table_name='brands', schema='core' if is_postgres else None)
     
     # Drop tables
-    op.drop_table('system_logs', schema='logging')
-    op.drop_table('import_records', schema='integration')
-    op.drop_table('import_batches', schema='integration')
-    op.drop_table('transactions', schema='sales')
-    op.drop_table('platforms', schema='sales')
-    op.drop_table('inventory', schema='products')
-    op.drop_table('products', schema='products')
-    op.drop_table('sizes', schema='core')
-    op.drop_table('categories', schema='core')
-    op.drop_table('brands', schema='core')
+    op.drop_table('system_logs', schema='logging' if is_postgres else None)
+    op.drop_table('import_records', schema='integration' if is_postgres else None)
+    op.drop_table('import_batches', schema='integration' if is_postgres else None)
+    op.drop_table('transactions', schema='sales' if is_postgres else None)
+    op.drop_table('platforms', schema='sales' if is_postgres else None)
+    op.drop_table('inventory', schema='products' if is_postgres else None)
+    op.drop_table('products', schema='products' if is_postgres else None)
+    op.drop_table('sizes', schema='core' if is_postgres else None)
+    op.drop_table('categories', schema='core' if is_postgres else None)
+    op.drop_table('brands', schema='core' if is_postgres else None)
     
     # Drop schemas
-    op.execute("DROP SCHEMA IF EXISTS logging CASCADE")
-    op.execute("DROP SCHEMA IF EXISTS analytics CASCADE")
-    op.execute("DROP SCHEMA IF EXISTS integration CASCADE")
-    op.execute("DROP SCHEMA IF EXISTS sales CASCADE")
-    op.execute("DROP SCHEMA IF EXISTS products CASCADE")
-    op.execute("DROP SCHEMA IF EXISTS core CASCADE")
+    if is_postgres:
+        op.execute("DROP SCHEMA IF EXISTS logging CASCADE")
+        op.execute("DROP SCHEMA IF EXISTS analytics CASCADE")
+        op.execute("DROP SCHEMA IF EXISTS integration CASCADE")
+        op.execute("DROP SCHEMA IF EXISTS sales CASCADE")
+        op.execute("DROP SCHEMA IF EXISTS products CASCADE")
+        op.execute("DROP SCHEMA IF EXISTS core CASCADE")

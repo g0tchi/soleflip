@@ -5,15 +5,17 @@ Replaces direct SQL queries in n8n with proper API endpoints
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, date
 import tempfile
 import os
 from pathlib import Path
 import structlog
+from pydantic import BaseModel
 
 from shared.database.connection import get_db_session, db_manager
 from ..services.import_processor import import_processor, SourceType, ImportStatus
 from ..services.validators import ValidationError
+from ..services.stockx_service import stockx_service
 
 logger = structlog.get_logger(__name__)
 
@@ -96,6 +98,83 @@ async def stockx_upload_webhook(
             status_code=500,
             detail=f"Upload processing failed: {str(e)}"
         )
+
+
+class StockXImportRequest(BaseModel):
+    from_date: date
+    to_date: date
+
+@webhook_router.post("/stockx/import-orders", tags=["StockX"])
+async def stockx_import_orders_webhook(
+    request: StockXImportRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    Fetches historical orders directly from the StockX API for a given date range
+    and processes them in the background. Designed for n8n automation.
+    """
+    logger.info(
+        "StockX API import triggered via webhook",
+        from_date=request.from_date,
+        to_date=request.to_date,
+    )
+
+    # Define the background task to prevent blocking the webhook response
+    async def run_import_task():
+        try:
+            logger.info("Background task started: Fetching data from StockX API.")
+            # 1. Fetch data from StockX API using the dedicated service
+            orders_data = await stockx_service.get_historical_orders(
+                from_date=request.from_date,
+                to_date=request.to_date
+            )
+
+            if not orders_data:
+                logger.info("No new orders found from StockX API. Background task finished.")
+                return
+
+            logger.info(f"Fetched {len(orders_data)} orders from StockX. Starting import process.")
+            # 2. Process data using the existing import processor
+            # We use process_import because we have structured data, not a file
+            await import_processor.process_import(
+                source_type=SourceType.STOCKX,
+                data=orders_data,
+                raw_data=orders_data, # Pass raw data for accurate record keeping
+                metadata={"filename": f"stockx_api_import_{request.from_date}_to_{request.to_date}.json"}
+            )
+            logger.info("Background task finished: Import processing complete.")
+
+        except ValueError as e:
+            # Specific handling for configuration errors (e.g., missing credentials)
+            logger.error(
+                "StockX API import failed due to configuration error",
+                error=str(e),
+            )
+        except Exception as e:
+            # General error handling for the background task
+            logger.error(
+                "StockX API import background task failed unexpectedly",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    # Add the task to run in the background after the response is sent
+    background_tasks.add_task(run_import_task)
+
+    # Return an immediate response to the client (e.g., n8n)
+    return JSONResponse(
+        status_code=202, # Accepted
+        content={
+            "status": "processing_started",
+            "message": "StockX API order import has been successfully started in the background.",
+            "details": {
+                "from_date": request.from_date.isoformat(),
+                "to_date": request.to_date.isoformat(),
+                "check_status_url": "/api/v1/integration/import-status"
+            }
+        }
+    )
+
 
 @webhook_router.post("/notion/import")
 async def notion_import_webhook(

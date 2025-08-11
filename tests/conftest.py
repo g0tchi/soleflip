@@ -21,11 +21,14 @@ from shared.database.connection import db_manager
 from domains.inventory.services.inventory_service import inventory_service
 from domains.integration.services.import_processor import import_processor
 
-# Disable logging during tests
+# Configure logging for tests to ensure compatibility with pytest's capture
 structlog.configure(
-    processors=[],
-    wrapper_class=structlog.testing.LogCapture,
-    logger_factory=structlog.testing.LogCapture,
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.dev.ConsoleRenderer(),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
 )
 

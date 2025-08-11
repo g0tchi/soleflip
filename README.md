@@ -113,8 +113,9 @@ soleflip/
 - **Real-time Analytics** - Live transaction and inventory tracking
 
 ### 🔄 Data Processing
-- **Automated Imports** - CSV processing with validation and transformation
-- **N8N Integration** - Workflow automation for data synchronization
+- **Direct API Imports** - Automated, scheduled fetching of orders from the StockX API.
+- **Automated Imports (Legacy)** - CSV processing with validation and transformation.
+- **N8N Integration** - Workflow automation for data synchronization.
 - **Duplicate Detection** - Intelligent duplicate identification and removal
 - **Data Quality Checks** - Comprehensive validation and integrity monitoring
 
@@ -206,9 +207,33 @@ cp docker-compose.override.yml.example docker-compose.override.yml
 ```
 
 ### External Services
-- **N8N Automation**: Configure workflows in `config/n8n/`
-- **Metabase Analytics**: Import dashboards from `docs/completed_tasks/`
-- **API Integration**: Setup webhook endpoints for external platforms
+- **N8N Automation**: Configure workflows in `config/n8n/`. See the guides in `docs/guides/n8n_integration/` for more details.
+- **Metabase Analytics**: Import dashboards from `docs/completed_tasks/`.
+- **API Integration**: Setup webhook endpoints for external platforms.
+
+### StockX API Integration (Automated Imports)
+The recommended way to import StockX data is via the direct API integration. This allows for automated, daily fetching of your sales data without manual CSV exports.
+
+**1. Set Encryption Key:**
+The application uses strong encryption to protect your API credentials in the database. You **must** set an encryption key as an environment variable.
+
+```bash
+# Set this in your .env file or your production environment
+export FIELD_ENCRYPTION_KEY='your-strong-random-32-byte-key'
+```
+You can generate a new key using Python: `from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())`
+
+**2. Configure Credentials in Database:**
+Once the application is running, you need to add your StockX API credentials to the `core.system_config` table. The application must be restarted after setting credentials for the service to pick them up.
+
+-   **`stockx_api_key`**: Your StockX-provided API key.
+-   **`stockx_jwt_token`**: Your StockX-provided JWT token.
+
+You can insert these using a SQL client or a database management tool.
+**Important**: The application's model layer expects to do the encryption. For manual insertion via SQL, you would need to handle encryption yourself. A helper script to set these values securely is recommended for production environments.
+
+**3. Automate with n8n:**
+Follow the guide in [`docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md`](docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md) to set up a workflow that calls the API import endpoint on a daily schedule.
 
 ## 📊 Analytics & Dashboards
 
