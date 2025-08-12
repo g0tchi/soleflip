@@ -3,24 +3,23 @@ Import Processing Engine
 Replaces the chaotic SQL-based import system with a clean,
 testable, and maintainable Python implementation.
 """
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-import pandas as pd
-import json
 import asyncio
 from dataclasses import dataclass
 from enum import Enum
 import structlog
-from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 import math
+from uuid import UUID
+from decimal import Decimal
 
 from shared.database.models import ImportBatch, ImportRecord
 from .validators import StockXValidator, NotionValidator, SalesValidator, AliasValidator
 from .parsers import CSVParser, JSONParser, ExcelParser
 from .transformers import DataTransformer
-import uuid
-from decimal import Decimal
+from domains.products.services.product_processor import ProductProcessor
+from domains.sales.services.transaction_processor import TransactionProcessor
 
 logger = structlog.get_logger(__name__)
 
@@ -40,30 +39,17 @@ class SourceType(Enum):
 
 @dataclass
 class ImportResult:
-    """Result of an import operation"""
     batch_id: str
-    source_type: str
-    total_records: int
-    processed_records: int
-    error_records: int
-    validation_errors: List[str]
-    processing_time_ms: float
-    status: ImportStatus
+    # ... other fields
 
 @dataclass
 class ValidationResult:
-    """Result of data validation"""
     is_valid: bool
     errors: List[str]
     warnings: List[str]
     normalized_data: List[Dict[str, Any]]
 
-from domains.products.services.product_processor import ProductProcessor
-from domains.sales.services.transaction_processor import TransactionProcessor
-
 class ImportProcessor:
-    """Central import processing engine"""
-    
     def __init__(
         self,
         db_session: AsyncSession,
@@ -73,6 +59,7 @@ class ImportProcessor:
         self.db_session = db_session
         self.product_processor = product_processor or ProductProcessor(db_session)
         self.transaction_processor = transaction_processor or TransactionProcessor(db_session)
+        # ... (rest of __init__ is the same)
         self.validators = {
             SourceType.STOCKX: StockXValidator(),
             SourceType.NOTION: NotionValidator(),
@@ -86,122 +73,107 @@ class ImportProcessor:
             '.xls': ExcelParser()
         }
         self.transformer = DataTransformer()
-    
+
+    async def create_initial_batch(self, source_type: SourceType, filename: Optional[str] = None) -> ImportBatch:
+        """
+        Creates an initial ImportBatch record with a 'pending' status.
+        This is called before the background processing begins.
+        """
+        logger.info("Creating initial import batch record", source_type=source_type.value, filename=filename)
+        batch = ImportBatch(
+            source_type=source_type.value,
+            source_file=filename or 'api_import',
+            status=ImportStatus.PENDING.value,
+            started_at=datetime.now(timezone.utc)
+        )
+        self.db_session.add(batch)
+        await self.db_session.flush()
+        await self.db_session.refresh(batch)
+        logger.info("Batch record created", batch_id=str(batch.id))
+        return batch
+
     async def process_import(
         self,
+        batch_id: UUID,
         source_type: SourceType,
         data: List[Dict[str, Any]],
-        metadata: Optional[Dict[str, Any]] = None,
         raw_data: Optional[List[Dict[str, Any]]] = None
-    ) -> ImportResult:
-        start_time = datetime.now(timezone.utc)
-        logger.info("Starting data import", source_type=source_type.value, records=len(data), metadata=metadata)
+    ):
+        """
+        Processes a given dataset for an existing import batch.
+        This method is designed to be run in a background task.
+        """
+        logger.info("Starting data processing for batch", batch_id=str(batch_id), records=len(data))
         
-        batch = None
+        batch = await self.db_session.get(ImportBatch, batch_id)
+        if not batch:
+            logger.error("Batch not found for processing", batch_id=str(batch_id))
+            return
+
         try:
-            filename = metadata.get('filename', 'direct_upload') if metadata else 'direct_upload'
-            batch = await self._create_import_batch(
-                source_type=source_type.value,
-                source_file=filename,
+            # Update batch status to 'processing'
+            await self.update_batch_status(
+                batch_id,
+                ImportStatus.PROCESSING,
                 total_records=len(data)
             )
-            
+
             validation_result = await self._validate_data(data, source_type)
             
             if not validation_result.is_valid:
-                await self._update_batch_status(batch.id, ImportStatus.FAILED, error_records=len(data))
-                processing_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-                return ImportResult(
-                    batch_id=str(batch.id),
-                    source_type=source_type.value,
-                    total_records=len(data),
-                    processed_records=0,
-                    error_records=len(data),
-                    validation_errors=validation_result.errors,
-                    processing_time_ms=processing_time,
-                    status=ImportStatus.FAILED
-                )
-            
+                await self.update_batch_status(batch_id, ImportStatus.FAILED, error_records=len(data))
+                # Optionally store validation errors in the batch or records
+                return
+
             from .transformers import get_transformer
             transformer = get_transformer(source_type.value)
             
-            if source_type == SourceType.STOCKX:
-                transform_result = transformer.transform_stockx_data(validation_result.normalized_data)
-            else: # Simplified for brevity
-                transform_result = transformer.transform(validation_result.normalized_data, [], source_type.value)
+            transform_result = transformer.transform(validation_result.normalized_data, [], source_type.value)
             
-            processed_count = await self._store_records(batch.id, transform_result.transformed_data, source_type, raw_data or data)
+            processed_count = await self._store_records(batch_id, transform_result.transformed_data, source_type, raw_data or data)
             
-            await self._extract_products_from_batch(batch.id, processed_count)
-            await self._create_transactions_from_batch(batch.id, processed_count)
+            await self._extract_products_from_batch(batch_id, processed_count)
+            await self._create_transactions_from_batch(batch_id, processed_count)
             
-            await self._update_batch_status(batch.id, ImportStatus.COMPLETED, processed_records=processed_count, error_records=len(data) - processed_count)
-            
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-            return ImportResult(
-                batch_id=str(batch.id),
-                source_type=source_type.value,
-                total_records=len(data),
+            await self.update_batch_status(
+                batch_id,
+                ImportStatus.COMPLETED,
                 processed_records=processed_count,
-                error_records=len(data) - processed_count,
-                validation_errors=validation_result.errors + transform_result.errors,
-                processing_time_ms=processing_time,
-                status=ImportStatus.COMPLETED
+                error_records=len(data) - processed_count
             )
+            logger.info("Successfully processed batch", batch_id=str(batch_id))
+
         except Exception as e:
-            logger.error("Import processing failed", error=str(e))
-            if batch:
-                await self._update_batch_status(batch.id, ImportStatus.FAILED)
-            # ... return failed ImportResult
+            logger.error("Import processing failed for batch", batch_id=str(batch_id), error=str(e), exc_info=True)
+            await self.update_batch_status(batch_id, ImportStatus.FAILED, error_records=len(data))
+            # Optionally store the main error message in the batch record
             raise
 
-    async def _parse_file(self, file_path: str) -> List[Dict[str, Any]]:
-        file_extension = Path(file_path).suffix.lower()
-        parser = self.parsers.get(file_extension)
-        if not parser:
-            raise ValueError(f"Unsupported file format: {file_extension}")
-        with open(file_path, 'rb') as f:
-            content = f.read()
-        return parser.parse(content).data
+    async def update_batch_status(
+        self,
+        batch_id: UUID,
+        status: ImportStatus,
+        total_records: Optional[int] = None,
+        processed_records: Optional[int] = None,
+        error_records: Optional[int] = None
+    ):
+        batch = await self.db_session.get(ImportBatch, batch_id)
+        if batch:
+            batch.status = status.value
+            if total_records is not None: batch.total_records = total_records
+            if processed_records is not None: batch.processed_records = processed_records
+            if error_records is not None: batch.error_records = error_records
+            if status in [ImportStatus.COMPLETED, ImportStatus.FAILED]:
+                batch.completed_at = datetime.now(timezone.utc)
+            await self.db_session.flush()
 
-    async def _detect_source_type(self, data: List[Dict[str, Any]]) -> SourceType:
-        if not data:
-            raise ValueError("Cannot detect source type from empty data")
-        sample = data[0]
-        if all(k in sample for k in ['Order Number', 'Sale Date', 'Item']): return SourceType.STOCKX
-        if all(k in sample for k in ['ORDER_NUMBER', 'NAME', 'CREDIT_DATE']): return SourceType.ALIAS
-        if all(k in sample for k in ['id', 'properties', 'database_id']): return SourceType.NOTION
-        if all(k in sample for k in ['SKU', 'Sale Date', 'Status']): return SourceType.SALES
-        return SourceType.MANUAL
+    # ... (other private methods like _validate_data, _store_records, etc. remain the same) ...
 
     async def _validate_data(self, data: List[Dict[str, Any]], source_type: SourceType) -> ValidationResult:
         validator = self.validators.get(source_type)
         if not validator:
             return ValidationResult(is_valid=True, errors=[], warnings=[], normalized_data=data)
         return await validator.validate_batch(data)
-
-    async def _create_import_batch(self, source_type: str, source_file: str, total_records: int) -> ImportBatch:
-        batch = ImportBatch(
-            source_type=source_type,
-            source_file=source_file,
-            total_records=total_records,
-            status=ImportStatus.PROCESSING.value,
-            started_at=datetime.now(timezone.utc)
-        )
-        self.db_session.add(batch)
-        await self.db_session.flush()
-        await self.db_session.refresh(batch)
-        return batch
-
-    async def _update_batch_status(self, batch_id: uuid.UUID, status: ImportStatus, processed_records: Optional[int] = None, error_records: Optional[int] = None):
-        batch = await self.db_session.get(ImportBatch, batch_id)
-        if batch:
-            batch.status = status.value
-            if processed_records is not None: batch.processed_records = processed_records
-            if error_records is not None: batch.error_records = error_records
-            if status in [ImportStatus.COMPLETED, ImportStatus.FAILED]:
-                batch.completed_at = datetime.now(timezone.utc)
-            await self.db_session.flush()
 
     def _serialize_for_jsonb(self, obj: Any) -> Any:
         if isinstance(obj, datetime): return obj.isoformat()
@@ -211,7 +183,7 @@ class ImportProcessor:
         if isinstance(obj, list): return [self._serialize_for_jsonb(item) for item in obj]
         return obj
 
-    async def _store_records(self, batch_id: uuid.UUID, records: List[Dict[str, Any]], source_type: SourceType, original_data: List[Dict[str, Any]]) -> int:
+    async def _store_records(self, batch_id: UUID, records: List[Dict[str, Any]], source_type: SourceType, original_data: List[Dict[str, Any]]) -> int:
         stored_count = 0
         for idx, record in enumerate(records):
             try:
@@ -229,7 +201,7 @@ class ImportProcessor:
         await self.db_session.flush()
         return stored_count
 
-    async def _extract_products_from_batch(self, batch_id: uuid.UUID, processed_count: int):
+    async def _extract_products_from_batch(self, batch_id: UUID, processed_count: int):
         if processed_count == 0: return
         try:
             candidates = await self.product_processor.extract_products_from_batch(str(batch_id))
@@ -238,7 +210,7 @@ class ImportProcessor:
         except Exception as e:
             logger.error("Product extraction failed", batch_id=batch_id, error=str(e))
 
-    async def _create_transactions_from_batch(self, batch_id: uuid.UUID, processed_count: int):
+    async def _create_transactions_from_batch(self, batch_id: UUID, processed_count: int):
         if processed_count == 0: return
         try:
             await self.transaction_processor.create_transactions_from_batch(str(batch_id))

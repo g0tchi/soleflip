@@ -20,9 +20,11 @@
       "post": {
         "tags": [
           "Integration",
-          "StockX Integration"
+          "StockX Integration",
+          "Import"
         ],
         "summary": "Stockx Import Orders Webhook",
+        "description": "Triggers a background task to import historical orders from the StockX API\nfor a given date range.",
         "operationId": "stockx_import_orders_webhook_api_v1_integration_stockx_import_orders_post",
         "requestBody": {
           "content": {
@@ -35,11 +37,58 @@
           "required": true
         },
         "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockXImportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/import-status/{batch_id}": {
+      "get": {
+        "tags": [
+          "Integration",
+          "Import"
+        ],
+        "summary": "Get Import Status",
+        "description": "Retrieves the current status of an import batch.",
+        "operationId": "get_import_status_api_v1_integration_import_status__batch_id__get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStatusResponse"
+                }
               }
             }
           },
@@ -354,6 +403,75 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ImportStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "source_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source File"
+          },
+          "total_records": {
+            "type": "integer",
+            "title": "Total Records"
+          },
+          "processed_records": {
+            "type": "integer",
+            "title": "Processed Records"
+          },
+          "error_records": {
+            "type": "integer",
+            "title": "Error Records"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_type",
+          "source_file",
+          "total_records",
+          "processed_records",
+          "error_records",
+          "status",
+          "created_at"
+        ],
+        "title": "ImportStatusResponse"
+      },
       "StockXImportRequest": {
         "properties": {
           "from_date": {
@@ -373,6 +491,30 @@
           "to_date"
         ],
         "title": "StockXImportRequest"
+      },
+      "StockXImportResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "processing_started"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Import has been successfully queued."
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id"
+        ],
+        "title": "StockXImportResponse"
       },
       "UploadResponse": {
         "properties": {
