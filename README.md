@@ -17,7 +17,7 @@ git clone <repository-url>
 cd soleflip
 
 # Install dependencies
-pip install -r requirements.txt
+pip install .
 
 # Setup database
 docker-compose up -d postgres
@@ -161,7 +161,7 @@ source venv/bin/activate  # Linux/Mac
 # venv\\Scripts\\activate  # Windows
 
 # Install dependencies
-pip install -r requirements.txt
+pip install .
 ```
 
 ### 2. Database Setup
