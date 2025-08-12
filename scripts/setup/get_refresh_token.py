@@ -28,7 +28,7 @@ async def main():
 
     # --- Step 1: Get required info and generate URL ---
     client_id = input("1. Enter your Client ID from the StockX developer portal: ").strip()
-    callback_uri = input("2. Enter your Callback/Redirect URI (e.g., https://localhost/callback): ").strip()
+    callback_uri = input("2. Enter your Callback/Redirect URI (e.g., https://localhost/callback or your n8n webhook): ").strip()
 
     if not all([client_id, callback_uri]):
         print("\n❌ Error: Client ID and Callback URI are required. Please try again.")
@@ -48,27 +48,17 @@ async def main():
     print("\n" + "=" * 70)
     print("3. Open the following URL in your browser to authorize the application:")
     print(f"\n   {auth_url}\n")
-    print("After authorizing, your browser will redirect to a blank page.")
-    print("Copy the ENTIRE URL of that blank page.")
+    print("After authorizing, StockX will redirect you. Find the 'code' parameter.")
+    print("- If using localhost, it will be in your browser's address bar.")
+    print("- If using n8n, it will be in the webhook's execution data.")
     print("=" * 70)
 
-    # --- Step 2: Get the redirected URL and extract the code ---
-    redirected_url = input("\n4. Paste the full redirected URL here: ").strip()
+    # --- Step 2: Get the authorization code ---
+    authorization_code = input("\n4. Paste the 'code' value here: ").strip()
 
-    try:
-        parsed_url = urllib.parse.urlparse(redirected_url)
-        query_params = urllib.parse.parse_qs(parsed_url.query)
-        authorization_code = query_params.get("code", [None])[0]
-
-        if not authorization_code:
-            print("\n❌ Error: Could not find 'code' in the provided URL.")
-            return
-
-    except Exception as e:
-        print(f"\n❌ Error: Could not parse the URL provided. {e}")
+    if not authorization_code:
+        print("\n❌ Error: Authorization code cannot be empty.")
         return
-
-    print("   -> Authorization Code extracted successfully.")
 
     # --- Step 3: Get client secret and exchange code for token ---
     client_secret = getpass.getpass("5. Enter your Client Secret: ").strip()
