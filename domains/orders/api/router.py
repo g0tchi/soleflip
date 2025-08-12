@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List, Optional, Dict, Any
 import structlog
 
-from domains.integration.services.stockx_service import stockx_service
+from domains.integration.services.stockx_service import StockXService
+from domains.integration.api.webhooks import get_stockx_service
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -14,7 +15,8 @@ async def get_active_orders(
     variantId: Optional[str] = Query(None, description="Filter by variant ID."),
     sortOrder: Optional[str] = Query("CREATEDAT", description="Sort order for the results."),
     inventoryTypes: Optional[str] = Query(None, description="Comma-separated list of inventory types."),
-    initiatedShipmentDisplayIds: Optional[str] = Query(None, description="Filter by shipment display IDs.")
+    initiatedShipmentDisplayIds: Optional[str] = Query(None, description="Filter by shipment display IDs."),
+    stockx_service: StockXService = Depends(get_stockx_service)
 ):
     """
     Get all active orders from the StockX marketplace.

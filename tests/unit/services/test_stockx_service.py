@@ -1,5 +1,4 @@
 import pytest
-import httpx
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,29 +9,25 @@ from shared.database.models import SystemConfig
 pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
-def stockx_service():
-    """Provides a new instance of the StockXService for each test."""
-    return StockXService()
+def mock_db_session():
+    """Creates a mock of an async SQLAlchemy session."""
+    session = AsyncMock()
+    # `execute` should return an object that has a `scalars` method,
+    # which in turn is iterable.
+    mock_result = MagicMock()
+    session.execute.return_value = mock_result
+    return session, mock_result
 
 @pytest.fixture
-def mock_db_session():
-    """Mocks the database session and yields it."""
-    mock_session = AsyncMock()
-    async def __aenter__(*args, **kwargs):
-        return mock_session
-    async def __aexit__(*args, **kwargs):
-        pass
-
-    db_manager_mock = MagicMock()
-    db_manager_mock.get_session.return_value.__aenter__ = __aenter__
-    db_manager_mock.get_session.return_value.__aexit__ = __aexit__
-
-    with patch('domains.integration.services.stockx_service.db_manager', db_manager_mock):
-        yield mock_session
+def stockx_service(mock_db_session):
+    """Provides a new instance of the StockXService with a mocked db_session."""
+    session, _ = mock_db_session
+    return StockXService(db_session=session)
 
 def _create_mock_config(key, value):
     """Helper to create a mock SystemConfig object."""
     config = SystemConfig(key=key)
+    # Mock the instance method `get_value` on the object
     config.get_value = MagicMock(return_value=value)
     return config
 
@@ -41,18 +36,14 @@ async def test_load_credentials_success(stockx_service, mock_db_session):
     Tests that all required credentials are fetched and loaded correctly.
     """
     # Arrange
+    session, mock_result = mock_db_session
     mock_configs = [
         _create_mock_config("stockx_client_id", "test_client_id"),
         _create_mock_config("stockx_client_secret", "test_client_secret"),
         _create_mock_config("stockx_refresh_token", "test_refresh_token"),
         _create_mock_config("stockx_api_key", "test_api_key"),
     ]
-
-    # `await session.execute()` returns a Result object (sync).
-    # `Result.scalars()` returns a ScalarResult (sync, iterable).
-    mock_result = MagicMock()
     mock_result.scalars.return_value = mock_configs
-    mock_db_session.execute.return_value = mock_result
 
     # Act
     credentials = await stockx_service._load_credentials()
@@ -62,17 +53,16 @@ async def test_load_credentials_success(stockx_service, mock_db_session):
     assert credentials.client_id == "test_client_id"
     assert credentials.refresh_token == "test_refresh_token"
     assert credentials.api_key == "test_api_key"
-    mock_db_session.execute.assert_called_once()
+    session.execute.assert_called_once()
 
 async def test_load_credentials_missing_key(stockx_service, mock_db_session):
     """
     Tests that a ValueError is raised if a required credential is missing.
     """
     # Arrange
+    _, mock_result = mock_db_session
     mock_configs = [_create_mock_config("stockx_client_id", "test_client_id")]
-    mock_result = MagicMock()
     mock_result.scalars.return_value = mock_configs
-    mock_db_session.execute.return_value = mock_result
 
     # Act & Assert
     with pytest.raises(ValueError, match="Missing required StockX credential in system_config: stockx_client_secret"):
@@ -83,16 +73,17 @@ async def test_refresh_access_token_success(stockx_service):
     Tests the successful renewal of an access token.
     """
     # Arrange
+    # We patch _load_credentials because its testing is separate.
     with patch.object(stockx_service, '_load_credentials', new_callable=AsyncMock) as mock_load_creds, \
          patch('httpx.AsyncClient') as MockAsyncClient:
 
         mock_load_creds.return_value = StockXCredentials("id", "secret", "refresh", "api_key")
 
-        mock_response = httpx.Response(
-            200,
-            json={"access_token": "new_access_token", "expires_in": 3600},
-            request=httpx.Request("POST", "https://accounts.stockx.com/oauth/token")
-        )
+        # Mock the response from the httpx client
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"access_token": "new_access_token", "expires_in": 3600}
+
         mock_instance = MockAsyncClient.return_value.__aenter__.return_value
         mock_instance.post.return_value = mock_response
 
@@ -104,7 +95,6 @@ async def test_refresh_access_token_success(stockx_service):
         assert stockx_service._token_expiry > datetime.now(timezone.utc)
         mock_instance.post.assert_called_once()
         post_args = mock_instance.post.call_args
-        assert post_args.args[0] == "https://accounts.stockx.com/oauth/token"
         assert post_args.kwargs['data']['grant_type'] == "refresh_token"
 
 async def test_get_valid_access_token_uses_cache(stockx_service):

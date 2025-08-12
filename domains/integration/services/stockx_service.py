@@ -21,11 +21,14 @@ class StockXCredentials:
         self.refresh_token = refresh_token
         self.api_key = api_key
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 class StockXService:
     """
     A service to interact with the StockX Public API, handling the OAuth2 refresh token flow.
     """
-    def __init__(self):
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
         self._access_token: Optional[str] = None
         self._token_expiry: Optional[datetime] = None
         self._credentials: Optional[StockXCredentials] = None
@@ -39,24 +42,23 @@ class StockXService:
             return self._credentials
 
         logger.info("Loading StockX credentials from database for the first time.")
-        async with db_manager.get_session() as session:
-            keys = ["stockx_client_id", "stockx_client_secret", "stockx_refresh_token", "stockx_api_key"]
-            results = await session.execute(
-                select(SystemConfig).where(SystemConfig.key.in_(keys))
-            )
-            configs = {row.key: row.get_value() for row in results.scalars()}
+        keys = ["stockx_client_id", "stockx_client_secret", "stockx_refresh_token", "stockx_api_key"]
+        results = await self.db_session.execute(
+            select(SystemConfig).where(SystemConfig.key.in_(keys))
+        )
+        configs = {row.key: row.get_value() for row in results.scalars()}
 
-            for key in keys:
-                if key not in configs:
-                    raise ValueError(f"Missing required StockX credential in system_config: {key}")
+        for key in keys:
+            if key not in configs:
+                raise ValueError(f"Missing required StockX credential in system_config: {key}")
 
-            self._credentials = StockXCredentials(
-                client_id=configs["stockx_client_id"],
-                client_secret=configs["stockx_client_secret"],
-                refresh_token=configs["stockx_refresh_token"],
-                api_key=configs["stockx_api_key"]
-            )
-            return self._credentials
+        self._credentials = StockXCredentials(
+            client_id=configs["stockx_client_id"],
+            client_secret=configs["stockx_client_secret"],
+            refresh_token=configs["stockx_refresh_token"],
+            api_key=configs["stockx_api_key"]
+        )
+        return self._credentials
 
     async def _refresh_access_token(self) -> None:
         """
@@ -190,7 +192,3 @@ class StockXService:
         params = {key: value for key, value in kwargs.items() if value is not None}
 
         return await self._make_paginated_get_request("/selling/orders/active", params)
-
-
-# Singleton instance
-stockx_service = StockXService()
