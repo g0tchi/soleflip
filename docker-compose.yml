@@ -1,58 +1,129 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Datenbank
-  postgres:
-    image: postgres:15
-    container_name: soleflip-postgres
-    environment:
-      POSTGRES_DB: soleflip
-      POSTGRES_USER: soleflip_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+  db:
+    image: postgres:17
+    container_name: metabase-db
+    hostname: metabase-db
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - /volume1/docker/soleflipper/db:/var/lib/postgresql/data:rw
     ports:
-      - "5432:5432"
-    networks:
-      - soleflip-network
+      - "2665:5432"
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabaseuser
+      POSTGRES_PASSWORD: metabasepass
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "metabase", "-U", "metabaseuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-  # SoleFlipper API
   api:
     build: .
     container_name: soleflip-api
-    environment:
-      DATABASE_URL: postgresql://soleflip_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/soleflip
-      ENVIRONMENT: development
+    hostname: soleflip-api
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     depends_on:
-      - postgres
-    volumes:
-      - .:/app
-    networks:
-      - soleflip-network
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
-  # Metabase für Analytics
   metabase:
     image: metabase/metabase:latest
-    container_name: soleflip-metabase
+    container_name: metabase
+    hostname: metabase
+    mem_limit: 3g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    ports:
+      - "6400:3000"
+    volumes:
+      - /volume1/docker/soleflipper/metabase/plugins:/plugins:rw
     environment:
+      TZ: Europe/Berlin
+      JAVA_TIMEZONE: Europe/Berlin
+      MUID: "1026"
+      MGID: "100"
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: metabase
-      MB_DB_PORT: 5432
-      MB_DB_USER: soleflip_user
-      MB_DB_PASS: ${POSTGRES_PASSWORD:-changeme}
-      MB_DB_HOST: postgres
-    ports:
-      - "3000:3000"
+      MB_DB_PORT: "5432"
+      MB_DB_USER: metabaseuser
+      MB_DB_PASS: metabasepass
+      MB_DB_HOST: metabase-db
+      MB_EMAIL_FROM_ADDRESS: PLACEHOLDER
+      MB_EMAIL_FROM_NAME: Metabase
+      MB_EMAIL_REPLY_TO: "true"
+      MB_EMAIL_SMTP_USERNAME: PLACEHOLDER
+      MB_EMAIL_SMTP_PASSWORD: URPASSWORD
+      MB_EMAIL_SMTP_HOST: mail.infomaniak.com
+      MB_EMAIL_SMTP_SECURITY: ssl
+      MB_EMAIL_SMTP_PORT: "465"
+      MB_SITE_URL: metabase.PLACEHOLDER.synology.me
+    restart: unless-stopped
     depends_on:
-      - postgres
-    networks:
-      - soleflip-network
+      db:
+        condition: service_healthy
 
-volumes:
-  postgres_data:
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    hostname: adminer
+    mem_limit: 128m
+    cpu_shares: 256
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    ports:
+      - "8220:8080"
+    restart: unless-stopped
+    depends_on:
+      - db
 
-networks:
-  soleflip-network:
-    driver: bridge
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    hostname: n8n
+    mem_limit: 1g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    ports:
+      - "5678:5678"
+    volumes:
+      - /volume1/docker/soleflipper/n8n/data:/home/node/.n8n:rw
+      - /volume1/docker/soleflipper/n8n/files:/files:rw
+    environment:
+      N8N_HOST: n8n.PLACEHOLDER.synology.me
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      NODE_FUNCTION_ALLOW_EXTERNAL: axios
+      NODE_ENV: production
+      WEBHOOK_URL: https://n8n.PLACEHOLDER.synology.me
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: metabase-db
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_USER: metabaseuser
+      DB_POSTGRESDB_PASSWORD: metabasepass
+    restart: on-failure:5
+    depends_on:
+      db:
+        condition: service_healthy

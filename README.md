@@ -9,27 +9,44 @@
 
 SoleFlipper is a comprehensive sneaker resale management platform featuring advanced analytics, brand intelligence, and automated data processing capabilities. Built for serious resellers and businesses managing high-volume sneaker transactions.
 
-## 🚀 Quick Start
+## 🚀 Docker-based Setup (Recommended)
 
+This is the recommended way to run the entire SoleFlipper stack, including the API, database, Metabase, and n8n.
+
+### Prerequisites
+- Docker and Docker Compose installed on your system.
+
+### 1. Configure Environment
+First, create a `.env` file for your configuration. You can copy the provided example file:
 ```bash
-# Clone repository
-git clone <repository-url>
-cd soleflip
-
-# Install dependencies
-pip install .
-
-# Setup database
-docker-compose up -d postgres
-
-# Run migrations
-alembic upgrade head
-
-# Start application
-python main.py
+cp .env.example .env
 ```
+Now, open the `.env` file in a text editor and **set a secure `FIELD_ENCRYPTION_KEY`**. You can generate one with this command:
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+The `DATABASE_URL` in the `.env.example` is already configured for this Docker setup.
 
-📖 **Detailed setup instructions**: [`docs/setup/QUICKSTART.md`](docs/setup/QUICKSTART.md)
+### 2. Run the Stack
+With the `.env` file configured, start all services using Docker Compose:
+```bash
+docker-compose up --build -d
+```
+- `--build` will build the API image for the first time.
+- `-d` will run the services in the background.
+
+### 3. Accessing Services
+- **SoleFlipper API**: `http://localhost:8000`
+- **API Docs**: `http://localhost:8000/docs`
+- **Metabase**: `http://localhost:6400`
+- **n8n**: `http://localhost:5678`
+- **Adminer (Database GUI)**: `http://localhost:8220`
+
+The first time you run the stack, the API service will automatically run database migrations.
+
+### 4. Initial Setup (StockX API)
+To use the StockX features, you need to perform a one-time setup to get your API credentials. Follow the detailed guide here:
+> **StockX Setup Guide:** [`docs/guides/stockx_auth_setup.md`](docs/guides/stockx_auth_setup.md)
 
 ## 🏗️ Architecture
 
@@ -142,57 +159,8 @@ soleflip/
 
 ## 📋 Prerequisites
 
-- **Python 3.11+** - Modern Python with async support
-- **PostgreSQL 15+** - Primary database system
-- **Docker & Docker Compose** - Containerized services
-- **Node.js 16+ *(optional)*** - For N8N automation workflows
-
-## ⚡ Installation
-
-### 1. Environment Setup
-```bash
-# Clone repository
-git clone <repository-url>
-cd soleflip
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\\Scripts\\activate  # Windows
-
-# Install dependencies
-pip install .
-```
-
-### 2. Database Setup
-```bash
-# Start PostgreSQL with Docker
-docker-compose up -d postgres
-
-# Run database migrations
-alembic upgrade head
-
-# Verify installation
-python scripts/database/check_database_integrity.py
-```
-
-### 3. Configuration
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit configuration
-nano .env  # Configure database connection, API keys, etc.
-```
-
-### 4. Start Application
-```bash
-# Development mode
-python main.py
-
-# Production mode
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
+- **Docker & Docker Compose** - For running the entire application stack.
+- **Python 3.11+** - For running helper scripts locally.
 
 ## 🔧 Configuration
 
