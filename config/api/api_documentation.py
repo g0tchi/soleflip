@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 # Add project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from main import app
 
@@ -394,16 +394,20 @@ def main():
     openapi_schema = add_examples_to_paths(openapi_schema)
     
     # Save OpenAPI schema
-    with open("docs/openapi.json", "w", encoding="utf-8") as f:
+    output_dir = os.path.dirname(__file__)
+    openapi_path = os.path.join(output_dir, "openapi.json")
+    postman_path = os.path.join(output_dir, "postman_collection.json")
+
+    with open(openapi_path, "w", encoding="utf-8") as f:
         json.dump(openapi_schema, f, indent=2, ensure_ascii=False)
     
     # Generate Postman collection
     postman_collection = generate_postman_collection()
-    with open("docs/postman_collection.json", "w", encoding="utf-8") as f:
+    with open(postman_path, "w", encoding="utf-8") as f:
         json.dump(postman_collection, f, indent=2, ensure_ascii=False)
     
-    print("✅ OpenAPI documentation generated: docs/openapi.json")
-    print("✅ Postman collection generated: docs/postman_collection.json")
+    print(f"✅ OpenAPI documentation generated: {openapi_path}")
+    print(f"✅ Postman collection generated: {postman_path}")
     print("📖 View docs at: http://localhost:8000/docs")
     print("📖 ReDoc at: http://localhost:8000/redoc")
 

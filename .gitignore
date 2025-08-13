@@ -29,6 +29,8 @@ Thumbs.db
 logs/
 
 # Test files
+htmlcov/
+.coverage
 test_*.csv
 debug_*.py
 *_test.csv

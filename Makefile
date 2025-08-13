@@ -104,7 +104,7 @@ docker-logs: ## View Docker Compose logs
 
 # Documentation
 docs: ## Generate API documentation
-	python docs/api_documentation.py
+	python config/api/api_documentation.py
 
 serve-docs: ## Serve documentation locally
 	@echo "API Documentation available at:"
