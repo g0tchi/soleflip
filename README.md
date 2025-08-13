@@ -70,45 +70,34 @@ soleflip/
 │   └── docker-compose.yml   # Docker services configuration
 │
 ├── 🏢 Business Logic
-│   ├── domains/             # Domain-driven architecture
-│   │   ├── integration/     # Data import and processing
-│   │   ├── inventory/       # Product and inventory management
-│   │   ├── products/        # Product processing services
-│   │   └── sales/           # Transaction and sales management
+│   ├── domains/             # Domain-driven architecture (DDD)
+│   │   ├── integration/
+│   │   ├── inventory/
+│   │   ├── products/
+│   │   └── sales/
 │   │
-│   ├── shared/              # Shared utilities and models
-│   │   ├── database/        # Database connections and models
-│   │   ├── error_handling/  # Exception handling
-│   │   └── logging/         # Application logging
-│   │
+│   ├── shared/              # Shared utilities (DB connection, models)
 │   └── migrations/          # Database schema migrations
 │
 ├── 🛠️ Scripts & Utilities
-│   ├── scripts/
-│   │   ├── database/        # Backup and database management
-│   │   ├── brand_intelligence/ # Brand analytics and deep dive
-│   │   └── transactions/    # Transaction processing utilities
+│   ├── scripts/             # Admin, setup, and operational scripts
+│   ├── data/                # Sample data and backups
+│   └── sql/                 # SQL for improvements, etc.
+│
+├── ⚙️ Configuration & Analytics
+│   ├── config/              # Configs for n8n, API docs, etc.
+│   │   ├── api/
+│   │   └── n8n/
 │   │
-│   ├── data/
-│   │   ├── backups/         # Database backup files
-│   │   ├── samples/         # Sample data for testing
-│   │   └── dev/             # Development databases
-│   │
-│   ├── config/              # External service configurations
-│   │   └── n8n/             # N8N workflow definitions
-│   │
-│   └── sql/                 # SQL queries and improvements
-│       ├── improvements/    # Database optimization scripts
-│       └── dashboards/      # Analytics and dashboard queries
+│   └── metabase/            # Metabase queries, views, and dashboards
+│       ├── queries/
+│       └── views/
 │
 ├── 📚 Documentation
 │   ├── docs/
-│   │   ├── setup/           # Installation and setup guides
-│   │   ├── guides/          # Feature-specific guides
-│   │   ├── api/             # API documentation and collections
-│   │   └── completed_tasks/ # Project milestone documentation
-│   │
-│   └── temp_cleanup/        # Organized legacy scripts (72 files)
+│   │   ├── setup/
+│   │   └── guides/
+│   │       └── archive/     # Archived markdown documents
 │
 └── 🧪 Testing
     └── tests/               # Unit, integration, and API tests
