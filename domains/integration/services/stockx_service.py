@@ -41,7 +41,7 @@ class StockXService:
         if self._credentials:
             return self._credentials
 
-        logger.info("Loading StockX credentials from database for the first time.")
+        logger.info("Loading StockX credentials from database for current request.")
         keys = ["stockx_client_id", "stockx_client_secret", "stockx_refresh_token", "stockx_api_key"]
         results = await self.db_session.execute(
             select(SystemConfig).where(SystemConfig.key.in_(keys))

@@ -31,61 +31,88 @@ def import_processor(db_session, mock_product_processor, mock_transaction_proces
 class TestImportPipelineIntegration:
     
     async def test_stockx_import_success(self, import_processor, mock_product_processor, mock_transaction_processor, sample_stockx_csv_data):
-        result = await import_processor.process_import(
+        # Arrange
+        batch = await import_processor.create_initial_batch(SourceType.STOCKX, "test.csv")
+
+        # Act
+        await import_processor.process_import(
+            batch_id=batch.id,
             source_type=SourceType.STOCKX,
             data=sample_stockx_csv_data,
-            raw_data=sample_stockx_csv_data,
-            metadata={'filename': 'test.csv'}
+            raw_data=sample_stockx_csv_data
         )
-        assert result.status == ImportStatus.COMPLETED
-        assert result.processed_records == 2
+
+        # Assert
+        # Re-fetch batch from DB to check final status
+        updated_batch = await import_processor.db_session.get(type(batch), batch.id)
+        assert updated_batch.status == ImportStatus.COMPLETED.value
+        assert updated_batch.processed_records == 2
         mock_product_processor.extract_products_from_batch.assert_awaited_once()
         mock_transaction_processor.create_transactions_from_batch.assert_awaited_once()
 
     async def test_notion_import_success(self, import_processor, mock_product_processor, mock_transaction_processor, sample_notion_json_data):
-        result = await import_processor.process_import(
+        # Arrange
+        batch = await import_processor.create_initial_batch(SourceType.NOTION, "test.json")
+
+        # Act
+        await import_processor.process_import(
+            batch_id=batch.id,
             source_type=SourceType.NOTION,
             data=sample_notion_json_data,
-            raw_data=sample_notion_json_data,
-            metadata={'filename': 'test.json'}
+            raw_data=sample_notion_json_data
         )
-        assert result.status == ImportStatus.COMPLETED
-        assert result.processed_records == 2
+
+        # Assert
+        updated_batch = await import_processor.db_session.get(type(batch), batch.id)
+        assert updated_batch.status == ImportStatus.COMPLETED.value
+        assert updated_batch.processed_records == 2
     
     async def test_import_validation_errors(self, import_processor):
-        # This validator (SALES) is simple and good for this test
+        # Arrange
+        batch = await import_processor.create_initial_batch(SourceType.SALES, "invalid.csv")
         invalid_data = [{'SKU': '123', 'Sale Date': '2024-01-01'}] # Missing 'Status'
-        result = await import_processor.process_import(
+
+        # Act
+        await import_processor.process_import(
+            batch_id=batch.id,
             source_type=SourceType.SALES,
             data=invalid_data,
-            raw_data=invalid_data,
-            metadata={'filename': 'invalid.csv'}
+            raw_data=invalid_data
         )
-        assert result.status == ImportStatus.FAILED
-        assert len(result.validation_errors) > 0
-        assert "Missing required field: Status" in result.validation_errors[0]
+
+        # Assert
+        updated_batch = await import_processor.db_session.get(type(batch), batch.id)
+        assert updated_batch.status == ImportStatus.FAILED.value
+        assert updated_batch.error_records == 1
 
 
 @pytest.mark.slow
 class TestImportPipelinePerformance:
     
     async def test_large_file_import_performance(self, import_processor, performance_timer):
+        # Arrange
+        batch = await import_processor.create_initial_batch(SourceType.STOCKX, "large.csv")
         large_dataset = [{"Order Number": f"SX-{i:06d}", "Sale Date": "2024-01-15 10:30:00", "Item": f"Perf Test {i}", "Size": "9", "Listing Price": "100"} for i in range(100)]
         
+        # Act
         performance_timer.start()
-        result = await import_processor.process_import(
+        await import_processor.process_import(
+            batch_id=batch.id,
             source_type=SourceType.STOCKX,
             data=large_dataset,
-            raw_data=large_dataset,
-            metadata={'filename': 'large.csv'}
+            raw_data=large_dataset
         )
         performance_timer.stop()
 
-        assert result.status == ImportStatus.COMPLETED
-        assert result.processed_records == 100
+        # Assert
+        updated_batch = await import_processor.db_session.get(type(batch), batch.id)
+        assert updated_batch.status == ImportStatus.COMPLETED.value
+        assert updated_batch.processed_records == 100
         assert performance_timer.elapsed_ms < 10000
 
     async def test_memory_usage_large_import(self, import_processor):
+        # Arrange
+        batch = await import_processor.create_initial_batch(SourceType.STOCKX, "memory.csv")
         import psutil
         import os
         
@@ -94,13 +121,15 @@ class TestImportPipelinePerformance:
 
         dataset = [{"Item": f"Mem Test {i}"*10, "Order Number": f"MEM-{i}", "Sale Date": "2024-01-15", "Listing Price": "100"} for i in range(100)]
         
+        # Act
         await import_processor.process_import(
+            batch_id=batch.id,
             source_type=SourceType.STOCKX,
             data=dataset,
-            raw_data=dataset,
-            metadata={'filename': 'memory.csv'}
+            raw_data=dataset
         )
         
+        # Assert
         final_memory = process.memory_info().rss
         memory_increase_mb = (final_memory - initial_memory) / 1024 / 1024
         

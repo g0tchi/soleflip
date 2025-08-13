@@ -8,11 +8,11 @@ from typing import List, Dict, Any, Optional
 from datetime import date, datetime
 from uuid import UUID
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from ..services.import_processor import ImportProcessor, SourceType
+from ..services.import_processor import ImportProcessor, SourceType, ImportStatus
 from ..services.stockx_service import StockXService
 from ..repositories.import_repository import ImportRepository
 
@@ -44,18 +44,17 @@ class StockXImportResponse(BaseModel):
     batch_id: UUID
 
 class ImportStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     source_type: str
-    source_file: Optional[str]
+    source_file: Optional[str] = None
     total_records: int
     processed_records: int
     error_records: int
     status: str
     created_at: datetime
     completed_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
 
 @router.post(
     "/stockx/import-orders",
@@ -85,7 +84,7 @@ async def stockx_import_orders_webhook(
             orders_data = await stockx_service.get_historical_orders(from_date=request.from_date, to_date=request.to_date)
             if not orders_data:
                 logger.info("No new orders found from StockX API.", batch_id=str(batch_id))
-                await import_processor.update_batch_status(batch_id, "completed", processed_records=0, total_records=0)
+                await import_processor.update_batch_status(batch_id, ImportStatus.COMPLETED, processed_records=0, total_records=0)
                 return
 
             await import_processor.process_import(
@@ -96,7 +95,7 @@ async def stockx_import_orders_webhook(
             )
         except Exception as e:
             logger.error("StockX API import background task failed", batch_id=str(batch_id), error=str(e), exc_info=True)
-            await import_processor.update_batch_status(batch_id, "failed")
+            await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
 
     background_tasks.add_task(run_import_task, batch.id)
 
