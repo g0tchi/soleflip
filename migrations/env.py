@@ -35,7 +35,7 @@ target_metadata = Base.metadata
 # ... etc.
 
 def get_url():
-    """Get database URL from environment or config"""
+    """Get database URL from environment or config, with SQLite fallback."""
     database_url = os.getenv("DATABASE_URL")
     if database_url:
         # Convert psycopg2 URL to asyncpg if needed
@@ -44,7 +44,9 @@ def get_url():
         elif database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
         return database_url
-    return config.get_main_option("sqlalchemy.url")
+
+    # Fallback to SQLite if no DATABASE_URL is provided, making it consistent with connection.py
+    return "sqlite+aiosqlite:///./soleflip_demo.db"
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -74,23 +76,28 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with database connection"""
-    context.configure(
-        connection=connection, 
-        target_metadata=target_metadata,
-        # Include schema support
-        include_schemas=True,
-        version_table_schema="public",
-        # Schema creation strategy
-        include_name=lambda name, type_, parent_names: (
-            # Include all schemas we need
-            type_ == "schema" and name in [
-                "core", "products", "sales", "integration", "analytics", "logging"
-            ]
-        ) or (
-            # Include all other objects
-            type_ != "schema"
-        )
-    )
+
+    is_sqlite = connection.dialect.name == 'sqlite'
+
+    # Common context configuration
+    context_opts = {
+        "connection": connection,
+        "target_metadata": target_metadata,
+    }
+
+    # Add schema support only for non-SQLite databases
+    if not is_sqlite:
+        context_opts.update({
+            "include_schemas": True,
+            "version_table_schema": "public",
+            "include_name": lambda name, type_, parent_names: (
+                type_ == "schema" and name in [
+                    "core", "products", "sales", "integration", "analytics", "logging"
+                ]
+            ) or (type_ != "schema")
+        })
+
+    context.configure(**context_opts)
 
     with context.begin_transaction():
         context.run_migrations()

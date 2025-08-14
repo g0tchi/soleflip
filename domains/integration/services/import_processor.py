@@ -61,10 +61,10 @@ class ImportProcessor:
         self.transaction_processor = transaction_processor or TransactionProcessor(db_session)
         # ... (rest of __init__ is the same)
         self.validators = {
-            SourceType.STOCKX: StockXValidator(),
-            SourceType.NOTION: NotionValidator(),
-            SourceType.SALES: SalesValidator(),
-            SourceType.ALIAS: AliasValidator()
+            SourceType.STOCKX: StockXValidator(db_session),
+            SourceType.NOTION: NotionValidator(db_session),
+            SourceType.SALES: SalesValidator(db_session),
+            SourceType.ALIAS: AliasValidator(db_session)
         }
         self.parsers = {
             '.csv': CSVParser(),

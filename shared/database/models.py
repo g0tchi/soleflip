@@ -53,6 +53,21 @@ class Brand(Base, TimestampMixin):
     name = Column(String(100), nullable=False, unique=True)
     slug = Column(String(100), nullable=False, unique=True)
     products = relationship("Product", back_populates="brand")
+    patterns = relationship("BrandPattern", back_populates="brand", cascade="all, delete-orphan", lazy="selectin")
+
+class BrandPattern(Base, TimestampMixin):
+    __tablename__ = "brand_patterns"
+    __table_args__ = (
+        Column('priority', Integer, default=100, nullable=False),
+        {'schema': 'core'} if IS_POSTGRES else {}
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    brand_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=False)
+    pattern_type = Column(String(50), nullable=False, default='regex')
+    pattern = Column(String(255), nullable=False, unique=True)
+
+    brand = relationship("Brand", back_populates="patterns")
 
 class Category(Base, TimestampMixin):
     __tablename__ = "categories"

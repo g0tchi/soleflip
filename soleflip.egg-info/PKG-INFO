@@ -1,0 +1,452 @@
+Metadata-Version: 2.4
+Name: soleflip
+Version: 2.1.0
+Summary: Professional sneaker reselling management system with multi-platform support
+Author-email: SoleFlipper Team <info@soleflip.com>
+License: MIT
+Keywords: sneaker,reselling,inventory,management,api
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Framework :: FastAPI
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: uvicorn[standard]>=0.24.0
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0
+Requires-Dist: alembic>=1.12.0
+Requires-Dist: psycopg2-binary>=2.9.7
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: python-multipart>=0.0.6
+Requires-Dist: pydantic>=2.4.0
+Requires-Dist: email-validator>=2.1.0
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: structlog>=23.2.0
+Requires-Dist: python-json-logger>=2.0.7
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: click>=8.1.7
+Requires-Dist: cryptography>=41.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.11.0; extra == "dev"
+Requires-Dist: httpx>=0.25.0; extra == "dev"
+Requires-Dist: factory-boy>=3.3.0; extra == "dev"
+Requires-Dist: faker>=19.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: psutil>=5.9.0; extra == "dev"
+
+# SoleFlipper
+
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/yourusername/soleflip)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-15+-blue.svg)](https://postgresql.org)
+
+> **Professional Sneaker Resale Management System with Advanced Brand Intelligence**
+
+SoleFlipper is a comprehensive sneaker resale management platform featuring advanced analytics, brand intelligence, and automated data processing capabilities. Built for serious resellers and businesses managing high-volume sneaker transactions.
+
+## 🚀 Docker-based Setup (Recommended)
+
+This is the recommended way to run the entire SoleFlipper stack, including the API, database, Metabase, and n8n.
+
+### Prerequisites
+- Docker and Docker Compose installed on your system.
+
+### 1. Configure Environment
+First, create a `.env` file for your configuration. You can copy the provided example file:
+```bash
+cp .env.example .env
+```
+Now, open the `.env` file in a text editor and **set a secure `FIELD_ENCRYPTION_KEY`**. You can generate one with this command:
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+The `DATABASE_URL` in the `.env.example` is already configured for this Docker setup.
+
+### 2. Run the Stack
+With the `.env` file configured, start all services using Docker Compose:
+```bash
+docker-compose up --build -d
+```
+- `--build` will build the API image for the first time.
+- `-d` will run the services in the background.
+
+### 3. Accessing Services
+- **SoleFlipper API**: `http://localhost:8000`
+- **API Docs**: `http://localhost:8000/docs`
+- **Metabase**: `http://localhost:6400`
+- **n8n**: `http://localhost:5678`
+- **Adminer (Database GUI)**: `http://localhost:8220`
+
+The first time you run the stack, the API service will automatically run database migrations.
+
+### 4. Initial Setup (StockX API)
+To use the StockX features, you need to perform a one-time setup to get your API credentials. Follow the detailed guide here:
+> **StockX Setup Guide:** [`docs/guides/stockx_auth_setup.md`](docs/guides/stockx_auth_setup.md)
+
+## 🏗️ Architecture
+
+### Core Components
+
+- **🔧 Core Application** (`main.py`, `pyproject.toml`) - FastAPI application with async support
+- **🏢 Business Logic** (`domains/`) - Modular domain-driven architecture
+- **🛠️ Utilities** (`scripts/`) - Database, analytics, and processing scripts
+- **📊 Data Management** (`data/`) - Backups, samples, and development data
+- **⚙️ Configuration** (`config/`) - N8N workflows and external service configs
+- **📈 Analytics** (`sql/`) - Dashboard queries and database improvements
+- **📚 Documentation** (`docs/`) - Comprehensive guides and API documentation
+
+### Directory Structure
+
+```
+soleflip/
+├── 🎯 Core Files
+│   ├── main.py              # FastAPI application entry point
+│   ├── pyproject.toml       # Project configuration and dependencies
+│   └── docker-compose.yml   # Docker services configuration
+│
+├── 🏢 Business Logic
+│   ├── domains/             # Domain-driven architecture (DDD)
+│   │   ├── integration/
+│   │   ├── inventory/
+│   │   ├── products/
+│   │   └── sales/
+│   │
+│   ├── shared/              # Shared utilities (DB connection, models)
+│   └── migrations/          # Database schema migrations
+│
+├── 🛠️ Scripts & Utilities
+│   ├── scripts/             # Admin, setup, and operational scripts
+│   ├── data/                # Sample data and backups
+│   └── sql/                 # SQL for improvements, etc.
+│
+├── ⚙️ Configuration & Analytics
+│   ├── config/              # Configs for n8n, API docs, etc.
+│   │   ├── api/
+│   │   └── n8n/
+│   │
+│   └── metabase/            # Metabase queries, views, and dashboards
+│       ├── queries/
+│       └── views/
+│
+├── 📚 Documentation
+│   ├── docs/
+│   │   ├── setup/
+│   │   └── guides/
+│   │       └── archive/     # Archived markdown documents
+│
+└── 🧪 Testing
+    └── tests/               # Unit, integration, and API tests
+```
+
+## ✨ Key Features
+
+### 🧠 Brand Intelligence System *(v2.0 New)*
+- **Deep Brand Analytics** - Comprehensive brand profiles with founder info, financial data, sustainability scores
+- **Historical Timeline** - 29+ major brand milestones and innovation events
+- **Collaboration Tracking** - Partnership analysis with success metrics and hype scores
+- **Cultural Impact Analysis** - Brand influence scoring and tier classification
+- **Financial Performance** - Multi-year revenue, growth, and profitability analysis
+
+### 📊 Advanced Analytics
+- **Executive Dashboards** - High-level KPIs and performance metrics
+- **Brand Performance Correlation** - Connect brand intelligence with sales data
+- **Metabase Integration** - Pre-built dashboard queries and visualizations
+- **Real-time Analytics** - Live transaction and inventory tracking
+
+### 🔄 Data Processing
+- **Direct API Imports** - Automated, scheduled fetching of orders from the StockX API with OAuth2 support.
+- **Automated Imports (Legacy)** - CSV processing with validation and transformation.
+- **N8N Integration** - Workflow automation for data synchronization.
+- **Duplicate Detection** - Intelligent duplicate identification and removal
+- **Data Quality Checks** - Comprehensive validation and integrity monitoring
+
+### 🗄️ Database Management
+- **PostgreSQL Backend** - Robust relational database with advanced schemas
+- **Automated Backups** - Scheduled backups with metadata and integrity checks
+- **Migration System** - Alembic-based schema versioning and upgrades
+- **Multi-Schema Architecture** - Core, Sales, Integration, and Analytics schemas
+
+## 🎯 Recent Enhancements (v2.0)
+
+### Brand Deep Dive System
+- ✅ **Extended Brand Profiles** - 25+ new fields including founder, headquarters, financials
+- ✅ **Historical Events Tracking** - 29 major milestones across top brands
+- ✅ **Collaboration Network** - Nike x Off-White, Adidas x Kanye, and more
+- ✅ **Financial Analytics** - Revenue, growth rates, and profitability metrics
+- ✅ **Sustainability Scoring** - ESG metrics and environmental impact ratings
+
+### Data Architecture Improvements
+- ✅ **Professional File Organization** - 95+ files organized into logical directory structure
+- ✅ **Comprehensive Documentation** - Versioned guides and setup instructions
+- ✅ **Advanced Analytics Views** - 7 new database views for brand intelligence
+- ✅ **Dashboard-Ready Queries** - 30+ pre-built SQL queries for visualization
+
+## 📋 Prerequisites
+
+- **Docker & Docker Compose** - For running the entire application stack.
+- **Python 3.11+** - For running helper scripts locally.
+
+## 🔧 Configuration
+
+### Database Connection
+```env
+# Copy .env.example to .env and configure:
+DATABASE_URL=postgresql://username:your-secure-password@localhost:5432/soleflip
+
+# Or use Docker Compose with override file:
+cp docker-compose.override.yml.example docker-compose.override.yml
+# Edit docker-compose.override.yml with your secure passwords
+```
+
+### External Services
+- **N8N Automation**: Configure workflows in `config/n8n/`. See the guides in `docs/guides/n8n_integration/` for more details.
+- **Metabase Analytics**: Import dashboards from `docs/completed_tasks/`.
+- **API Integration**: Setup webhook endpoints for external platforms.
+
+### StockX API Integration (OAuth2 Setup)
+The recommended way to import StockX data is via the direct API integration. This requires a **one-time manual setup** to authorize the application.
+
+**1. Set Application Encryption Key:**
+The application uses strong encryption to protect your API credentials. You **must** set this key as an environment variable before running the application.
+
+```bash
+# Set this in your .env file or your production environment
+export FIELD_ENCRYPTION_KEY='your-strong-random-32-byte-key'
+```
+> You can generate a new key using Python:
+> `from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())`
+
+**2. Get Initial Credentials from StockX:**
+Follow the detailed setup guide to get your initial `refresh_token` and other credentials from the StockX developer portal. This process involves creating an app on StockX, authorizing it in your browser, and using a helper script to get your token.
+> **Full Guide:** [`docs/guides/stockx_auth_setup.md`](docs/guides/stockx_auth_setup.md)
+
+**3. Store Credentials in Database:**
+After completing the setup guide, you will have four credentials. These must be stored in the `core.system_config` table for the service to use them.
+
+| key                    | value_encrypted                               |
+| ---------------------- | --------------------------------------------- |
+| `stockx_client_id`     | *Your Client ID from StockX*                  |
+| `stockx_client_secret` | *Your Client Secret from StockX*              |
+| `stockx_refresh_token` | *Your Refresh Token from the helper script*   |
+| `stockx_api_key`       | *Your general API Key from StockX*            |
+
+**4. Automate with n8n:**
+Once configured, you can automate the import process using the simple n8n workflow described in our guide.
+> **n8n Guide:** [`docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md`](docs/guides/n8n_integration/N8N_STOCKX_API_IMPORT_GUIDE.md)
+
+## 📊 Analytics & Dashboards
+
+### Brand Intelligence Dashboards
+- **Executive Overview** - Brand performance KPIs and revenue metrics
+- **Historical Timeline** - Brand milestones and innovation events
+- **Collaboration Network** - Partnership analysis with success metrics
+- **Financial Performance** - Multi-year revenue and growth analysis
+- **Cultural Impact** - Brand influence and market position analysis
+
+### Pre-built SQL Queries
+- `sql/dashboards/brand_dashboard_queries.sql` - 30+ analytics queries
+- `sql/improvements/` - Database optimization scripts
+- Ready for import into Metabase, Grafana, or other visualization tools
+
+## 🚀 Usage Examples
+
+### Import Sales Data
+```bash
+# Process CSV sales report
+python domains/integration/api/webhooks.py --import sales_data.csv
+
+# Verify import
+python scripts/database/check_database_integrity.py
+```
+
+### Generate Analytics
+```bash
+# Create brand intelligence summary
+python scripts/brand_intelligence/brand_deep_dive_summary.py
+
+# Export dashboard queries
+python scripts/brand_intelligence/brand_deep_dive_views.py
+```
+
+### Backup & Restore
+```bash
+# Create comprehensive backup
+python scripts/database/create_backup.py
+
+# Restore from backup
+python scripts/database/restore_backup.py backup_file.sql
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test category
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/api/           # API endpoint tests
+
+# Generate coverage report
+pytest --cov=domains --cov-report=html
+```
+
+## 📦 Dependencies
+
+### Core Framework
+- **FastAPI** - Modern async web framework
+- **SQLAlchemy** - Python SQL toolkit and ORM
+- **Alembic** - Database migration tool
+- **asyncpg** - High-performance PostgreSQL driver
+
+### Analytics & Processing
+- **Pandas** - Data manipulation and analysis
+- **NumPy** - Numerical computing
+- **Pydantic** - Data validation and settings
+
+### Development Tools
+- **Pytest** - Testing framework
+- **Black** - Code formatter
+- **isort** - Import sorting
+- **mypy** - Static type checker
+
+## 🔒 Security & Best Practices
+
+### Database Security
+- ✅ SQL injection protection via SQLAlchemy ORM
+- ✅ Connection pooling and timeout management
+- ✅ Automated backup encryption
+- ✅ Role-based access control
+
+### API Security
+- ✅ Request validation with Pydantic
+- ✅ Rate limiting and throttling
+- ✅ CORS configuration
+- ✅ Error handling and logging
+
+## 🚀 Deployment
+
+### Docker Deployment
+```bash
+# Build and deploy
+docker-compose up -d
+
+# Scale services
+docker-compose up -d --scale web=3
+```
+
+### Production Checklist
+- [ ] Environment variables configured
+- [ ] Database migrations applied
+- [ ] SSL certificates installed
+- [ ] Backup system configured
+- [ ] Monitoring and logging setup
+- [ ] Load balancer configured
+
+## 📈 Performance
+
+### Database Optimizations
+- **Indexed Queries** - Strategic indexes on frequently queried columns
+- **Connection Pooling** - Efficient database connection management
+- **Query Optimization** - Analyzed and optimized slow queries
+- **Automated Cleanup** - Regular maintenance and statistics updates
+
+### Application Performance
+- **Async Processing** - Non-blocking I/O operations
+- **Caching Strategy** - Redis integration for frequently accessed data
+- **Background Tasks** - Celery integration for heavy processing
+- **Resource Monitoring** - Memory and CPU usage optimization
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit changes** (`git commit -m 'Add amazing feature'`)
+4. **Push to branch** (`git push origin feature/amazing-feature`)
+5. **Open Pull Request**
+
+### Development Guidelines
+- Follow PEP 8 style guidelines
+- Add tests for new features
+- Update documentation
+- Use meaningful commit messages
+
+## 📋 Changelog
+
+### Version 2.0.0 (2025-08-07) - Brand Intelligence Release
+#### ✨ New Features
+- **Brand Deep Dive System** - Comprehensive brand analytics and intelligence
+- **Historical Timeline Tracking** - Major brand milestones and events
+- **Collaboration Analysis** - Partnership success metrics and hype scoring
+- **Cultural Impact Assessment** - Brand influence and market position analysis
+- **Financial Performance Analytics** - Multi-year revenue and growth analysis
+
+#### 🏗️ Infrastructure
+- **Professional File Organization** - Restructured codebase with logical directory hierarchy
+- **Advanced Analytics Views** - 7 new database views for brand intelligence
+- **Dashboard-Ready Queries** - 30+ pre-built SQL queries for visualization tools
+- **Comprehensive Documentation** - Versioned guides and setup instructions
+
+#### 🔧 Improvements
+- **Database Schema Extensions** - 25+ new brand profile fields
+- **Automated Backup System** - Enhanced backup with metadata and integrity checks
+- **Code Organization** - Moved 95+ files from root to organized directory structure
+- **Documentation Versioning** - Professional documentation with version control
+
+### Version 1.x - Legacy Releases
+- Core sneaker resale management functionality
+- Basic analytics and reporting
+- CSV import and data processing
+- N8N workflow integration
+
+## 🐛 Known Issues
+
+- CSV files with special characters may require UTF-8 encoding
+- Large dataset imports may require increased memory allocation
+- N8N workflows require manual configuration after deployment
+
+## 📞 Support
+
+### Documentation
+- **Setup Guide**: [`docs/setup/QUICKSTART.md`](docs/setup/QUICKSTART.md)
+- **API Documentation**: [`docs/api/`](docs/api/)
+- **Feature Guides**: [`docs/guides/`](docs/guides/)
+
+### Getting Help
+- **Issues**: Report bugs and feature requests via GitHub Issues
+- **Discussions**: Community support and questions
+- **Wiki**: Detailed technical documentation and tutorials
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **FastAPI** - For the excellent async web framework
+- **SQLAlchemy** - For robust database ORM capabilities
+- **PostgreSQL** - For reliable data storage and analytics
+- **Metabase** - For powerful dashboard and visualization capabilities
+- **N8N** - For flexible workflow automation
+
+---
+
+**SoleFlipper v2.0** - *Professional Sneaker Resale Management with Advanced Brand Intelligence*
+
+*Built with ❤️ for the sneaker community*
