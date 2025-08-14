@@ -30,7 +30,7 @@ async def test_enrich_product_endpoint_success(test_client: AsyncClient, db_sess
         config.set_value(f"test_{key}")
         db_session.add(config)
 
-    # The db_session fixture will handle the transaction, no need to flush/commit here
+    # Let the fixture handle the transaction
 
     # Mock the actual external HTTP calls to avoid hitting the real StockX API
     with patch('httpx.AsyncClient') as MockAsyncClient:

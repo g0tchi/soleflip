@@ -230,6 +230,7 @@ class InventoryItem(Base, TimestampMixin):
     supplier = Column(String(100))
     status = Column(String(50), nullable=False, default="in_stock")
     notes = Column(Text)
+    external_ids = Column(JSONB, nullable=True, default=dict)
     product = relationship("Product", back_populates="inventory_items")
     size = relationship("Size", back_populates="inventory_items")
     supplier_obj = relationship("Supplier", back_populates="inventory_items")

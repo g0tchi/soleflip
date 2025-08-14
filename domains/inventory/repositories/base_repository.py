@@ -28,6 +28,15 @@ class BaseRepository(Generic[T]):
     async def get_by_id(self, entity_id: UUID) -> Optional[T]:
         """Get entity by ID"""
         return await self.db.get(self.model_class, entity_id)
+
+    async def get_by_id_with_related(self, entity_id: UUID, related: List[str]) -> Optional[T]:
+        """Get entity by ID with related models eager loaded"""
+        query = select(self.model_class).where(self.model_class.id == entity_id)
+        for rel in related:
+            query = query.options(selectinload(getattr(self.model_class, rel)))
+
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
     
     async def get_all(
         self, 

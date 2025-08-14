@@ -251,3 +251,44 @@ class InventoryService:
             item.to_dict() for item in product.inventory_items
         ]
         return product_dict
+
+    async def enrich_inventory_item_from_stockx(self, inventory_item_id: UUID) -> Optional[InventoryItem]:
+        """
+        Enriches an inventory item with additional data from the StockX Catalog API.
+        """
+        self.logger.info("Enriching inventory item from StockX", inventory_item_id=str(inventory_item_id))
+
+        # We need to fetch the item with its related product
+        item = await self.inventory_repo.get_by_id_with_related(inventory_item_id, ["product"])
+        if not item:
+            self.logger.warning("Inventory item not found for enrichment", inventory_item_id=str(inventory_item_id))
+            return None
+
+        if not item.external_ids or "stockx_variant_id" not in item.external_ids:
+            self.logger.warning("No stockx_variant_id found in external_ids for item", inventory_item_id=str(inventory_item_id))
+            return item
+
+        stockx_variant_id = item.external_ids["stockx_variant_id"]
+        # The product ID is also needed for the API call
+        stockx_product_id = item.product.sku # Assuming product SKU is the StockX product ID
+
+        from domains.integration.services.stockx_service import StockXService
+        stockx_service = StockXService(self.db_session)
+
+        variant_data = await stockx_service.get_product_details(stockx_variant_id) # Corrected method name
+
+        if not variant_data:
+            self.logger.info("No variant data returned from StockX", stockx_variant_id=stockx_variant_id)
+            return item
+
+        # Here we would update our InventoryItem with new data.
+        # For example, if we add a 'is_flex_eligible' boolean field to our model:
+        # item.is_flex_eligible = variant_data.get('isFlexEligible', item.is_flex_eligible)
+
+        # For now, we just log that we received the data.
+        self.logger.info("Successfully received variant data from StockX", data=variant_data)
+
+        # No commit here as we are not changing anything yet.
+        # await self.db_session.commit()
+
+        return item
