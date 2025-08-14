@@ -38,20 +38,21 @@ class DatabaseManager:
         """Initialize database connection and session factory"""
         logger.info("Initializing database connection...")
         
-        # Create async engine with connection pooling
-        self.engine = create_async_engine(
-            self.database_url,
-            # Connection pool settings for async
-            pool_size=20,
-            max_overflow=30,
-            pool_timeout=30,
-            pool_recycle=3600,
-            # Query settings
-            echo=os.getenv("SQL_ECHO", "false").lower() == "true",
-            echo_pool=False,
-            # Async settings
-            future=True
-        )
+        # Create async engine with connection pooling options for PostgreSQL
+        engine_args = {
+            "future": True,
+            "echo": os.getenv("SQL_ECHO", "false").lower() == "true",
+            "echo_pool": False,
+        }
+        if 'sqlite' not in self.database_url:
+            engine_args.update({
+                "pool_size": 20,
+                "max_overflow": 30,
+                "pool_timeout": 30,
+                "pool_recycle": 3600,
+            })
+
+        self.engine = create_async_engine(self.database_url, **engine_args)
         
         # Create session factory
         self.session_factory = async_sessionmaker(

@@ -192,3 +192,54 @@ class StockXService:
         params = {key: value for key, value in kwargs.items() if value is not None}
 
         return await self._make_paginated_get_request("/selling/orders/active", params)
+
+    async def get_product_details(self, product_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches details for a single product from the StockX Catalog API.
+        """
+        logger.info("Fetching product details from StockX Catalog API.", product_id=product_id)
+        endpoint = f"/catalog/products/{product_id}"
+
+        try:
+            response_data = await self._make_get_request(endpoint)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning("Product not found in StockX catalog.", product_id=product_id)
+                return None
+            else:
+                # Re-raise other HTTP errors
+                raise
+
+    async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        A generic helper to make a single, non-paginated GET request to the StockX API.
+        """
+        access_token = await self._get_valid_access_token()
+        api_key = (await self._load_credentials()).api_key
+
+        headers = {
+            "x-api-key": api_key,
+            "Authorization": f"Bearer {access_token}",
+            "User-Agent": "SoleFlipperApp/1.0"
+        }
+
+        async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
+            try:
+                response = await client.get(endpoint, params=params, headers=headers, timeout=30.0)
+
+                if response.status_code == 401:
+                    logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
+                    access_token = await self._get_valid_access_token() # Force refresh
+                    headers["Authorization"] = f"Bearer {access_token}"
+                    response = await client.get(endpoint, params=params, headers=headers, timeout=30.0)
+
+                response.raise_for_status()
+                return response.json()
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f"HTTP error on {endpoint}", status_code=e.response.status_code, response=e.response.text)
+                raise
+            except httpx.RequestError as e:
+                logger.error(f"Request error on {endpoint}", error=str(e))
+                raise

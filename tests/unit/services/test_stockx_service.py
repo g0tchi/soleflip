@@ -152,3 +152,42 @@ async def test_get_active_orders_success(stockx_service):
             "/selling/orders/active",
             {"orderStatus": "SHIPPED"}
         )
+
+async def test_get_product_details_success(stockx_service):
+    """
+    Tests successfully fetching product details.
+    """
+    # Arrange
+    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = {"productId": "product123", "title": "Test Product"}
+        product_id = "product123"
+
+        # Act
+        details = await stockx_service.get_product_details(product_id)
+
+        # Assert
+        assert details is not None
+        assert details["title"] == "Test Product"
+        mock_get.assert_called_once_with(f"/catalog/products/{product_id}")
+
+async def test_get_product_details_not_found(stockx_service):
+    """
+    Tests handling of a 404 Not Found error when fetching product details.
+    """
+    # Arrange
+    import httpx
+    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+        # Simulate the HTTP client raising a 404 error
+        mock_get.side_effect = httpx.HTTPStatusError(
+            "Not Found",
+            request=MagicMock(),
+            response=MagicMock(status_code=404)
+        )
+        product_id = "nonexistent_product"
+
+        # Act
+        details = await stockx_service.get_product_details(product_id)
+
+        # Assert
+        assert details is None
+        mock_get.assert_called_once_with(f"/catalog/products/{product_id}")

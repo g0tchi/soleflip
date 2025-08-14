@@ -54,10 +54,12 @@ app.add_middleware(
 from domains.integration.api.webhooks import router as webhook_router
 from domains.integration.api.upload_router import router as upload_router
 from domains.orders.api.router import router as orders_router
+from domains.products.api.router import router as products_router
 
 app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integration"])
 app.include_router(upload_router, prefix="/api/v1/integration", tags=["Integration"]) # Prefix is the same
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
+app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 
 
 @app.get("/", response_model=APIInfo, tags=["System"])
