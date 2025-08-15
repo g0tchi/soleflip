@@ -41,18 +41,15 @@ dependencies = [
     
     # Validation and serialization
     "pydantic>=2.4.0",
-    "email-validator>=2.1.0",
     
     # Async HTTP client
     "httpx>=0.25.0",
     
     # Logging and monitoring
     "structlog>=23.2.0",
-    "python-json-logger>=2.0.7",
     
     # Utilities
     "python-dotenv>=1.0.0",
-    "click>=8.1.7",
     "cryptography>=41.0.0",
     "python-slugify>=8.0.0",
 ]
