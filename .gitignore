@@ -9,6 +9,11 @@ venv/
 .env
 .venv
 
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
 # Database
 *.db
 *.sqlite3

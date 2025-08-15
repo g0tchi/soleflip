@@ -1,8 +1,0 @@
-README.md
-pyproject.toml
-soleflip.egg-info/PKG-INFO
-soleflip.egg-info/SOURCES.txt
-soleflip.egg-info/dependency_links.txt
-soleflip.egg-info/requires.txt
-soleflip.egg-info/top_level.txt
-tests/conftest.py
