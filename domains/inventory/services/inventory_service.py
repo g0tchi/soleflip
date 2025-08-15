@@ -59,7 +59,7 @@ class InventoryItemRequest:
 class InventoryService:
     """Domain service for inventory operations"""
 
-    def __init__(self, db_session: AsyncSession):
+    def __init__(self, db_session: AsyncSession, stockx_service: Optional[Any] = None):
         self.db_session = db_session
         self.logger = logger.bind(service="inventory")
         self.product_repo = ProductRepository(self.db_session)
@@ -67,6 +67,7 @@ class InventoryService:
         self.category_repo = BaseRepository(Category, self.db_session)
         self.size_repo = BaseRepository(Size, self.db_session)
         self.inventory_repo = BaseRepository(InventoryItem, self.db_session)
+        self.stockx_service = stockx_service
 
     async def get_inventory_overview(self) -> InventoryStats:
         """Get overall inventory statistics"""
@@ -252,43 +253,80 @@ class InventoryService:
         ]
         return product_dict
 
-    async def enrich_inventory_item_from_stockx(self, inventory_item_id: UUID) -> Optional[InventoryItem]:
+    async def sync_inventory_from_stockx(self, product_id: UUID) -> Dict[str, int]:
         """
-        Enriches an inventory item with additional data from the StockX Catalog API.
+        Synchronizes all inventory items for a given product with the variants from the StockX API.
+        Performs an "upsert" logic: updates existing items, creates new ones.
         """
-        self.logger.info("Enriching inventory item from StockX", inventory_item_id=str(inventory_item_id))
+        self.logger.info("Syncing inventory variants from StockX for product", product_id=str(product_id))
+        stats = {"created": 0, "updated": 0, "skipped": 0}
 
-        # We need to fetch the item with its related product
-        item = await self.inventory_repo.get_by_id_with_related(inventory_item_id, ["product"])
-        if not item:
-            self.logger.warning("Inventory item not found for enrichment", inventory_item_id=str(inventory_item_id))
-            return None
+        # 1. Fetch our local product and all its current inventory items
+        product = await self.product_repo.get_with_inventory(product_id)
+        if not product:
+            raise ValueError(f"Product with ID {product_id} not found.")
 
-        if not item.external_ids or "stockx_variant_id" not in item.external_ids:
-            self.logger.warning("No stockx_variant_id found in external_ids for item", inventory_item_id=str(inventory_item_id))
-            return item
+        if not product.sku:
+            self.logger.warning("Product has no SKU, cannot sync from StockX", product_id=str(product_id))
+            return stats
 
-        stockx_variant_id = item.external_ids["stockx_variant_id"]
-        # The product ID is also needed for the API call
-        stockx_product_id = item.product.sku # Assuming product SKU is the StockX product ID
+        # Create a map of existing items by their StockX variant ID for efficient lookup
+        existing_items_map = {
+            item.external_ids.get("stockx"): item
+            for item in product.inventory_items
+            if item.external_ids and "stockx" in item.external_ids
+        }
 
-        from domains.integration.services.stockx_service import StockXService
-        stockx_service = StockXService(self.db_session)
+        # 2. Fetch all variants for this product from the StockX API
+        stockx_service = self.stockx_service
+        if not stockx_service:
+            from domains.integration.services.stockx_service import StockXService
+            stockx_service = StockXService(self.db_session)
 
-        variant_data = await stockx_service.get_product_details(stockx_variant_id) # Corrected method name
+        stockx_variants = await stockx_service.get_all_product_variants(product.sku)
 
-        if not variant_data:
-            self.logger.info("No variant data returned from StockX", stockx_variant_id=stockx_variant_id)
-            return item
+        if not stockx_variants:
+            self.logger.info("No variants found on StockX for product", product_id=str(product_id), sku=product.sku)
+            return stats
 
-        # Here we would update our InventoryItem with new data.
-        # For example, if we add a 'is_flex_eligible' boolean field to our model:
-        # item.is_flex_eligible = variant_data.get('isFlexEligible', item.is_flex_eligible)
+        # 3. Loop through StockX variants and perform upsert
+        for variant in stockx_variants:
+            variant_id = variant.get("variantId")
+            if not variant_id:
+                stats["skipped"] += 1
+                continue
 
-        # For now, we just log that we received the data.
-        self.logger.info("Successfully received variant data from StockX", data=variant_data)
+            # Check if we already have this item
+            existing_item = existing_items_map.get(variant_id)
 
-        # No commit here as we are not changing anything yet.
-        # await self.db_session.commit()
+            if existing_item:
+                # --- UPDATE ---
+                # Here we would update any fields that might change.
+                # For now, we just log it.
+                self.logger.info("Updating existing inventory item from StockX variant", item_id=str(existing_item.id))
+                # Example: existing_item.is_flex_eligible = variant.get('isFlexEligible')
+                stats["updated"] += 1
+            else:
+                # --- CREATE ---
+                self.logger.info("Creating new inventory item from StockX variant", variant_id=variant_id)
 
-        return item
+                # We need to find or create the Size object
+                size_value = variant.get("variantValue", "Unknown")
+                size = await self.size_repo.find_one_or_create(
+                    {"value": size_value, "region": "US"}, # Assuming US region for StockX sizes
+                    category_id=product.category_id
+                )
+
+                new_item = InventoryItem(
+                    product_id=product.id,
+                    size_id=size.id,
+                    quantity=0, # New items from sync start with 0 quantity
+                    status="in_stock",
+                    external_ids={"stockx": variant_id}
+                )
+                self.db_session.add(new_item)
+                stats["created"] += 1
+
+        await self.db_session.commit()
+        self.logger.info("Inventory sync from StockX complete", product_id=str(product_id), **stats)
+        return stats

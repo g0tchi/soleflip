@@ -7,30 +7,37 @@ from uuid import UUID
 import structlog
 
 from shared.database.connection import get_db_session
-from domains.products.services.product_processor import ProductProcessor
+from domains.inventory.services.inventory_service import InventoryService
 from shared.database.models import Product
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
-def get_product_processor(db: AsyncSession = Depends(get_db_session)) -> ProductProcessor:
-    return ProductProcessor(db)
+def get_inventory_service(db: AsyncSession = Depends(get_db_session)) -> InventoryService:
+    return InventoryService(db)
 
 @router.post(
-    "/{product_id}/enrich-from-stockx",
+    "/{product_id}/sync-variants-from-stockx",
     status_code=202,
-    summary="Enrich Product Data from StockX",
-    description="Triggers a background task to enrich a product's data using the StockX Catalog API."
+    summary="Sync Product Variants from StockX",
+    description="Triggers a background task to sync all product variants from StockX, creating or updating inventory items."
 )
-async def enrich_product(
+async def sync_product_variants(
     product_id: UUID,
-    background_tasks: BackgroundTasks,
-    product_processor: ProductProcessor = Depends(get_product_processor)
+    background_tasks: BackgroundTasks
 ):
-    logger.info("Received request to enrich product", product_id=str(product_id))
+    logger.info("Received request to sync product variants from StockX", product_id=str(product_id))
 
-    # Run the enrichment in the background to provide an immediate response
-    background_tasks.add_task(product_processor.enrich_product_from_stockx, product_id)
+    async def run_sync_task(product_id: UUID):
+        from shared.database.connection import db_manager
+        async with db_manager.get_session() as bg_session:
+            try:
+                inventory_service = InventoryService(bg_session)
+                await inventory_service.sync_inventory_from_stockx(product_id)
+            except Exception as e:
+                logger.error("StockX variant sync background task failed", product_id=str(product_id), error=str(e), exc_info=True)
 
-    return {"message": "Product enrichment has been queued."}
+    background_tasks.add_task(run_sync_task, product_id)
+
+    return {"message": "Product variant synchronization has been queued."}

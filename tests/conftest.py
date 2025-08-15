@@ -4,7 +4,7 @@ Provides reusable test fixtures for database, API client, and test data
 """
 import asyncio
 import pytest
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, Generator
 from uuid import uuid4
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -33,12 +33,6 @@ structlog.configure(
 # Test database configuration
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for session-scoped async fixtures"""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 @pytest.fixture(scope="session")
 async def test_engine():
@@ -78,7 +72,9 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         # Rollback transaction to clean up
         await transaction.rollback()
 
+import anyio
 from httpx import ASGITransport
+from fastapi import BackgroundTasks
 
 @pytest.fixture
 async def test_client() -> AsyncGenerator[AsyncClient, None]:
@@ -87,10 +83,13 @@ async def test_client() -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
+
 @pytest.fixture
 def sync_client() -> TestClient:
     """Create synchronous test client for simple tests"""
     return TestClient(app)
+
+
 
 # Test data factories
 @pytest.fixture

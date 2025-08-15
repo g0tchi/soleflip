@@ -211,6 +211,24 @@ class StockXService:
                 # Re-raise other HTTP errors
                 raise
 
+    async def get_all_product_variants(self, product_id: str) -> List[Dict[str, Any]]:
+        """
+        Fetches all variants for a single product from the StockX Catalog API.
+        """
+        logger.info("Fetching all product variants from StockX Catalog API.", product_id=product_id)
+        endpoint = f"/catalog/products/{product_id}/variants"
+
+        try:
+            # This endpoint returns a list directly, which matches the expected output type.
+            response_data = await self._make_get_request(endpoint)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning("Product not found in StockX catalog when fetching variants.", product_id=product_id)
+                return [] # Return empty list if the product itself is not found
+            else:
+                raise
+
     async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         A generic helper to make a single, non-paginated GET request to the StockX API.

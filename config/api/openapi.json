@@ -274,58 +274,37 @@
         }
       }
     },
-    "/api/v1/integration/webhooks/stockx/upload": {
+    "/api/v1/products/{product_id}/sync-variants-from-stockx": {
       "post": {
         "tags": [
+          "Products",
           "StockX Integration"
         ],
-        "summary": "Upload Stockx File",
-        "operationId": "upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_stockx_file_api_v1_integration_webhooks_stockx_upload_post"
-              },
-              "example": {
-                "file": "stockx_sales_report.csv",
-                "batch_size": 1000,
-                "validate_only": false
-              }
+        "summary": "Sync Product Variants from StockX",
+        "description": "Triggers a background task to sync all product variants from StockX, creating or updating inventory items.",
+        "operationId": "sync_product_variants_api_v1_products__product_id__sync_variants_from_stockx_post",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Product Id"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
-                },
-                "examples": {
-                  "processing_started": {
-                    "summary": "Import processing started",
-                    "value": {
-                      "status": "processing_started",
-                      "message": "File uploaded successfully. Processing started in background.",
-                      "batch_id": "123e4567-e89b-12d3-a456-426614174000",
-                      "filename": "stockx_sales_report.csv",
-                      "record_count": 150,
-                      "check_status_url": "/api/v1/integration/webhooks/import-status/123e4567-e89b-12d3-a456-426614174000"
-                    }
-                  },
-                  "validation_only": {
-                    "summary": "Validation only result",
-                    "value": {
-                      "status": "validated",
-                      "valid": true,
-                      "errors": [],
-                      "warnings": [
-                        "Some items missing optional fields"
-                      ],
-                      "record_count": 150
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
                     }
                   }
                 }

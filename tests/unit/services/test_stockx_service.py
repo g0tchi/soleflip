@@ -191,3 +191,42 @@ async def test_get_product_details_not_found(stockx_service):
         # Assert
         assert details is None
         mock_get.assert_called_once_with(f"/catalog/products/{product_id}")
+
+async def test_get_all_product_variants_success(stockx_service):
+    """
+    Tests successfully fetching all product variants.
+    """
+    # Arrange
+    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = [{"variantId": "variant1"}, {"variantId": "variant2"}]
+        product_id = "product123"
+
+        # Act
+        variants = await stockx_service.get_all_product_variants(product_id)
+
+        # Assert
+        assert len(variants) == 2
+        assert variants[0]["variantId"] == "variant1"
+        mock_get.assert_called_once_with(f"/catalog/products/{product_id}/variants")
+
+async def test_get_all_product_variants_not_found(stockx_service):
+    """
+    Tests handling of a 404 Not Found error when fetching product variants.
+    """
+    # Arrange
+    import httpx
+    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+        # Simulate the HTTP client raising a 404 error
+        mock_get.side_effect = httpx.HTTPStatusError(
+            "Not Found",
+            request=MagicMock(),
+            response=MagicMock(status_code=404)
+        )
+        product_id = "nonexistent_product"
+
+        # Act
+        variants = await stockx_service.get_all_product_variants(product_id)
+
+        # Assert
+        assert variants == []
+        mock_get.assert_called_once_with(f"/catalog/products/{product_id}/variants")
