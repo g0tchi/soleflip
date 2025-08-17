@@ -229,6 +229,31 @@ class StockXService:
             else:
                 raise
 
+    async def search_stockx_catalog(self, query: str, page: int = 1, page_size: int = 10) -> Optional[Dict[str, Any]]:
+        """
+        Searches the StockX catalog using a freeform query.
+        """
+        logger.info("Searching StockX catalog.", query=query, page=page, page_size=page_size)
+        endpoint = "/catalog/search"
+        params = {
+            "query": query,
+            "pageNumber": page,
+            "pageSize": page_size
+        }
+
+        try:
+            response_data = await self._make_get_request(endpoint, params=params)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            # A 404 is not expected for a search, but we'll log it.
+            # Other errors will be re-raised by the helper.
+            logger.warning(
+                "Received an unexpected HTTP status error during StockX catalog search.",
+                status_code=e.response.status_code,
+                query=query
+            )
+            return None
+
     async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         A generic helper to make a single, non-paginated GET request to the StockX API.

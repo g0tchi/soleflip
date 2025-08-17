@@ -5,7 +5,7 @@ from typing import Dict, Any
 from uuid import UUID
 import structlog
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
@@ -70,3 +70,31 @@ async def get_stockx_product_details(
         )
 
     return details
+
+
+@router.get(
+    "/search-stockx",
+    summary="Search for Products on StockX",
+    description="Performs a search against the StockX Catalog API using a query string.",
+    response_model=Dict[str, Any]
+)
+async def search_stockx_products(
+    query: str = Query(..., min_length=1, max_length=100, description="Keyword, GTIN, or Style ID to search for."),
+    page: int = Query(1, alias="pageNumber", ge=1, description="Requested page number."),
+    page_size: int = Query(10, alias="pageSize", ge=1, le=50, description="Number of products to return per page."),
+    stockx_service: StockXService = Depends(get_stockx_service)
+):
+    logger.info("Received request to search StockX catalog", query=query, page=page, page_size=page_size)
+
+    search_results = await stockx_service.search_stockx_catalog(
+        query=query, page=page, page_size=page_size
+    )
+
+    if search_results is None:
+        # This can happen if there was an HTTP error in the service
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to retrieve search results from StockX."
+        )
+
+    return search_results

@@ -61,3 +61,57 @@ async def test_get_stockx_product_details_not_found(mocker):
     assert response.status_code == 404
     assert response.json() == {"detail": f"Product with ID '{product_id}' not found on StockX."}
     StockXService.get_product_details.assert_called_once_with(product_id)
+
+
+@pytest.mark.usefixtures("override_db_dependency")
+@pytest.mark.asyncio
+async def test_search_stockx_products_success(mocker):
+    """
+    Test successful search of products from StockX via our API endpoint.
+    """
+    search_query = "jordan 1"
+    mock_response_data = {
+        "count": 1,
+        "products": [{"productId": "search-result-123", "title": "Air Jordan 1"}]
+    }
+
+    # Mock the service method
+    mocker.patch.object(
+        StockXService,
+        'search_stockx_catalog',
+        new_callable=AsyncMock,
+        return_value=mock_response_data
+    )
+
+    # Make the request to our API
+    response = client.get(f"/api/v1/products/search-stockx?query={search_query}&pageNumber=1&pageSize=5")
+
+    # Assertions
+    assert response.status_code == 200
+    assert response.json() == mock_response_data
+    StockXService.search_stockx_catalog.assert_called_once_with(query=search_query, page=1, page_size=5)
+
+
+@pytest.mark.usefixtures("override_db_dependency")
+@pytest.mark.asyncio
+async def test_search_stockx_products_service_error(mocker):
+    """
+    Test the case where the search service returns an error (None).
+    """
+    search_query = "error-query"
+
+    # Mock the service method to return None
+    mocker.patch.object(
+        StockXService,
+        'search_stockx_catalog',
+        new_callable=AsyncMock,
+        return_value=None
+    )
+
+    # Make the request to our API
+    response = client.get(f"/api/v1/products/search-stockx?query={search_query}")
+
+    # Assertions
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Failed to retrieve search results from StockX."}
+    StockXService.search_stockx_catalog.assert_called_once_with(query=search_query, page=1, page_size=10)
