@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2025-08-15 - Maintenance Release
+
+### 🧹 Housekeeping & Refactoring
+
+#### Changed
+- **Simplified `README.md`**: Restructured the main README for clarity and conciseness. Redundant sections like the detailed changelog were removed in favor of a direct link to this file.
+- **Improved `.gitignore`**: Added common Python build artifacts (`dist/`, `build/`, `*.egg-info/`) to the `.gitignore` file to keep the repository clean.
+
+#### Removed
+- **Redundant Documentation**: Deleted `VERSION.md` and `VERSION_NOTES.md` to establish `CHANGELOG.md` as the single source of truth for version history.
+- **Obsolete Scripts**: Removed three outdated and special-purpose backup scripts from `scripts/database/`. The robust `create_backup.py` is now the sole backup script.
+- **Obsolete SQL Queries**: Deleted the old `brand_dashboard_queries.sql` file from `metabase/queries/` to prevent confusion.
+- **Outdated Document Folders**: Removed the `docs/guides/archive/` and `docs/completed_tasks/` directories as they contained outdated development artifacts.
+
+#### Fixed
+- **Consolidated Metabase Assets**: Moved the `metabase_dashboards.json` file from `docs/completed_tasks/` to `metabase/` to logically group all Metabase-related assets.
+- **Corrected README Paths**: Updated file paths in the `README.md` to reflect the cleaned-up project structure.
+
+---
+
 ## [2.0.0] - 2025-08-07 - Brand Intelligence Release
 
 ### 🎯 Added

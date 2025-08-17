@@ -3,6 +3,7 @@ Unit Tests for Data Validators
 Tests validation logic without external dependencies
 """
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 from decimal import Decimal
 from datetime import datetime
 
@@ -14,13 +15,19 @@ from domains.integration.services.validators import (
     ValidationResult
 )
 
+from unittest.mock import MagicMock, AsyncMock
+
 @pytest.mark.unit
 class TestStockXValidator:
     """Test suite for StockX data validator"""
     
     @pytest.fixture
     def validator(self):
-        return StockXValidator()
+        mock_session = MagicMock(spec=AsyncSession)
+        validator = StockXValidator(mock_session)
+        # Mock the brand extractor to avoid actual DB calls in unit tests
+        validator.brand_extractor.extract_brand_from_name = AsyncMock(return_value=MagicMock(name='Nike'))
+        return validator
     
     @pytest.fixture
     def valid_stockx_record(self):
@@ -136,7 +143,10 @@ class TestNotionValidator:
     
     @pytest.fixture
     def validator(self):
-        return NotionValidator()
+        mock_session = MagicMock(spec=AsyncSession)
+        validator = NotionValidator(mock_session)
+        validator.brand_extractor.extract_brand_from_name = AsyncMock(return_value=MagicMock(name='Nike'))
+        return validator
     
     @pytest.fixture
     def valid_notion_record(self):
@@ -236,7 +246,10 @@ class TestSalesValidator:
     
     @pytest.fixture
     def validator(self):
-        return SalesValidator()
+        mock_session = MagicMock(spec=AsyncSession)
+        validator = SalesValidator(mock_session)
+        validator.brand_extractor.extract_brand_from_name = AsyncMock(return_value=MagicMock(name='Nike'))
+        return validator
     
     @pytest.fixture
     def valid_sales_record(self):
@@ -300,7 +313,10 @@ class TestBaseValidator:
     
     @pytest.fixture
     def validator(self):
-        return StockXValidator()  # Use concrete implementation
+        mock_session = MagicMock(spec=AsyncSession)
+        validator = StockXValidator(mock_session)
+        validator.brand_extractor.extract_brand_from_name = AsyncMock(return_value=MagicMock(name='Nike'))
+        return validator
     
     def test_normalize_currency_edge_cases(self, validator):
         """Test currency normalization edge cases"""

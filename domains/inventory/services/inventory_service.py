@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 from ..repositories.product_repository import ProductRepository
@@ -16,9 +17,11 @@ from shared.database.models import Product, InventoryItem, Brand, Category, Size
 
 logger = structlog.get_logger(__name__)
 
+
 @dataclass
 class InventoryStats:
     """Inventory statistics"""
+
     total_items: int
     in_stock: int
     sold: int
@@ -26,9 +29,11 @@ class InventoryStats:
     total_value: Decimal
     avg_purchase_price: Decimal
 
+
 @dataclass
 class ProductCreationRequest:
     """Request for creating a new product"""
+
     sku: str
     name: str
     brand_name: str
@@ -37,9 +42,11 @@ class ProductCreationRequest:
     retail_price: Optional[Decimal] = None
     release_date: Optional[datetime] = None
 
+
 @dataclass
 class InventoryItemRequest:
     """Request for adding inventory item"""
+
     product_id: UUID
     size_value: str
     size_region: str
@@ -48,296 +55,278 @@ class InventoryItemRequest:
     purchase_date: Optional[datetime] = None
     supplier: Optional[str] = None
 
+
 class InventoryService:
     """Domain service for inventory operations"""
-    
-    def __init__(self):
+
+    def __init__(self, db_session: AsyncSession, stockx_service: Optional[Any] = None):
+        self.db_session = db_session
         self.logger = logger.bind(service="inventory")
-    
+        self.product_repo = ProductRepository(self.db_session)
+        self.brand_repo = BaseRepository(Brand, self.db_session)
+        self.category_repo = BaseRepository(Category, self.db_session)
+        self.size_repo = BaseRepository(Size, self.db_session)
+        self.inventory_repo = BaseRepository(InventoryItem, self.db_session)
+        self.stockx_service = stockx_service
+
     async def get_inventory_overview(self) -> InventoryStats:
         """Get overall inventory statistics"""
-        async with get_db_session() as db:
-            inventory_repo = BaseRepository(InventoryItem, db)
-            
-            # Get all inventory items
-            all_items = await inventory_repo.get_all()
-            
-            total_items = len(all_items)
-            in_stock = len([item for item in all_items if item.status == 'in_stock'])
-            sold = len([item for item in all_items if item.status == 'sold'])
-            listed = len([item for item in all_items if 'listed' in item.status])
-            
-            # Calculate total value
-            total_value = sum(
-                item.purchase_price or Decimal('0') 
-                for item in all_items 
-                if item.status == 'in_stock'
-            )
-            
-            # Calculate average purchase price
-            purchase_prices = [
-                item.purchase_price 
-                for item in all_items 
-                if item.purchase_price is not None
-            ]
-            avg_purchase_price = (
-                sum(purchase_prices) / len(purchase_prices) 
-                if purchase_prices else Decimal('0')
-            )
-            
-            self.logger.info(
-                "Generated inventory overview",
-                total_items=total_items,
-                in_stock=in_stock,
-                sold=sold,
-                total_value=float(total_value)
-            )
-            
-            return InventoryStats(
-                total_items=total_items,
-                in_stock=in_stock,
-                sold=sold,
-                listed=listed,
-                total_value=total_value,
-                avg_purchase_price=avg_purchase_price
-            )
-    
+        all_items = await self.inventory_repo.get_all()
+
+        total_items = len(all_items)
+        in_stock = sum(1 for item in all_items if item.status == "in_stock")
+        sold = sum(1 for item in all_items if item.status == "sold")
+        listed = sum(1 for item in all_items if "listed" in item.status)
+
+        total_value = sum(
+            item.purchase_price or Decimal("0")
+            for item in all_items
+            if item.status == "in_stock"
+        )
+
+        purchase_prices = [
+            item.purchase_price
+            for item in all_items
+            if item.purchase_price is not None
+        ]
+        avg_purchase_price = (
+            sum(purchase_prices) / len(purchase_prices)
+            if purchase_prices
+            else Decimal("0")
+        )
+
+        self.logger.info(
+            "Generated inventory overview",
+            total_items=total_items,
+            in_stock=in_stock,
+            sold=sold,
+            total_value=float(total_value),
+        )
+
+        return InventoryStats(
+            total_items=total_items,
+            in_stock=in_stock,
+            sold=sold,
+            listed=listed,
+            total_value=total_value,
+            avg_purchase_price=avg_purchase_price,
+        )
+
     async def create_product_with_inventory(
         self,
         product_request: ProductCreationRequest,
-        inventory_requests: List[InventoryItemRequest]
+        inventory_requests: List[InventoryItemRequest],
     ) -> Dict[str, Any]:
         """Create a new product with initial inventory"""
-        async with get_db_session() as db:
-            product_repo = ProductRepository(db)
-            brand_repo = BaseRepository(Brand, db)
-            category_repo = BaseRepository(Category, db)
-            size_repo = BaseRepository(Size, db)
-            
-            try:
-                # Get or create brand
-                brand = await brand_repo.find_one_by_field('name', product_request.brand_name)
-                if not brand:
-                    brand = await brand_repo.create(
-                        name=product_request.brand_name,
-                        slug=product_request.brand_name.lower().replace(' ', '-')
-                    )
-                
-                # Get or create category
-                category = await category_repo.find_one_by_field('name', product_request.category_name)
-                if not category:
-                    category = await category_repo.create(
-                        name=product_request.category_name,
-                        slug=product_request.category_name.lower().replace(' ', '-'),
-                        path=product_request.category_name.lower()
-                    )
-                
-                # Check if product already exists
-                existing_product = await product_repo.find_by_sku(product_request.sku)
-                if existing_product:
-                    raise ValueError(f"Product with SKU {product_request.sku} already exists")
-                
-                # Create product
-                product_data = {
-                    'sku': product_request.sku,
-                    'name': product_request.name,
-                    'brand_id': brand.id,
-                    'category_id': category.id,
-                    'description': product_request.description,
-                    'retail_price': product_request.retail_price,
-                    'release_date': product_request.release_date
-                }
-                
-                # Prepare inventory items
-                inventory_items_data = []
-                for inv_request in inventory_requests:
-                    # Get or create size
-                    size = await size_repo.find_one_by_field('value', inv_request.size_value)
-                    if not size:
-                        size = await size_repo.create(
-                            category_id=category.id,
-                            value=inv_request.size_value,
-                            region=inv_request.size_region
-                        )
-                    
-                    inventory_items_data.append({
-                        'size_id': size.id,
-                        'quantity': inv_request.quantity,
-                        'purchase_price': inv_request.purchase_price,
-                        'purchase_date': inv_request.purchase_date or datetime.now(timezone.utc),
-                        'supplier': inv_request.supplier,
-                        'status': 'in_stock'
-                    })
-                
-                # Create product with inventory
-                product = await product_repo.create_with_inventory(
-                    product_data,
-                    inventory_items_data
+        try:
+            brand = await self.brand_repo.find_one_or_create(
+                {"name": product_request.brand_name},
+                slug=product_request.brand_name.lower().replace(" ", "-"),
+            )
+            category = await self.category_repo.find_one_or_create(
+                {"name": product_request.category_name},
+                slug=product_request.category_name.lower().replace(" ", "-"),
+                path=product_request.category_name.lower(),
+            )
+
+            existing_product = await self.product_repo.find_by_sku(product_request.sku)
+            if existing_product:
+                raise ValueError(f"Product with SKU {product_request.sku} already exists")
+
+            product_data = product_request.__dict__
+            product_data["brand_id"] = brand.id
+            product_data["category_id"] = category.id
+
+            inventory_items_data = []
+            for inv_request in inventory_requests:
+                size = await self.size_repo.find_one_or_create(
+                    {"value": inv_request.size_value, "region": inv_request.size_region},
+                    category_id=category.id,
                 )
-                
-                self.logger.info(
-                    "Created product with inventory",
-                    product_id=str(product.id),
-                    sku=product.sku,
-                    inventory_items=len(inventory_items_data)
+                inventory_items_data.append(
+                    {
+                        "size_id": size.id,
+                        "quantity": inv_request.quantity,
+                        "purchase_price": inv_request.purchase_price,
+                        "purchase_date": inv_request.purchase_date
+                        or datetime.now(timezone.utc),
+                        "supplier": inv_request.supplier,
+                        "status": "in_stock",
+                    }
                 )
-                
-                return {
-                    'product_id': str(product.id),
-                    'sku': product.sku,
-                    'name': product.name,
-                    'brand': brand.name,
-                    'category': category.name,
-                    'inventory_items_created': len(inventory_items_data)
-                }
-                
-            except Exception as e:
-                self.logger.error(
-                    "Failed to create product with inventory",
-                    sku=product_request.sku,
-                    error=str(e),
-                    error_type=type(e).__name__
-                )
-                raise
-    
+
+            product = await self.product_repo.create_with_inventory(
+                product_data, inventory_items_data
+            )
+
+            self.logger.info(
+                "Created product with inventory",
+                product_id=str(product.id),
+                sku=product.sku,
+                inventory_items=len(inventory_items_data),
+            )
+
+            return product.to_dict()
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to create product with inventory",
+                sku=product_request.sku,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
+
     async def update_inventory_status(
-        self,
-        inventory_id: UUID,
-        new_status: str,
-        notes: Optional[str] = None
+        self, inventory_id: UUID, new_status: str, notes: Optional[str] = None
     ) -> bool:
         """Update inventory item status"""
-        valid_statuses = ['in_stock', 'listed_stockx', 'listed_alias', 'sold', 'reserved', 'error']
-        
+        valid_statuses = [
+            "in_stock",
+            "listed_stockx",
+            "listed_alias",
+            "sold",
+            "reserved",
+            "error",
+        ]
         if new_status not in valid_statuses:
-            raise ValueError(f"Invalid status: {new_status}. Must be one of {valid_statuses}")
-        
-        async with get_db_session() as db:
-            product_repo = ProductRepository(db)
-            
-            success = await product_repo.update_inventory_status(
-                inventory_id, new_status, notes
+            raise ValueError(
+                f"Invalid status: {new_status}. Must be one of {valid_statuses}"
             )
-            
-            if success:
-                self.logger.info(
-                    "Updated inventory status",
-                    inventory_id=str(inventory_id),
-                    new_status=new_status,
-                    notes=notes
-                )
-            else:
-                self.logger.warning(
-                    "Failed to update inventory status - item not found",
-                    inventory_id=str(inventory_id)
-                )
-            
-            return success
-    
+
+        success = await self.product_repo.update_inventory_status(
+            inventory_id, new_status, notes
+        )
+
+        if success:
+            self.logger.info(
+                "Updated inventory status",
+                inventory_id=str(inventory_id),
+                new_status=new_status,
+            )
+        else:
+            self.logger.warning(
+                "Failed to update inventory status - item not found",
+                inventory_id=str(inventory_id),
+            )
+        return success
+
     async def get_low_stock_alert(self, threshold: int = 5) -> List[Dict[str, Any]]:
         """Get products with low stock levels"""
-        async with get_db_session() as db:
-            product_repo = ProductRepository(db)
-            
-            low_stock_products = await product_repo.get_low_stock_products(threshold)
-            
-            self.logger.info(
-                "Generated low stock alert",
-                threshold=threshold,
-                products_found=len(low_stock_products)
-            )
-            
-            return low_stock_products
-    
+        low_stock_products = await self.product_repo.get_low_stock_products(threshold)
+        self.logger.info(
+            "Generated low stock alert",
+            threshold=threshold,
+            products_found=len(low_stock_products),
+        )
+        return low_stock_products
+
     async def search_products(
         self,
         search_term: Optional[str] = None,
         brand_filter: Optional[str] = None,
         category_filter: Optional[str] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Search products with filters"""
-        async with get_db_session() as db:
-            product_repo = ProductRepository(db)
-            
-            products = await product_repo.search(
-                search_term=search_term,
-                brand_filter=brand_filter,
-                category_filter=category_filter,
-                limit=limit,
-                offset=offset
-            )
-            
-            # Convert to dict format
-            result = []
-            for product in products:
-                result.append({
-                    'id': str(product.id),
-                    'sku': product.sku,
-                    'name': product.name,
-                    'brand': product.brand.name if product.brand else None,
-                    'category': product.category.name if product.category else None,
-                    'retail_price': float(product.retail_price) if product.retail_price else None,
-                    'release_date': product.release_date.isoformat() if product.release_date else None
-                })
-            
-            self.logger.info(
-                "Performed product search",
-                search_term=search_term,
-                brand_filter=brand_filter,
-                category_filter=category_filter,
-                results_found=len(result)
-            )
-            
-            return result
-    
-    async def get_product_details(self, product_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get detailed product information with inventory"""
-        async with get_db_session() as db:
-            product_repo = ProductRepository(db)
-            
-            product = await product_repo.get_with_inventory(product_id)
-            
-            if not product:
-                return None
-            
-            # Build detailed response
-            inventory_items = []
-            for item in product.inventory_items:
-                inventory_items.append({
-                    'id': str(item.id),
-                    'size': item.size.value if item.size else None,
-                    'region': item.size.region if item.size else None,
-                    'quantity': item.quantity,
-                    'status': item.status,
-                    'purchase_price': float(item.purchase_price) if item.purchase_price else None,
-                    'purchase_date': item.purchase_date.isoformat() if item.purchase_date else None,
-                    'supplier': item.supplier,
-                    'notes': item.notes
-                })
-            
-            result = {
-                'id': str(product.id),
-                'sku': product.sku,
-                'name': product.name,
-                'description': product.description,
-                'brand': product.brand.name if product.brand else None,
-                'category': product.category.name if product.category else None,
-                'retail_price': float(product.retail_price) if product.retail_price else None,
-                'release_date': product.release_date.isoformat() if product.release_date else None,
-                'inventory_items': inventory_items,
-                'total_items': len(inventory_items),
-                'in_stock_count': len([item for item in inventory_items if item['status'] == 'in_stock'])
-            }
-            
-            self.logger.info(
-                "Retrieved product details",
-                product_id=str(product_id),
-                inventory_items=len(inventory_items)
-            )
-            
-            return result
+        products = await self.product_repo.search(
+            search_term=search_term,
+            brand_filter=brand_filter,
+            category_filter=category_filter,
+            limit=limit,
+            offset=offset,
+        )
+        return [p.to_dict() for p in products]
 
-# Singleton service instance
-inventory_service = InventoryService()
+    async def get_product_details(
+        self, product_id: UUID
+    ) -> Optional[Dict[str, Any]]:
+        """Get detailed product information with inventory"""
+        product = await self.product_repo.get_with_inventory(product_id)
+        if not product:
+            return None
+
+        product_dict = product.to_dict()
+        product_dict["inventory_items"] = [
+            item.to_dict() for item in product.inventory_items
+        ]
+        return product_dict
+
+    async def sync_inventory_from_stockx(self, product_id: UUID) -> Dict[str, int]:
+        """
+        Synchronizes all inventory items for a given product with the variants from the StockX API.
+        Performs an "upsert" logic: updates existing items, creates new ones.
+        """
+        self.logger.info("Syncing inventory variants from StockX for product", product_id=str(product_id))
+        stats = {"created": 0, "updated": 0, "skipped": 0}
+
+        # 1. Fetch our local product and all its current inventory items
+        product = await self.product_repo.get_with_inventory(product_id)
+        if not product:
+            raise ValueError(f"Product with ID {product_id} not found.")
+
+        if not product.sku:
+            self.logger.warning("Product has no SKU, cannot sync from StockX", product_id=str(product_id))
+            return stats
+
+        # Create a map of existing items by their StockX variant ID for efficient lookup
+        existing_items_map = {
+            item.external_ids.get("stockx"): item
+            for item in product.inventory_items
+            if item.external_ids and "stockx" in item.external_ids
+        }
+
+        # 2. Fetch all variants for this product from the StockX API
+        stockx_service = self.stockx_service
+        if not stockx_service:
+            from domains.integration.services.stockx_service import StockXService
+            stockx_service = StockXService(self.db_session)
+
+        stockx_variants = await stockx_service.get_all_product_variants(product.sku)
+
+        if not stockx_variants:
+            self.logger.info("No variants found on StockX for product", product_id=str(product_id), sku=product.sku)
+            return stats
+
+        # 3. Loop through StockX variants and perform upsert
+        for variant in stockx_variants:
+            variant_id = variant.get("variantId")
+            if not variant_id:
+                stats["skipped"] += 1
+                continue
+
+            # Check if we already have this item
+            existing_item = existing_items_map.get(variant_id)
+
+            if existing_item:
+                # --- UPDATE ---
+                # Here we would update any fields that might change.
+                # For now, we just log it.
+                self.logger.info("Updating existing inventory item from StockX variant", item_id=str(existing_item.id))
+                # Example: existing_item.is_flex_eligible = variant.get('isFlexEligible')
+                stats["updated"] += 1
+            else:
+                # --- CREATE ---
+                self.logger.info("Creating new inventory item from StockX variant", variant_id=variant_id)
+
+                # We need to find or create the Size object
+                size_value = variant.get("variantValue", "Unknown")
+                size = await self.size_repo.find_one_or_create(
+                    {"value": size_value, "region": "US"}, # Assuming US region for StockX sizes
+                    category_id=product.category_id
+                )
+
+                new_item = InventoryItem(
+                    product_id=product.id,
+                    size_id=size.id,
+                    quantity=0, # New items from sync start with 0 quantity
+                    status="in_stock",
+                    external_ids={"stockx": variant_id}
+                )
+                self.db_session.add(new_item)
+                stats["created"] += 1
+
+        await self.db_session.commit()
+        self.logger.info("Inventory sync from StockX complete", product_id=str(product_id), **stats)
+        return stats

@@ -4,7 +4,7 @@ Provides reusable test fixtures for database, API client, and test data
 """
 import asyncio
 import pytest
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, Generator
 from uuid import uuid4
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -18,26 +18,21 @@ from sqlalchemy.pool import StaticPool
 from main import app
 from shared.database.models import Base
 from shared.database.connection import db_manager
-from domains.inventory.services.inventory_service import inventory_service
-from domains.integration.services.import_processor import import_processor
 
-# Disable logging during tests
+# Configure logging for tests to ensure compatibility with pytest's capture
 structlog.configure(
-    processors=[],
-    wrapper_class=structlog.testing.LogCapture,
-    logger_factory=structlog.testing.LogCapture,
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.dev.ConsoleRenderer(),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
 )
 
 # Test database configuration
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for session-scoped async fixtures"""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 @pytest.fixture(scope="session")
 async def test_engine():
@@ -77,16 +72,24 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         # Rollback transaction to clean up
         await transaction.rollback()
 
+import anyio
+from httpx import ASGITransport
+from fastapi import BackgroundTasks
+
 @pytest.fixture
 async def test_client() -> AsyncGenerator[AsyncClient, None]:
     """Create test HTTP client"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
 
 @pytest.fixture
 def sync_client() -> TestClient:
     """Create synchronous test client for simple tests"""
     return TestClient(app)
+
+
 
 # Test data factories
 @pytest.fixture

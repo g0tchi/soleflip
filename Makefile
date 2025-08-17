@@ -81,10 +81,10 @@ db-reset: ## Reset database (WARNING: destroys all data)
 
 # Development Server
 run: ## Run production server
-	uvicorn main:app --host 0.0.0.0 --port 8000
+	uvicorn main:app --host 127.0.0.1 --port 8000
 
 dev: ## Run development server with hot reload
-	uvicorn main:app --reload --host 0.0.0.0 --port 8000 --log-level debug
+	uvicorn main:app --reload --host 127.0.0.1 --port 8000 --log-level debug
 
 dev-watch: ## Run development server with file watching
 	watchmedo auto-restart --directory=./domains --directory=./shared --directory=./ --pattern=*.py --recursive -- uvicorn main:app --reload
@@ -104,7 +104,7 @@ docker-logs: ## View Docker Compose logs
 
 # Documentation
 docs: ## Generate API documentation
-	python docs/api_documentation.py
+	python config/api/api_documentation.py
 
 serve-docs: ## Serve documentation locally
 	@echo "API Documentation available at:"

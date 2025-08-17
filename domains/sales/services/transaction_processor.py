@@ -17,10 +17,13 @@ from decimal import InvalidOperation
 
 logger = structlog.get_logger(__name__)
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 class TransactionProcessor:
     """Creates transactions from validated sales data"""
     
-    def __init__(self):
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
         self.platform_cache = {}
         self.product_cache = {}
     
@@ -43,50 +46,32 @@ class TransactionProcessor:
             "skipped": 0
         }
         
-        async with db_manager.get_session() as db:
-            # Get all processed records from batch
-            from shared.database.models import ImportRecord
-            
-            query = select(ImportRecord).where(
-                ImportRecord.batch_id == batch_id,
-                ImportRecord.status == "processed"
-            )
-            
-            result = await db.execute(query)
-            records = result.scalars().all()
-            
-            logger.info("Processing records for transactions", 
-                       batch_id=batch_id, records_count=len(records))
-            
-            # Process records in smaller batches to prevent resource exhaustion
-            batch_size = 50
-            total_records = len(records)
-            
-            for i in range(0, total_records, batch_size):
-                batch_records = records[i:i + batch_size]
-                logger.debug("Processing batch chunk", 
-                           chunk_start=i, 
-                           chunk_size=len(batch_records),
-                           total_records=total_records)
+        from shared.database.models import ImportRecord
+        query = select(ImportRecord).where(
+            ImportRecord.batch_id == batch_id,
+            ImportRecord.status == "processed"
+        )
+
+        result = await self.db_session.execute(query)
+        records = result.scalars().all()
+
+        logger.info("Processing records for transactions",
+                   batch_id=batch_id, records_count=len(records))
+
+        for record in records:
+            try:
+                transaction_created = await self._create_transaction_from_record(record)
                 
-                for record in batch_records:
-                    try:
-                        # Create transaction in isolated context to prevent greenlet issues
-                        transaction_created = await self._create_transaction_isolated(record)
-                        
-                        if transaction_created:
-                            stats["transactions_created"] += 1
-                        else:
-                            stats["skipped"] += 1
-                            
-                    except Exception as e:
-                        error_msg = f"Failed to create transaction for record {record.id}: {str(e)}"
-                        stats["errors"].append(error_msg)
-                        logger.error("Transaction creation failed", 
-                                   record_id=str(record.id), error=str(e), error_type=type(e).__name__)
-                
-                logger.debug("Batch chunk processed", 
-                           chunk_start=i, processed=len(batch_records))
+                if transaction_created:
+                    stats["transactions_created"] += 1
+                else:
+                    stats["skipped"] += 1
+
+            except Exception as e:
+                error_msg = f"Failed to create transaction for record {record.id}: {str(e)}"
+                stats["errors"].append(error_msg)
+                logger.error("Transaction creation failed",
+                           record_id=str(record.id), error=str(e), error_type=type(e).__name__)
         
         logger.info("Transaction creation completed", 
                    batch_id=batch_id, **stats)
@@ -114,20 +99,9 @@ class TransactionProcessor:
     def _restore_all_logging(self, original_level):
         """Restore all logging"""
         logging.getLogger().setLevel(original_level)
-
-    async def _create_transaction_isolated(self, import_record) -> bool:
-        """Create transaction in isolated session to prevent greenlet issues"""
-        try:
-            async with db_manager.get_session() as isolated_db:
-                result = await self._create_transaction_from_record(isolated_db, import_record)
-                return result
-        except Exception as e:
-            # Simple error logging without greenlet conflicts
-            print(f"ERROR: Transaction creation failed for record {import_record.id}: {e}")
-            return False
     
     async def _create_transaction_from_record(
-        self, db, import_record
+        self, import_record
     ) -> bool:
         """Create a transaction from an import record"""
         
@@ -146,19 +120,19 @@ class TransactionProcessor:
         
         # Check if transaction already exists
         existing_transaction = await self._find_existing_transaction(
-            db, source_platform, order_number, external_transaction_id
+            source_platform, order_number, external_transaction_id
         )
         
         if existing_transaction:
             return False
         
         # Get or create platform
-        platform = await self._get_or_create_platform(db, source_platform)
+        platform = await self._get_or_create_platform(source_platform)
         if not platform:
             return False
         
         # Get or create product and inventory item
-        inventory_item = await self._get_or_create_inventory_item(db, processed_data)
+        inventory_item = await self._get_or_create_inventory_item(processed_data)
         if not inventory_item:
             return False
         
@@ -196,38 +170,37 @@ class TransactionProcessor:
         except Exception as e:
             raise
         
-        db.add(transaction)
-        await db.flush()  # Ensure transaction is persisted immediately
+        self.db_session.add(transaction)
         
         return True
     
     async def _find_existing_transaction(
-        self, db, platform_name: str, order_number: str, external_id: str = None
+        self, platform_name: str, order_number: str, external_id: str = None
     ) -> Optional[Transaction]:
         """Check if transaction already exists"""
         
         # Try to find by external_id first
         if external_id:
             query = select(Transaction).where(Transaction.external_id == external_id)
-            result = await db.execute(query)
+            result = await self.db_session.execute(query)
             transactions = result.scalars().all()
             if transactions:
                 return transactions[0]  # Return first match if multiple found
         
         # Fallback: find by platform + order number pattern
-        platform = await self._get_platform(db, platform_name)
+        platform = await self._get_platform(platform_name)
         if platform:
             query = select(Transaction).where(
                 Transaction.platform_id == platform.id,
                 Transaction.external_id.ilike(f"%{order_number}%")
             )
-            result = await db.execute(query)
+            result = await self.db_session.execute(query)
             transactions = result.scalars().all()
             return transactions[0] if transactions else None
         
         return None
     
-    async def _get_or_create_platform(self, db, platform_name: str) -> Optional[Platform]:
+    async def _get_or_create_platform(self, platform_name: str) -> Optional[Platform]:
         """Get or create platform by name"""
         if not platform_name:
             return None
@@ -237,7 +210,7 @@ class TransactionProcessor:
             # Re-query the platform to ensure it's attached to current session
             platform_id = self.platform_cache[platform_name]
             query = select(Platform).where(Platform.id == platform_id)
-            result = await db.execute(query)
+            result = await self.db_session.execute(query)
             platforms = result.scalars().all()
             if platforms:
                 return platforms[0]
@@ -246,7 +219,7 @@ class TransactionProcessor:
                 del self.platform_cache[platform_name]
         
         # Query database
-        platform = await self._get_platform(db, platform_name)
+        platform = await self._get_platform(platform_name)
         
         if platform:
             # Cache the platform ID for future use
@@ -262,8 +235,7 @@ class TransactionProcessor:
                 supports_fees=self._platform_supports_fees(platform_name),
                 active=True
             )
-            db.add(platform)
-            await db.flush()  # Need ID for transaction creation
+            self.db_session.add(platform)
             
             logger.info("Created new platform", name=platform_name)
         
@@ -271,18 +243,18 @@ class TransactionProcessor:
         self.platform_cache[platform_name] = platform.id
         return platform
     
-    async def _get_platform(self, db, platform_name: str) -> Optional[Platform]:
+    async def _get_platform(self, platform_name: str) -> Optional[Platform]:
         """Get platform by name or slug"""
         query = select(Platform).where(
             (Platform.name.ilike(platform_name)) | 
             (Platform.slug == platform_name.lower())
         )
-        result = await db.execute(query)
+        result = await self.db_session.execute(query)
         platforms = result.scalars().all()
         return platforms[0] if platforms else None
     
     async def _get_or_create_inventory_item(
-        self, db, processed_data: Dict[str, Any]
+        self, processed_data: Dict[str, Any]
     ) -> Optional[InventoryItem]:
         """Get or create inventory item for the transaction"""
         
@@ -306,7 +278,7 @@ class TransactionProcessor:
         product = None
         if sku:
             sku_query = select(Product).where(Product.sku == sku)
-            sku_result = await db.execute(sku_query)
+            sku_result = await self.db_session.execute(sku_query)
             products = sku_result.scalars().all()
             product = products[0] if products else None
         
@@ -314,7 +286,7 @@ class TransactionProcessor:
         # This is especially important for StockX items with N/A SKUs
         if not product:
             query = select(Product).where(Product.name == product_name)
-            result = await db.execute(query)
+            result = await self.db_session.execute(query)
             products = result.scalars().all()
             product = products[0] if products else None
             
@@ -328,15 +300,14 @@ class TransactionProcessor:
             # Create basic product
             # Get default category and brand
             category_query = select(Category).where(Category.name == "Footwear")
-            category_result = await db.execute(category_query)
+            category_result = await self.db_session.execute(category_query)
             categories = category_result.scalars().all()
             category = categories[0] if categories else None
             
             if not category:
                 # Create default category
                 category = Category(name="Footwear", slug="footwear")
-                db.add(category)
-                await db.flush()  # Need ID for product/size creation
+                self.db_session.add(category)
             
             # For items without valid SKU (like StockX N/A), we'll create a product without SKU
             # and rely on product name for identification. Only generate auto-SKU if we have
@@ -362,18 +333,18 @@ class TransactionProcessor:
                     category_id=category.id,
                     description=f"Auto-created from import: {product_name}"
                 )
-                db.add(product)
+                self.db_session.add(product)
             except IntegrityError as e:
                 # If SKU already exists, try to find the existing product
                 if sku:
                     existing_query = select(Product).where(Product.sku == sku)
-                    existing_result = await db.execute(existing_query)
+                    existing_result = await self.db_session.execute(existing_query)
                     products = existing_result.scalars().all()
                     product = products[0] if products else None
                 else:
                     # If no SKU, try to find by name
                     existing_query = select(Product).where(Product.name == product_name)
-                    existing_result = await db.execute(existing_query)
+                    existing_result = await self.db_session.execute(existing_query)
                     products = existing_result.scalars().all()
                     product = products[0] if products else None
                     
@@ -389,14 +360,14 @@ class TransactionProcessor:
                         category_id=category.id,
                         description=f"Auto-created from import: {product_name}"
                     )
-                    db.add(product)
+                    self.db_session.add(product)
         
         # Ensure we have a valid product
         if not product:
             return None
         
         # Get or create size
-        size_obj = await self._get_or_create_size(db, size)
+        size_obj = await self._get_or_create_size(size)
         
         # Create inventory item
         try:
@@ -419,8 +390,7 @@ class TransactionProcessor:
         except Exception as e:
             raise
         
-        db.add(inventory_item)
-        await db.flush()  # Need ID for transaction creation
+        self.db_session.add(inventory_item)
         
         return inventory_item
     
@@ -481,7 +451,7 @@ class TransactionProcessor:
                         return datetime.fromisoformat(date_value.replace('Z', '+00:00'))
                     else:
                         # Try standard format
-                        return datetime.strptime(date_value, '%Y-%m-%d %H:%M:%S')
+                        return datetime.strptime(date_value, '%Y-%m-%d %H:M:%S')
                 except Exception:
                     return None
             except Exception:
@@ -510,7 +480,7 @@ class TransactionProcessor:
         
         return sku_str
     
-    async def _get_or_create_size(self, db, size_value: str):
+    async def _get_or_create_size(self, size_value: str):
         """Get or create size object"""
         from shared.database.models import Size, Category
         
@@ -519,21 +489,20 @@ class TransactionProcessor:
         
         # Try to find existing size
         query = select(Size).where(Size.value == size_value)
-        result = await db.execute(query)
+        result = await self.db_session.execute(query)
         sizes = result.scalars().all()
         size_obj = sizes[0] if sizes else None
         
         if not size_obj:
             # Get default category for size
             category_query = select(Category).where(Category.name == "Footwear")
-            category_result = await db.execute(category_query)
+            category_result = await self.db_session.execute(category_query)
             categories = category_result.scalars().all()
             category = categories[0] if categories else None
             
             if not category:
                 category = Category(name="Footwear", slug="footwear")
-                db.add(category)
-                await db.flush()  # Need ID for product/size creation
+                self.db_session.add(category)
             
             # Create new size
             size_obj = Size(
@@ -541,7 +510,6 @@ class TransactionProcessor:
                 value=size_value,
                 region="US"  # Default to US sizing
             )
-            db.add(size_obj)
-            await db.flush()  # Need ID for inventory item creation
+            self.db_session.add(size_obj)
         
         return size_obj
