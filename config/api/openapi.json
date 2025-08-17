@@ -323,6 +323,62 @@
           }
         }
       }
+    },
+    "/api/v1/products/{product_id}/stockx-details": {
+      "get": {
+        "tags": [
+          "Products",
+          "StockX Integration"
+        ],
+        "summary": "Get Product Details from StockX",
+        "description": "Fetches real-time product details for a given product ID directly from the StockX Catalog API.",
+        "operationId": "get_stockx_product_details_api_v1_products__product_id__stockx_details_get",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            },
+            "description": "The StockX Product ID (UUID or slug)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "StockX Product Details"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found on StockX",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
