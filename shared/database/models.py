@@ -19,13 +19,13 @@ Base = declarative_base()
 # --- Encryption Setup ---
 ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY")
 if not ENCRYPTION_KEY:
-    print("WARNING: FIELD_ENCRYPTION_KEY not set. Generating ephemeral key for this session.")
-    ENCRYPTION_KEY = Fernet.generate_key().decode()
+    # Fail loudly and clearly if the key is not set. Do not generate an ephemeral key.
+    raise ValueError("FATAL: The 'FIELD_ENCRYPTION_KEY' environment variable is not set or not passed to the container.")
 
 try:
     cipher_suite = Fernet(ENCRYPTION_KEY.encode())
 except Exception as e:
-    raise ValueError(f"Invalid FIELD_ENCRYPTION_KEY: {e}")
+    raise ValueError(f"FATAL: Invalid FIELD_ENCRYPTION_KEY. The key must be a valid Fernet key. Error: {e}")
 # -------------------------
 
 # --- Dialect-specific Type Compilation ---

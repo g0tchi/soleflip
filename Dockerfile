@@ -17,15 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
-# Copy only the files needed for dependency installation first to leverage Docker's build cache
-COPY pyproject.toml .
+# Copy the entire application source code into the container first
+COPY . .
 
 # Install the project and its dependencies defined in pyproject.toml
+# Now all source files (like 'domains/') are available for the build process.
 RUN pip install --no-cache-dir .
-
-# Copy the rest of the application source code into the container
-COPY . .
 
 # Expose the port that the application will run on
 EXPOSE 8000
