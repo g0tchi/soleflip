@@ -254,6 +254,32 @@ class StockXService:
             )
             return None
 
+    async def get_market_data_from_stockx(self, product_id: str, currency_code: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetches market data (highest bid, lowest ask) for all variants of a given product.
+        """
+        logger.info("Fetching market data from StockX.", product_id=product_id, currency=currency_code)
+        endpoint = f"/catalog/products/{product_id}/market-data"
+        params = {}
+        if currency_code:
+            params["currencyCode"] = currency_code
+
+        try:
+            # The API returns a list of variants with market data
+            response_data = await self._make_get_request(endpoint, params=params)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning("Product not found on StockX when fetching market data.", product_id=product_id)
+                return None
+            else:
+                logger.error(
+                    "Received an unexpected HTTP status error during StockX market data fetch.",
+                    status_code=e.response.status_code,
+                    product_id=product_id
+                )
+                raise
+
     async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         A generic helper to make a single, non-paginated GET request to the StockX API.

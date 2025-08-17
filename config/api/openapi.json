@@ -449,6 +449,73 @@
           }
         }
       }
+    },
+    "/api/v1/products/{product_id}/stockx-market-data": {
+      "get": {
+        "tags": [
+          "Products",
+          "StockX Integration"
+        ],
+        "summary": "Get Market Data from StockX",
+        "description": "Fetches real-time market data (highest bid, lowest ask) for all variants of a product from the StockX API.",
+        "operationId": "get_stockx_market_data_api_v1_products__product_id__stockx_market_data_get",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The StockX Product ID"
+          },
+          {
+            "name": "currencyCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ISO 4217 currency code to get the market data in."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "StockX Market Data"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found on StockX",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

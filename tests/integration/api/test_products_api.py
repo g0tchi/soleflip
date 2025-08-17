@@ -115,3 +115,56 @@ async def test_search_stockx_products_service_error(mocker):
     assert response.status_code == 502
     assert response.json() == {"detail": "Failed to retrieve search results from StockX."}
     StockXService.search_stockx_catalog.assert_called_once_with(query=search_query, page=1, page_size=10)
+
+
+@pytest.mark.usefixtures("override_db_dependency")
+@pytest.mark.asyncio
+async def test_get_market_data_success(mocker):
+    """
+    Test successful retrieval of market data from StockX.
+    """
+    product_id = "product-abc-789"
+    mock_response_data = [
+        {"variantId": "v1", "lowestAskAmount": "150", "highestBidAmount": "140"}
+    ]
+
+    mocker.patch.object(
+        StockXService,
+        'get_market_data_from_stockx',
+        new_callable=AsyncMock,
+        return_value=mock_response_data
+    )
+
+    # Test without currency
+    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data")
+    assert response.status_code == 200
+    assert response.json() == mock_response_data
+    StockXService.get_market_data_from_stockx.assert_called_once_with(product_id=product_id, currency_code=None)
+
+    # Test with currency
+    StockXService.get_market_data_from_stockx.reset_mock()
+    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data?currencyCode=EUR")
+    assert response.status_code == 200
+    assert response.json() == mock_response_data
+    StockXService.get_market_data_from_stockx.assert_called_once_with(product_id=product_id, currency_code="EUR")
+
+
+@pytest.mark.usefixtures("override_db_dependency")
+@pytest.mark.asyncio
+async def test_get_market_data_not_found(mocker):
+    """
+    Test 404 case for market data when product is not found on StockX.
+    """
+    product_id = "not-real-product"
+
+    mocker.patch.object(
+        StockXService,
+        'get_market_data_from_stockx',
+        new_callable=AsyncMock,
+        return_value=None
+    )
+
+    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": f"Product with ID '{product_id}' not found on StockX."}

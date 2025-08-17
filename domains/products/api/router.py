@@ -1,7 +1,7 @@
 """
 API Router for Product-related endpoints
 """
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from uuid import UUID
 import structlog
 
@@ -98,3 +98,29 @@ async def search_stockx_products(
         )
 
     return search_results
+
+
+@router.get(
+    "/{product_id}/stockx-market-data",
+    summary="Get Market Data from StockX",
+    description="Fetches real-time market data (highest bid, lowest ask) for all variants of a product from the StockX API.",
+    response_model=List[Dict[str, Any]]
+)
+async def get_stockx_market_data(
+    product_id: str,
+    currency: Optional[str] = Query(None, alias="currencyCode", description="ISO 4217 currency code."),
+    stockx_service: StockXService = Depends(get_stockx_service)
+):
+    logger.info("Received request to fetch market data from StockX", product_id=product_id, currency=currency)
+
+    market_data = await stockx_service.get_market_data_from_stockx(
+        product_id=product_id, currency_code=currency
+    )
+
+    if market_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Product with ID '{product_id}' not found on StockX."
+        )
+
+    return market_data
