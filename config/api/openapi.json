@@ -60,6 +60,87 @@
         }
       }
     },
+    "/api/v1/orders/stockx-history": {
+      "get": {
+        "tags": [
+          "Orders",
+          "StockX Integration"
+        ],
+        "summary": "Get Historical Orders from StockX",
+        "description": "Fetches a paginated list of historical orders from the StockX API, with optional filters.",
+        "operationId": "get_historical_orders_api_v1_orders_stockx_history_get",
+        "parameters": [
+          {
+            "name": "fromDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "orderStatus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "Historical Orders"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integration/import-status/{batch_id}": {
       "get": {
         "tags": [

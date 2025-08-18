@@ -113,16 +113,47 @@ class StockXService:
                  raise Exception("Failed to obtain a valid access token.")
             return self._access_token
 
-    async def get_historical_orders(self, from_date: date, to_date: date) -> List[Dict[str, Any]]:
+    async def get_historical_orders(
+        self,
+        from_date: date,
+        to_date: date,
+        order_status: Optional[str] = None,
+        product_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+        inventory_types: Optional[str] = None,
+        initiated_shipment_display_ids: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Fetches all historical orders within a given date range, handling authentication and pagination.
+        Fetches all historical orders within a given date range, handling authentication,
+        pagination, and optional filters.
         """
-        logger.info("Fetching historical orders from StockX API.", from_date=from_date, to_date=to_date)
+        logger.info(
+            "Fetching historical orders from StockX API.",
+            from_date=from_date,
+            to_date=to_date,
+            filters={
+                "orderStatus": order_status,
+                "productId": product_id,
+                "variantId": variant_id,
+                "inventoryTypes": inventory_types,
+                "initiatedShipmentDisplayIds": initiated_shipment_display_ids
+            }
+        )
+
         params = {
             "fromDate": from_date.isoformat(),
             "toDate": to_date.isoformat(),
+            "orderStatus": order_status,
+            "productId": product_id,
+            "variantId": variant_id,
+            "inventoryTypes": inventory_types,
+            "initiatedShipmentDisplayIds": initiated_ship_display_ids
         }
-        return await self._make_paginated_get_request("/selling/orders/history", params)
+
+        # Filter out None values so they aren't sent as query params
+        filtered_params = {key: value for key, value in params.items() if value is not None}
+
+        return await self._make_paginated_get_request("/selling/orders/history", filtered_params)
 
     async def _make_paginated_get_request(self, endpoint: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
