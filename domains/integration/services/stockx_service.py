@@ -113,16 +113,47 @@ class StockXService:
                  raise Exception("Failed to obtain a valid access token.")
             return self._access_token
 
-    async def get_historical_orders(self, from_date: date, to_date: date) -> List[Dict[str, Any]]:
+    async def get_historical_orders(
+        self,
+        from_date: date,
+        to_date: date,
+        order_status: Optional[str] = None,
+        product_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+        inventory_types: Optional[str] = None,
+        initiated_shipment_display_ids: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Fetches all historical orders within a given date range, handling authentication and pagination.
+        Fetches all historical orders within a given date range, handling authentication,
+        pagination, and optional filters.
         """
-        logger.info("Fetching historical orders from StockX API.", from_date=from_date, to_date=to_date)
+        logger.info(
+            "Fetching historical orders from StockX API.",
+            from_date=from_date,
+            to_date=to_date,
+            filters={
+                "orderStatus": order_status,
+                "productId": product_id,
+                "variantId": variant_id,
+                "inventoryTypes": inventory_types,
+                "initiatedShipmentDisplayIds": initiated_shipment_display_ids
+            }
+        )
+
         params = {
             "fromDate": from_date.isoformat(),
             "toDate": to_date.isoformat(),
+            "orderStatus": order_status,
+            "productId": product_id,
+            "variantId": variant_id,
+            "inventoryTypes": inventory_types,
+            "initiatedShipmentDisplayIds": initiated_ship_display_ids
         }
-        return await self._make_paginated_get_request("/selling/orders/history", params)
+
+        # Filter out None values so they aren't sent as query params
+        filtered_params = {key: value for key, value in params.items() if value is not None}
+
+        return await self._make_paginated_get_request("/selling/orders/history", filtered_params)
 
     async def _make_paginated_get_request(self, endpoint: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -227,6 +258,57 @@ class StockXService:
                 logger.warning("Product not found in StockX catalog when fetching variants.", product_id=product_id)
                 return [] # Return empty list if the product itself is not found
             else:
+                raise
+
+    async def search_stockx_catalog(self, query: str, page: int = 1, page_size: int = 10) -> Optional[Dict[str, Any]]:
+        """
+        Searches the StockX catalog using a freeform query.
+        """
+        logger.info("Searching StockX catalog.", query=query, page=page, page_size=page_size)
+        endpoint = "/catalog/search"
+        params = {
+            "query": query,
+            "pageNumber": page,
+            "pageSize": page_size
+        }
+
+        try:
+            response_data = await self._make_get_request(endpoint, params=params)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            # A 404 is not expected for a search, but we'll log it.
+            # Other errors will be re-raised by the helper.
+            logger.warning(
+                "Received an unexpected HTTP status error during StockX catalog search.",
+                status_code=e.response.status_code,
+                query=query
+            )
+            return None
+
+    async def get_market_data_from_stockx(self, product_id: str, currency_code: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetches market data (highest bid, lowest ask) for all variants of a given product.
+        """
+        logger.info("Fetching market data from StockX.", product_id=product_id, currency=currency_code)
+        endpoint = f"/catalog/products/{product_id}/market-data"
+        params = {}
+        if currency_code:
+            params["currencyCode"] = currency_code
+
+        try:
+            # The API returns a list of variants with market data
+            response_data = await self._make_get_request(endpoint, params=params)
+            return response_data
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning("Product not found on StockX when fetching market data.", product_id=product_id)
+                return None
+            else:
+                logger.error(
+                    "Received an unexpected HTTP status error during StockX market data fetch.",
+                    status_code=e.response.status_code,
+                    product_id=product_id
+                )
                 raise
 
     async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

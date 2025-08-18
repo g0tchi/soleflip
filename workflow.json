@@ -1,0 +1,246 @@
+{
+  "name": "Notion to DB: Inventory Status Changes",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "page.updated"
+        ]
+      },
+      "id": "notion-trigger",
+      "name": "Notion Trigger",
+      "type": "n8n-nodes-base.notionTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "notion-api-id",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "//\n// Extract and transform data from the n8n Notion Trigger\n//\nconst data = $input.first().json;\n\n// --- Get primary identifiers ---\nconst sku = data.SKU;\nconst size = data.Size?.toString() || data[\"Full Size\"]?.toString() || \"\"; // Handle cases where size might be a number or null\nconst notionPageId = data.id;\n\n// --- Get original status from Notion ---\nconst originalStatus = data.Status;\n\n// --- Define status mapping rules ---\nlet dbStatus = '';\nswitch (originalStatus) {\n  case 'Incoming':\n  case 'Consigned':\n    dbStatus = 'in_stock';\n    break;\n  \n  case 'Available':\n  case 'Cancelled':\n    dbStatus = 'available';\n    break;\n    \n  case 'Need Shipping':\n  case 'Packed':\n  case 'Outgoing':\n  case 'Sale completed':\n    dbStatus = 'sold';\n    break;\n    \n  default:\n    // Fallback for any unknown status. Convert to snake_case or leave as is.\n    dbStatus = originalStatus ? originalStatus.toLowerCase().replace(/\\s+/g, '_') : 'unknown';\n    break;\n}\n\n// --- Prepare the output object ---\nreturn [{\n  json: {\n    // Cleaned data for DB operations\n    new_status: dbStatus,\n    sku: sku,\n    size: size,\n    \n    // Data for context and logging\n    original_status: originalStatus,\n    notion_page_id: notionPageId,\n    updated_at: new Date().toISOString(),\n    updated_by: 'Notion Integration v2'\n  }\n}];"
+      },
+      "id": "extract-status-data",
+      "name": "Extract Status Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Update inventory status with flexible matching\nUPDATE products.inventory \nSET \n    status = '{{ $json.new_status }}',\n    notes = CASE \n        WHEN notes IS NULL THEN 'Status changed to {{ $json.original_status }} via Notion on {{ $json.updated_at }}'\n        ELSE notes || ' | Status changed to {{ $json.original_status }} via Notion on {{ $json.updated_at }}'\n    END,\n    updated_at = CURRENT_TIMESTAMP\nWHERE \n    -- Try to match by SKU and size\n    id IN (\n        SELECT i.id \n        FROM products.inventory i\n        JOIN products.products p ON i.product_id = p.id\n        JOIN core.sizes s ON i.size_id = s.id\n        WHERE \n            (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n            AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n        ORDER BY i.updated_at DESC\n        LIMIT 1\n    );",
+        "options": {}
+      },
+      "id": "update-inventory-status",
+      "name": "Update Inventory Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "equal"
+          },
+          "conditions": [
+            {
+              "id": "status-is-cancelled",
+              "leftValue": "={{ $json.original_status }}",
+              "rightValue": "Cancelled",
+              "operation": "equal"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "check-if-cancelled",
+      "name": "Check If Cancelled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        680,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- If an order is cancelled in Notion, find the transaction and mark it as cancelled.\nUPDATE sales.transactions\nSET\n    status = 'cancelled',\n    notes = notes || ' | Order cancelled via Notion on {{ $json.updated_at }}'\nWHERE\n    inventory_id = (\n        SELECT i.id\n        FROM products.inventory i\n        JOIN products.products p ON i.product_id = p.id\n        JOIN core.sizes s ON i.size_id = s.id\n        WHERE\n            (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n            AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n        ORDER BY i.created_at DESC\n        LIMIT 1\n    )\n    AND status != 'cancelled';",
+        "options": {}
+      },
+      "id": "update-transaction-to-cancelled",
+      "name": "Update Transaction to Cancelled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        900,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Verify the update and return affected records\nSELECT \n    i.id as inventory_id,\n    p.sku,\n    s.value as size,\n    i.status,\n    i.notes,\n    i.updated_at\nFROM products.inventory i\nJOIN products.products p ON i.product_id = p.id\nJOIN core.sizes s ON i.size_id = s.id\nWHERE \n    (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n    AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n    AND i.updated_at >= (CURRENT_TIMESTAMP - INTERVAL '5 minutes')\nORDER BY i.updated_at DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "id": "verify-status-update",
+      "name": "Verify Status Update",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "equal"
+          },
+          "conditions": [
+            {
+              "id": "status-is-sold",
+              "leftValue": "={{ $json.new_status }}",
+              "rightValue": "sold",
+              "operation": "equal"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "check-if-sold",
+      "name": "Check If Sold",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Create a transaction record for items marked as sold\nINSERT INTO sales.transactions (\n    id,\n    inventory_id,\n    platform_id,\n    transaction_date,\n    sale_price,\n    status,\n    external_id,\n    notes\n)\nSELECT \n    gen_random_uuid(),\n    i.id,\n    (\n        SELECT id FROM core.platforms \n        WHERE name ILIKE 'manual' OR slug = 'manual' \n        LIMIT 1\n    ),\n    CURRENT_TIMESTAMP,\n    COALESCE(i.purchase_price, 0.00),\n    'completed',\n    'notion_' || extract(epoch from CURRENT_TIMESTAMP)::text,\n    'Transaction created automatically when marked as sold in Notion on {{ $json.updated_at }}'\nFROM products.inventory i\nJOIN products.products p ON i.product_id = p.id\nJOIN core.sizes s ON i.size_id = s.id\nWHERE \n    i.status = 'sold'\n    AND (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n    AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n    AND i.updated_at >= (CURRENT_TIMESTAMP - INTERVAL '2 minutes')\n    AND NOT EXISTS (\n        SELECT 1 FROM sales.transactions t \n        WHERE t.inventory_id = i.id\n    )\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "create-transaction-if-sold",
+      "name": "Create Transaction If Sold",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 500],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "notion-trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Status Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Status Data": {
+      "main": [
+        [
+          {
+            "node": "Update Inventory Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check If Sold",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "check-if-cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Inventory Status": {
+      "main": [
+        [
+          {
+            "node": "Verify Status Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Sold": {
+      "main": [
+        [
+          {
+            "node": "Create Transaction If Sold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-if-cancelled": {
+      "main": [
+        [
+          {
+            "node": "update-transaction-to-cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-06T12:15:00.000Z",
+      "updatedAt": "2025-08-06T12:15:00.000Z",
+      "id": "notion-inventory-sync",
+      "name": "notion-inventory-sync"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-06T12:15:00.000Z",
+  "versionId": "1"
+}

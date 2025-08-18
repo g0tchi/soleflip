@@ -17,7 +17,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://<IHRE_API_URL>/api/v1/integration/stockx/trigger-fetch",
+        "url": "http://localhost:8000/api/v1/integration/stockx/import-orders",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -27,7 +27,14 @@
             }
           ]
         },
+        "body": {
+          "from_date": "={{$now.minus({days: 7}).toISODate()}}",
+          "to_date": "={{$now.toISODate()}}"
+        },
         "options": {
+          "body": {
+            "sendAs": "json"
+          },
           "retryOnFail": true,
           "retryCount": 2,
           "retryInterval": 120
@@ -35,7 +42,7 @@
       },
       "name": "Trigger StockX Fetch API",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 2,
+      "typeVersion": 4,
       "position": [
         650,
         300
@@ -52,9 +59,9 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{$node.httpRequest.statusCode}}",
+              "value1": "={{$node['Trigger StockX Fetch API'].statusCode}}",
               "operation": "equal",
-              "value2": 200
+              "value2": 202
             }
           ]
         }
@@ -80,7 +87,7 @@
     {
       "parameters": {
         "subject": "n8n Fehler: Automatischer StockX-Abruf fehlgeschlagen",
-        "html": "<h3>Fehler im Workflow 'Periodischer StockX Datenabruf'</h3><p>Der API-Aufruf zum Triggern des StockX-Imports ist fehlgeschlagen.</p><p><b>Status Code:</b> {{$node.httpRequest.statusCode}}</p><p><b>Antwort:</b></p><pre><code>{{JSON.stringify($node.httpRequest.json, null, 2)}}</code></pre>"
+        "html": "<h3>Fehler im Workflow 'Periodischer StockX Datenabruf'</h3><p>Der API-Aufruf zum Triggern des StockX-Imports ist fehlgeschlagen.</p><p><b>Status Code:</b> {{$node['Trigger StockX Fetch API'].statusCode}}</p><p><b>Antwort:</b></p><pre><code>{{JSON.stringify($node['Trigger StockX Fetch API'].json, null, 2)}}</code></pre>"
       },
       "name": "Fehler-Benachrichtigung senden",
       "type": "n8n-nodes-base.emailSend",

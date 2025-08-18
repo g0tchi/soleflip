@@ -30,8 +30,46 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 
+import os
+
 # Test database configuration
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def initialize_db_for_session():
+    """
+    Initializes the database for the entire test session.
+    Sets environment variables, initializes the db_manager, and creates tables.
+    """
+    from cryptography.fernet import Fernet
+    original_db_url = os.environ.get("DATABASE_URL")
+    original_key = os.environ.get("FIELD_ENCRYPTION_KEY")
+
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    # Use a valid 32-byte key for Fernet encryption in tests
+    os.environ["FIELD_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    await db_manager.initialize()
+
+    # Create tables using the initialized engine
+    async with db_manager.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield
+
+    await db_manager.close()
+
+    # Restore original environment
+    if original_db_url:
+        os.environ["DATABASE_URL"] = original_db_url
+    else:
+        os.environ.pop("DATABASE_URL", None)
+
+    if original_key:
+        os.environ["FIELD_ENCRYPTION_KEY"] = original_key
+    else:
+        os.environ.pop("FIELD_ENCRYPTION_KEY", None)
 
 
 @pytest.fixture(scope="session")
