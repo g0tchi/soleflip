@@ -1,0 +1,1518 @@
+{
+  "backup_info": {
+    "created_at": "2025-08-07T13:35:19.319995",
+    "description": "Comprehensive backup after brand intelligence extensions",
+    "version": "brand_deep_dive_v1.0"
+  },
+  "schemas": {
+    "analytics": {
+      "brand_metrics": {
+        "record_count": 327,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "metric_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "total_sales",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "total_revenue",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "total_profit",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "avg_sale_price",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "avg_profit_margin",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "unique_products_sold",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "repeat_customers",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "return_rate",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      }
+    },
+    "core": {
+      "brand_attributes": {
+        "record_count": 15,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "attribute_category",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "attribute_name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "attribute_value",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "confidence_score",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "data_source",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "brand_collaborations": {
+        "record_count": 1,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "primary_brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "collaborator_brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "collaboration_name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "collaboration_type",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "launch_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "end_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "description",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "success_level",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "estimated_revenue_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "limited_quantity",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "resale_multiplier",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "hype_score",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "brand_financials": {
+        "record_count": 6,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "fiscal_year",
+            "data_type": "integer",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "revenue_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "profit_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "market_cap_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "rd_spending_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "marketing_spend_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "employee_count",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "stores_count",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "online_sales_percentage",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "growth_rate_percentage",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "data_source",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "brand_history": {
+        "record_count": 29,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "event_date",
+            "data_type": "date",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "event_type",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "event_title",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "event_description",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "impact_level",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": "'medium'::character varying"
+          },
+          {
+            "column_name": "source_url",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "brand_relationships": {
+        "record_count": 1,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "parent_brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "child_brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "relationship_type",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "ownership_percentage",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "relationship_start_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "relationship_end_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": "'active'::character varying"
+          },
+          {
+            "column_name": "notes",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "brands": {
+        "record_count": 40,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "slug",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "category",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "segment",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "founded_year",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "country_origin",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "brand_type",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "is_collaboration",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": "false"
+          },
+          {
+            "column_name": "parent_brand_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "target_demographic",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "price_tier",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "founder_name",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "headquarters_city",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "headquarters_country",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "parent_company",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "parent_company_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "acquired_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "acquired_by",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "market_cap_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "annual_revenue_usd",
+            "data_type": "bigint",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "employee_count",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "website_url",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "instagram_handle",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "logo_url",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "brand_story",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "brand_mission",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "brand_values",
+            "data_type": "ARRAY",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "sustainability_score",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "innovation_focus",
+            "data_type": "ARRAY",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "key_technologies",
+            "data_type": "ARRAY",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "brand_status",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": "'active'::character varying"
+          },
+          {
+            "column_name": "authenticity_level",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": "'verified'::character varying"
+          }
+        ]
+      },
+      "categories": {
+        "record_count": 6,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "slug",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "parent_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "path",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "platforms": {
+        "record_count": 2,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "slug",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "fee_percentage",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "supports_fees",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "active",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "sizes": {
+        "record_count": 112,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "category_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "value",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "standardized_value",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "region",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "suppliers": {
+        "record_count": 10,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "name",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "slug",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "display_name",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "supplier_type",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "business_size",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "contact_person",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "email",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "phone",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "website",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "address_line1",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "address_line2",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "city",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "state_province",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "postal_code",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "country",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "tax_id",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "vat_number",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "business_registration",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "return_policy_days",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "return_policy_text",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "return_conditions",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "accepts_exchanges",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "restocking_fee_percent",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "payment_terms",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "credit_limit",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "discount_percent",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "minimum_order_amount",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "rating",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "reliability_score",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "quality_score",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "preferred",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "verified",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "average_processing_days",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "ships_internationally",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "accepts_returns_by_mail",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "provides_authenticity_guarantee",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "has_api",
+            "data_type": "boolean",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "api_endpoint",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "api_key_encrypted",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "total_orders_count",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "total_order_value",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "average_order_value",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "last_order_date",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "notes",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "internal_notes",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "tags",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      }
+    },
+    "integration": {
+      "import_batches": {
+        "record_count": 22,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "source_type",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "source_file",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "total_records",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processed_records",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "error_records",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "started_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "completed_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "import_records": {
+        "record_count": 6031,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "batch_id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "source_data",
+            "data_type": "jsonb",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "processed_data",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "validation_errors",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processing_started_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processing_completed_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "error_message",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          }
+        ]
+      },
+      "import_records_backup": {
+        "record_count": 20578,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "batch_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "source_data",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processed_data",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "validation_errors",
+            "data_type": "jsonb",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processing_started_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "processing_completed_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "error_message",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+            "column_default": null
+          }
+        ]
+      }
+    },
+    "sales": {
+      "buyers": {
+        "record_count": 0,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": "gen_random_uuid()"
+          },
+          {
+            "column_name": "email",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "name",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "phone",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "country",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "city",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "total_purchases",
+            "data_type": "integer",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "lifetime_value",
+            "data_type": "numeric",
+            "is_nullable": "YES",
+            "column_default": "0"
+          },
+          {
+            "column_name": "first_purchase_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "last_purchase_date",
+            "data_type": "date",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "CURRENT_TIMESTAMP"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp without time zone",
+            "is_nullable": "YES",
+            "column_default": "CURRENT_TIMESTAMP"
+          }
+        ]
+      },
+      "transactions": {
+        "record_count": 1311,
+        "columns": [
+          {
+            "column_name": "id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "inventory_id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "platform_id",
+            "data_type": "uuid",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "transaction_date",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "sale_price",
+            "data_type": "numeric",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "platform_fee",
+            "data_type": "numeric",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "shipping_cost",
+            "data_type": "numeric",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "net_profit",
+            "data_type": "numeric",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "status",
+            "data_type": "character varying",
+            "is_nullable": "NO",
+            "column_default": null
+          },
+          {
+            "column_name": "external_id",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "notes",
+            "data_type": "text",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "NO",
+            "column_default": "now()"
+          },
+          {
+            "column_name": "buyer_destination_country",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "buyer_destination_city",
+            "data_type": "character varying",
+            "is_nullable": "YES",
+            "column_default": null
+          },
+          {
+            "column_name": "buyer_id",
+            "data_type": "uuid",
+            "is_nullable": "YES",
+            "column_default": null
+          }
+        ]
+      }
+    }
+  },
+  "summary": {
+    "total_records": 28491,
+    "total_tables": 16,
+    "schemas_count": 4
+  }
+}

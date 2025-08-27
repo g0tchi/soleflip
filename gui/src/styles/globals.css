@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-dark-bg text-retro-cyan font-mono overflow-hidden;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(255, 0, 255, 0.1) 0%, transparent 50%);
+  }
+  
+  html {
+    @apply h-full;
+  }
+  
+  #root {
+    @apply h-full;
+  }
+}
+
+@layer components {
+  .retro-border {
+    @apply border border-retro-cyan shadow-[0_0_10px_rgba(0,255,255,0.3)];
+  }
+  
+  .retro-glow {
+    @apply animate-glow;
+  }
+  
+  .retro-button {
+    @apply px-4 py-2 border border-retro-cyan bg-transparent text-retro-cyan 
+           hover:bg-retro-cyan hover:text-dark-bg transition-all duration-300
+           shadow-[0_0_10px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
+           font-mono uppercase tracking-wider;
+  }
+  
+  .retro-button-success {
+    @apply retro-button border-retro-green text-retro-green
+           hover:bg-retro-green hover:text-dark-bg
+           shadow-[0_0_10px_rgba(0,255,0,0.3)] hover:shadow-[0_0_20px_rgba(0,255,0,0.6)];
+  }
+  
+  .retro-button-warning {
+    @apply retro-button border-retro-yellow text-retro-yellow
+           hover:bg-retro-yellow hover:text-dark-bg
+           shadow-[0_0_10px_rgba(255,255,0,0.3)] hover:shadow-[0_0_20px_rgba(255,255,0,0.6)];
+  }
+  
+  .retro-button-danger {
+    @apply retro-button border-retro-magenta text-retro-magenta
+           hover:bg-retro-magenta hover:text-dark-bg
+           shadow-[0_0_10px_rgba(255,0,255,0.3)] hover:shadow-[0_0_20px_rgba(255,0,255,0.6)];
+  }
+  
+  .retro-card {
+    @apply bg-dark-surface border border-dark-border p-6 rounded-none
+           shadow-[0_0_20px_rgba(0,255,255,0.1)] 
+           hover:shadow-[0_0_30px_rgba(0,255,255,0.2)]
+           transition-all duration-300;
+  }
+  
+  .retro-input {
+    @apply bg-dark-surface border border-retro-cyan text-retro-cyan
+           px-3 py-2 font-mono placeholder:text-retro-cyan/50
+           focus:outline-none focus:shadow-[0_0_10px_rgba(0,255,255,0.5)]
+           focus:border-retro-cyan/80 transition-all duration-300;
+  }
+  
+  .retro-table {
+    @apply w-full border-collapse;
+  }
+  
+  .retro-table th {
+    @apply border border-retro-cyan bg-dark-card px-4 py-2 text-left
+           font-mono uppercase tracking-wider text-retro-cyan;
+  }
+  
+  .retro-table td {
+    @apply border border-dark-border bg-dark-surface px-4 py-2
+           font-mono text-sm;
+  }
+  
+  .retro-table tr:hover td {
+    @apply bg-dark-card shadow-[0_0_10px_rgba(0,255,255,0.1)];
+  }
+  
+  .ascii-art {
+    @apply font-mono text-retro-cyan whitespace-pre text-xs leading-tight;
+    text-shadow: 0 0 10px currentColor;
+  }
+  
+  .matrix-bg::before {
+    content: '';
+    @apply absolute inset-0 opacity-5 pointer-events-none;
+    background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 1) 25%, rgba(0, 255, 255, 1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 1) 75%, rgba(0, 255, 255, 1) 76%, transparent 77%, transparent);
+    background-size: 2px 2px;
+  }
+  
+  .scan-line {
+    @apply absolute top-0 left-0 w-full h-0.5 bg-retro-cyan opacity-70 animate-scan;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  }
+  
+  .status-healthy {
+    @apply text-retro-green;
+    text-shadow: 0 0 5px currentColor;
+  }
+  
+  .status-warning {
+    @apply text-retro-yellow;
+    text-shadow: 0 0 5px currentColor;
+  }
+  
+  .status-error {
+    @apply text-retro-magenta;
+    text-shadow: 0 0 5px currentColor;
+  }
+  
+  .progress-bar {
+    @apply bg-dark-surface border border-retro-cyan h-6 relative overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full bg-retro-cyan transition-all duration-500 relative;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+  }
+  
+  .progress-fill::after {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
+           animate-scan;
+  }
+}

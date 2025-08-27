@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Database
+*.db
+*.sqlite3
+soleflip_demo.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test files
+htmlcov/
+.coverage
+test_*.csv
+debug_*.py
+*_test.csv
+medium_test.csv
+simple_test.csv
+test_single_date.csv
+
+# Temporary files
+*.tmp
+*.temp
+
+# Security - NEVER commit these files
+.env.local
+.env.production
+docker-compose.override.yml
+config/secrets.json
+*.key
+*.pem
+*.p12
+*.pfx

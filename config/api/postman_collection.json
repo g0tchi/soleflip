@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "SoleFlipper API",
+    "description": "Complete API collection for SoleFlipper sneaker management system",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Integration",
+      "item": [
+        {
+          "name": "StockX Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "stockx_sales_report.csv"
+                },
+                {
+                  "key": "batch_size",
+                  "value": "1000",
+                  "type": "text"
+                },
+                {
+                  "key": "validate_only",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integration/webhooks/stockx/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "stockx",
+                "upload"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Notion Import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"results\": [\n    {\n      \"id\": \"page-123\",\n      \"name\": \"Nike Air Jordan 1\",\n      \"properties\": {\n        \"brand\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"Nike\"\n              }\n            }\n          ]\n        },\n        \"size\": {\n          \"rich_text\": [\n            {\n              \"text\": {\n                \"content\": \"US 9\"\n              }\n            }\n          ]\n        }\n      }\n    }\n  ],\n  \"has_more\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integration/webhooks/notion/import?batch_size=1000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "notion",
+                "import"
+              ],
+              "query": [
+                {
+                  "key": "batch_size",
+                  "value": "1000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Status Overview",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integration/webhooks/import-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integration",
+                "webhooks",
+                "import-status"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    }
+  ]
+}

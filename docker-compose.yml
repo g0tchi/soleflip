@@ -1,0 +1,142 @@
+services:
+  db:
+    image: postgres:17
+    container_name: metabase-db
+    hostname: metabase-db
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    # WICHTIG: Ersetzen Sie "1026:100" mit Ihrer eigenen PUID:PGID, die Sie mit dem 'id'-Befehl ermittelt haben.
+    user: "1026:100"
+    volumes:
+      - /volume1/docker/soleflipper/db:/var/lib/postgresql/data:rw
+    ports:
+      - "2665:5432"
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabaseuser
+      POSTGRES_PASSWORD: metabasepass
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "metabase", "-U", "metabaseuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: soleflip-api
+    hostname: soleflip-api
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    # WICHTIG: Ersetzen Sie "1026:100" mit Ihrer eigenen PUID:PGID, die Sie mit dem 'id'-Befehl ermittelt haben.
+    user: "1026:100"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    mem_limit: 3g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    # WICHTIG: Ersetzen Sie "1026:100" mit Ihrer eigenen PUID:PGID, die Sie mit dem 'id'-Befehl ermittelt haben.
+    user: "1026:100"
+    ports:
+      - "6400:3000"
+    volumes:
+      - /volume1/docker/soleflipper/metabase/plugins:/plugins:rw
+    environment:
+      TZ: Europe/Berlin
+      JAVA_TIMEZONE: Europe/Berlin
+      # WICHTIG: Passen Sie MUID und MGID an Ihre PUID und PGID an.
+      MUID: "1026"
+      MGID: "100"
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: "5432"
+      MB_DB_USER: metabaseuser
+      MB_DB_PASS: metabasepass
+      MB_DB_HOST: metabase-db
+      # --- E-Mail-Einstellungen (für Metabase-Benachrichtigungen) ---
+      # Ersetzen Sie die folgenden Werte durch Ihre E-Mail-Provider-Daten.
+      MB_EMAIL_FROM_ADDRESS: IHRE_ABSENDER_EMAIL@provider.com
+      MB_EMAIL_FROM_NAME: Metabase
+      MB_EMAIL_REPLY_TO: "true"
+      MB_EMAIL_SMTP_USERNAME: IHR_SMTP_BENUTZERNAME
+      MB_EMAIL_SMTP_PASSWORD: IHR_SMTP_PASSWORT
+      MB_EMAIL_SMTP_HOST: mail.infomaniak.com
+      MB_EMAIL_SMTP_SECURITY: ssl
+      MB_EMAIL_SMTP_PORT: "465"
+      # --- Seiten-URL (wichtig für Links in E-Mails) ---
+      # Ersetzen Sie HIER_IHRE_DDNS_ADRESSE durch Ihre Synology DDNS-Adresse (z.B. mein-nas.synology.me)
+      MB_SITE_URL: metabase.HIER_IHRE_DDNS_ADRESSE
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    hostname: adminer
+    mem_limit: 128m
+    cpu_shares: 256
+    security_opt:
+      - no-new-privileges:true
+    # WICHTIG: Ersetzen Sie "1026:100" mit Ihrer eigenen PUID:PGID, die Sie mit dem 'id'-Befehl ermittelt haben.
+    user: "1026:100"
+    ports:
+      - "8220:8080"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    hostname: n8n
+    mem_limit: 1g
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    # WICHTIG: Ersetzen Sie "1026:100" mit Ihrer eigenen PUID:PGID, die Sie mit dem 'id'-Befehl ermittelt haben.
+    user: "1026:100"
+    ports:
+      - "5678:5678"
+    volumes:
+      - /volume1/docker/soleflipper/n8n/data:/home/node/.n8n:rw
+      - /volume1/docker/soleflipper/n8n/files:/files:rw
+    environment:
+      # --- N8N URL-Einstellungen ---
+      # Ersetzen Sie HIER_IHRE_DDNS_ADRESSE durch Ihre Synology DDNS-Adresse (z.B. mein-nas.synology.me)
+      N8N_HOST: n8n.HIER_IHRE_DDNS_ADRESSE
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      NODE_FUNCTION_ALLOW_EXTERNAL: axios
+      NODE_ENV: production
+      WEBHOOK_URL: https://n8n.HIER_IHRE_DDNS_ADRESSE
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+      # --- N8N Datenbank-Einstellungen (sollten so bleiben) ---
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: metabase-db
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_USER: metabaseuser
+      DB_POSTGRESDB_PASSWORD: metabasepass
+    restart: on-failure:5
+    depends_on:
+      db:
+        condition: service_healthy

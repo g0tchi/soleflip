@@ -1,0 +1,174 @@
+{
+  "name": "Notion to DB: Inventory Status Changes",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notion-inventory-status",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "notion-webhook",
+      "name": "Notion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "notion-inventory-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract inventory status change from Notion\nconst data = $input.first().json;\n\n// Get status info\nconst newStatus = data.properties.Status?.select?.name || \n                  data.properties.status?.select?.name;\n\n// Get product/inventory identifier\nconst productName = data.properties.Product?.title?.[0]?.text?.content ||\n                    data.properties.product?.title?.[0]?.text?.content;\n\nconst sku = data.properties.SKU?.rich_text?.[0]?.text?.content ||\n            data.properties.sku?.rich_text?.[0]?.text?.content;\n\nconst size = data.properties.Size?.rich_text?.[0]?.text?.content ||\n             data.properties.size?.rich_text?.[0]?.text?.content;\n\n// Get additional info\nconst notionPageId = data.id;\nconst updatedAt = new Date().toISOString();\nconst updatedBy = 'Notion Integration';\n\n// Map Notion status to DB status\nconst statusMapping = {\n  'Available': 'available',\n  'Sold': 'sold', \n  'Reserved': 'reserved',\n  'In Stock': 'in_stock',\n  'Out of Stock': 'out_of_stock'\n};\n\nconst dbStatus = statusMapping[newStatus] || newStatus?.toLowerCase();\n\nreturn [{\n  json: {\n    new_status: dbStatus,\n    original_status: newStatus,\n    product_name: productName,\n    sku: sku,\n    size: size,\n    notion_page_id: notionPageId,\n    updated_at: updatedAt,\n    updated_by: updatedBy\n  }\n}];"
+      },
+      "id": "extract-status-data",
+      "name": "Extract Status Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Update inventory status with flexible matching\nUPDATE products.inventory \nSET \n    status = '{{ $json.new_status }}',\n    notes = CASE \n        WHEN notes IS NULL THEN 'Status changed to {{ $json.original_status }} via Notion on {{ $json.updated_at }}'\n        ELSE notes || ' | Status changed to {{ $json.original_status }} via Notion on {{ $json.updated_at }}'\n    END,\n    updated_at = CURRENT_TIMESTAMP\nWHERE \n    -- Try to match by product and size\n    id IN (\n        SELECT i.id \n        FROM products.inventory i\n        JOIN products.products p ON i.product_id = p.id\n        JOIN core.sizes s ON i.size_id = s.id\n        WHERE \n            (p.name ILIKE '%{{ $json.product_name }}%' OR '{{ $json.product_name }}' = '')\n            AND (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n            AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n        ORDER BY i.updated_at DESC\n        LIMIT 1\n    );",
+        "options": {}
+      },
+      "id": "update-inventory-status",
+      "name": "Update Inventory Status", 
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery", 
+        "query": "-- Verify the update and return affected records\nSELECT \n    i.id as inventory_id,\n    p.name as product_name,\n    p.sku,\n    s.value as size,\n    i.status,\n    i.notes,\n    i.updated_at\nFROM products.inventory i\nJOIN products.products p ON i.product_id = p.id\nJOIN core.sizes s ON i.size_id = s.id\nWHERE \n    (p.name ILIKE '%{{ $json.product_name }}%' OR '{{ $json.product_name }}' = '')\n    AND (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n    AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n    AND i.updated_at >= (CURRENT_TIMESTAMP - INTERVAL '5 minutes')\nORDER BY i.updated_at DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "id": "verify-status-update",
+      "name": "Verify Status Update",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4, 
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "operation": "equal"
+          },
+          "conditions": [
+            {
+              "id": "status-is-sold",
+              "leftValue": "={{ $json.new_status }}",
+              "rightValue": "sold",
+              "operation": "equal"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "id": "check-if-sold",
+      "name": "Check If Sold",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Create a transaction record for items marked as sold\nINSERT INTO sales.transactions (\n    id,\n    inventory_id,\n    platform_id,\n    transaction_date,\n    sale_price,\n    status,\n    external_id,\n    notes\n)\nSELECT \n    gen_random_uuid(),\n    i.id,\n    (\n        SELECT id FROM core.platforms \n        WHERE name ILIKE 'manual' OR slug = 'manual' \n        LIMIT 1\n    ),\n    CURRENT_TIMESTAMP,\n    COALESCE(i.purchase_price, 0.00),\n    'completed',\n    'notion_' || extract(epoch from CURRENT_TIMESTAMP)::text,\n    'Transaction created automatically when marked as sold in Notion on {{ $json.updated_at }}'\nFROM products.inventory i\nJOIN products.products p ON i.product_id = p.id\nJOIN core.sizes s ON i.size_id = s.id\nWHERE \n    i.status = 'sold'\n    AND (p.name ILIKE '%{{ $json.product_name }}%' OR '{{ $json.product_name }}' = '')\n    AND (p.sku = '{{ $json.sku }}' OR '{{ $json.sku }}' = '')\n    AND (s.value = '{{ $json.size }}' OR '{{ $json.size }}' = '')\n    AND i.updated_at >= (CURRENT_TIMESTAMP - INTERVAL '2 minutes')\n    AND NOT EXISTS (\n        SELECT 1 FROM sales.transactions t \n        WHERE t.inventory_id = i.id\n    )\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "create-transaction-if-sold",
+      "name": "Create Transaction If Sold",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 500],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-db",
+          "name": "SoleFlipper Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Notion Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Status Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Status Data": {
+      "main": [
+        [
+          {
+            "node": "Update Inventory Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check If Sold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Inventory Status": {
+      "main": [
+        [
+          {
+            "node": "Verify Status Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Sold": {
+      "main": [
+        [
+          {
+            "node": "Create Transaction If Sold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-06T12:15:00.000Z",
+      "updatedAt": "2025-08-06T12:15:00.000Z",
+      "id": "notion-inventory-sync",
+      "name": "notion-inventory-sync"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-06T12:15:00.000Z",
+  "versionId": "1"
+}

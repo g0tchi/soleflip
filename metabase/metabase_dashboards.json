@@ -1,0 +1,256 @@
+{
+  "dashboards": [
+    {
+      "name": "📊 Executive Dashboard",
+      "description": "Wichtigste KPIs und Unternehmensübersicht",
+      "cards": [
+        {
+          "type": "metric",
+          "name": "Gesamt-Umsatz",
+          "query": "SELECT total_revenue FROM analytics.executive_dashboard",
+          "visualization": "scalar",
+          "position": {"col": 0, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "metric", 
+          "name": "Anzahl Transaktionen",
+          "query": "SELECT total_transactions FROM analytics.executive_dashboard",
+          "visualization": "scalar",
+          "position": {"col": 3, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "metric",
+          "name": "Durchschnittlicher Bestellwert", 
+          "query": "SELECT avg_order_value FROM analytics.executive_dashboard",
+          "visualization": "scalar",
+          "position": {"col": 6, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "metric",
+          "name": "Täglicher Ø Umsatz",
+          "query": "SELECT avg_daily_revenue FROM analytics.executive_dashboard", 
+          "visualization": "scalar",
+          "position": {"col": 9, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "chart",
+          "name": "Monatlicher Umsatz-Trend",
+          "query": "SELECT month, gross_revenue FROM analytics.monthly_revenue ORDER BY month",
+          "visualization": "line",
+          "x_axis": "month",
+          "y_axis": "gross_revenue",
+          "position": {"col": 0, "row": 3, "sizeX": 8, "sizeY": 4}
+        },
+        {
+          "type": "chart", 
+          "name": "Umsatzwachstum %",
+          "query": "SELECT month, revenue_growth_percent FROM analytics.revenue_growth WHERE revenue_growth_percent IS NOT NULL ORDER BY month DESC LIMIT 12",
+          "visualization": "bar",
+          "x_axis": "month", 
+          "y_axis": "revenue_growth_percent",
+          "position": {"col": 8, "row": 3, "sizeX": 4, "sizeY": 4}
+        },
+        {
+          "type": "table",
+          "name": "Letzte Transaktionen",
+          "query": "SELECT transaction_date, product_name, platform_name, sale_price, buyer_destination_country FROM analytics.recent_transactions LIMIT 10",
+          "visualization": "table",
+          "position": {"col": 0, "row": 7, "sizeX": 12, "sizeY": 4}
+        }
+      ]
+    },
+    {
+      "name": "🎯 Product Performance",
+      "description": "Produktanalyse und Top-Seller",
+      "cards": [
+        {
+          "type": "table",
+          "name": "Top 20 Produkte",
+          "query": "SELECT product_name, total_sales, total_revenue, avg_sale_price, brand_name FROM analytics.top_products_revenue LIMIT 20",
+          "visualization": "table",
+          "position": {"col": 0, "row": 0, "sizeX": 12, "sizeY": 6}
+        },
+        {
+          "type": "chart",
+          "name": "Umsatz nach Marke",
+          "query": "SELECT brand_name, total_revenue FROM analytics.brand_performance ORDER BY total_revenue DESC LIMIT 10",
+          "visualization": "pie",
+          "dimension": "brand_name",
+          "metric": "total_revenue", 
+          "position": {"col": 0, "row": 6, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Verkäufe nach Marke",
+          "query": "SELECT brand_name, total_sales FROM analytics.brand_performance ORDER BY total_sales DESC LIMIT 10",
+          "visualization": "bar",
+          "x_axis": "brand_name",
+          "y_axis": "total_sales",
+          "position": {"col": 6, "row": 6, "sizeX": 6, "sizeY": 4}
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Brand Deep Dive",
+      "description": "Detaillierte Markenanalyse",
+      "cards": [
+        {
+          "type": "chart",
+          "name": "Brand Marktanteil",
+          "query": "SELECT extracted_brand, total_revenue FROM analytics.brand_deep_dive_overview ORDER BY total_revenue DESC",
+          "visualization": "pie",
+          "dimension": "extracted_brand",
+          "metric": "total_revenue",
+          "position": {"col": 0, "row": 0, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "table",
+          "name": "Brand Performance Übersicht",
+          "query": "SELECT extracted_brand, total_transactions, unique_products, total_revenue, avg_sale_price FROM analytics.brand_deep_dive_overview ORDER BY total_revenue DESC",
+          "visualization": "table",
+          "position": {"col": 6, "row": 0, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Brand Monatstrends",
+          "query": "SELECT month, extracted_brand, revenue FROM analytics.brand_monthly_performance WHERE month >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '12 months') ORDER BY month",
+          "visualization": "line",
+          "x_axis": "month",
+          "y_axis": "revenue", 
+          "series": "extracted_brand",
+          "position": {"col": 0, "row": 4, "sizeX": 12, "sizeY": 4}
+        },
+        {
+          "type": "table",
+          "name": "Nike Produktlinien",
+          "query": "SELECT nike_line, total_sales, total_revenue, avg_price, unique_products FROM analytics.nike_product_breakdown ORDER BY total_revenue DESC",
+          "visualization": "table",
+          "position": {"col": 0, "row": 8, "sizeX": 8, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Nike Line Performance",
+          "query": "SELECT nike_line, total_revenue FROM analytics.nike_product_breakdown ORDER BY total_revenue DESC",
+          "visualization": "bar",
+          "x_axis": "nike_line",
+          "y_axis": "total_revenue",
+          "position": {"col": 8, "row": 8, "sizeX": 4, "sizeY": 4}
+        }
+      ]
+    },
+    {
+      "name": "🏪 Platform Analytics", 
+      "description": "Verkaufsplattform-Performance",
+      "cards": [
+        {
+          "type": "metric",
+          "name": "StockX Umsatz",
+          "query": "SELECT total_revenue FROM analytics.platform_performance WHERE platform_name = 'Stockx'",
+          "visualization": "scalar",
+          "position": {"col": 0, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "metric",
+          "name": "Durchschn. Gebühren",
+          "query": "SELECT avg_fee_amount FROM analytics.platform_performance WHERE platform_name = 'Stockx'",
+          "visualization": "scalar", 
+          "position": {"col": 3, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "metric",
+          "name": "Anzahl Transaktionen",
+          "query": "SELECT total_transactions FROM analytics.platform_performance WHERE platform_name = 'Stockx'",
+          "visualization": "scalar",
+          "position": {"col": 6, "row": 0, "sizeX": 3, "sizeY": 3}
+        },
+        {
+          "type": "chart",
+          "name": "Platform Umsatzverteilung",
+          "query": "SELECT platform_name, total_revenue FROM analytics.platform_performance ORDER BY total_revenue DESC",
+          "visualization": "donut",
+          "dimension": "platform_name",
+          "metric": "total_revenue",
+          "position": {"col": 0, "row": 3, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "table",
+          "name": "Platform Performance Details",
+          "query": "SELECT platform_name, total_transactions, total_revenue, avg_transaction_value, total_fees_paid FROM analytics.platform_performance ORDER BY total_revenue DESC",
+          "visualization": "table", 
+          "position": {"col": 6, "row": 3, "sizeX": 6, "sizeY": 4}
+        }
+      ]
+    },
+    {
+      "name": "🌍 Geographic Analytics",
+      "description": "Geografische Verkaufsanalyse", 
+      "cards": [
+        {
+          "type": "chart",
+          "name": "Verkäufe nach Land",
+          "query": "SELECT destination_country, total_revenue FROM analytics.sales_by_country WHERE destination_country != 'Unknown' ORDER BY total_revenue DESC LIMIT 15",
+          "visualization": "world_map",
+          "region": "destination_country",
+          "metric": "total_revenue",
+          "position": {"col": 0, "row": 0, "sizeX": 12, "sizeY": 6}
+        },
+        {
+          "type": "table", 
+          "name": "Top Zielländer",
+          "query": "SELECT destination_country, total_sales, total_revenue, avg_order_value FROM analytics.sales_by_country ORDER BY total_revenue DESC LIMIT 20",
+          "visualization": "table",
+          "position": {"col": 0, "row": 6, "sizeX": 8, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Revenue nach Land",
+          "query": "SELECT destination_country, total_revenue FROM analytics.sales_by_country WHERE destination_country != 'Unknown' ORDER BY total_revenue DESC LIMIT 10", 
+          "visualization": "bar",
+          "x_axis": "destination_country",
+          "y_axis": "total_revenue",
+          "position": {"col": 8, "row": 6, "sizeX": 4, "sizeY": 4}
+        }
+      ]
+    },
+    {
+      "name": "⏰ Time Analytics",
+      "description": "Zeitbasierte Verkaufsanalyse",
+      "cards": [
+        {
+          "type": "chart",
+          "name": "Täglicher Umsatz (30 Tage)",
+          "query": "SELECT sale_date, gross_revenue FROM analytics.daily_revenue WHERE sale_date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY sale_date",
+          "visualization": "line",
+          "x_axis": "sale_date", 
+          "y_axis": "gross_revenue",
+          "position": {"col": 0, "row": 0, "sizeX": 12, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Umsatz nach Wochentag",
+          "query": "SELECT day_of_week_name, total_revenue FROM analytics.sales_by_weekday ORDER BY day_of_week_num",
+          "visualization": "bar",
+          "x_axis": "day_of_week_name",
+          "y_axis": "total_revenue", 
+          "position": {"col": 0, "row": 4, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "chart",
+          "name": "Transaktionen nach Wochentag", 
+          "query": "SELECT day_of_week_name, total_sales FROM analytics.sales_by_weekday ORDER BY day_of_week_num",
+          "visualization": "bar",
+          "x_axis": "day_of_week_name",
+          "y_axis": "total_sales",
+          "position": {"col": 6, "row": 4, "sizeX": 6, "sizeY": 4}
+        },
+        {
+          "type": "table",
+          "name": "Tägliche Performance",
+          "query": "SELECT sale_date, transactions_count, gross_revenue, avg_order_value FROM analytics.daily_revenue ORDER BY sale_date DESC LIMIT 30",
+          "visualization": "table",
+          "position": {"col": 0, "row": 8, "sizeX": 12, "sizeY": 4}
+        }
+      ]
+    }
+  ]
+}

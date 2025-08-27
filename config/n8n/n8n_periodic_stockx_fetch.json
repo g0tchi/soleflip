@@ -1,0 +1,149 @@
+{
+  "name": "Periodischer StockX Datenabruf",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": "cron",
+        "cronTime": "0 2 * * 1"
+      },
+      "name": "Jeden Montag 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/v1/integration/stockx/import-orders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$credentials.apiKey.secret}}"
+            }
+          ]
+        },
+        "body": {
+          "from_date": "={{$now.minus({days: 7}).toISODate()}}",
+          "to_date": "={{$now.toISODate()}}"
+        },
+        "options": {
+          "body": {
+            "sendAs": "json"
+          },
+          "retryOnFail": true,
+          "retryCount": 2,
+          "retryInterval": 120
+        }
+      },
+      "name": "Trigger StockX Fetch API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        300
+      ],
+      "credentials": {
+        "apiKey": {
+          "id": "1",
+          "name": "Backend API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node['Trigger StockX Fetch API'].statusCode}}",
+              "operation": "equal",
+              "value2": 202
+            }
+          ]
+        }
+      },
+      "name": "Erfolgreich?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Erfolg - Ende",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "subject": "n8n Fehler: Automatischer StockX-Abruf fehlgeschlagen",
+        "html": "<h3>Fehler im Workflow 'Periodischer StockX Datenabruf'</h3><p>Der API-Aufruf zum Triggern des StockX-Imports ist fehlgeschlagen.</p><p><b>Status Code:</b> {{$node['Trigger StockX Fetch API'].statusCode}}</p><p><b>Antwort:</b></p><pre><code>{{JSON.stringify($node['Trigger StockX Fetch API'].json, null, 2)}}</code></pre>"
+      },
+      "name": "Fehler-Benachrichtigung senden",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        400
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Jeden Montag 02:00": {
+      "main": [
+        [
+          {
+            "node": "Trigger StockX Fetch API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger StockX Fetch API": {
+      "main": [
+        [
+          {
+            "node": "Erfolgreich?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erfolgreich?": {
+      "main": [
+        [
+          {
+            "node": "Erfolg - Ende",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fehler-Benachrichtigung senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
