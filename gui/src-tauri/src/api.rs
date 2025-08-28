@@ -32,23 +32,51 @@ pub struct HealthStatus {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryItem {
     pub id: Uuid,
+    #[serde(default = "default_sku")]
     pub sku: String,
+    #[serde(rename = "product_name")]
     pub name: String,
+    #[serde(rename = "brand_name")]
     pub brand: String,
     pub size: String,
+    #[serde(default = "default_condition")]
     pub condition: String,
-    pub purchase_price: f64,
+    pub purchase_price: Option<f64>,
+    #[serde(default = "default_current_value")]
     pub current_value: f64,
     pub status: String,
+}
+
+fn default_sku() -> String {
+    "N/A".to_string()
+}
+
+fn default_condition() -> String {
+    "Unknown".to_string()
+}
+
+fn default_current_value() -> f64 {
+    0.0
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProductStats {
     pub total_products: i64,
+    #[serde(rename = "total_inventory_value")]
     pub total_value: f64,
-    pub brands_count: i64,
+    pub total_brands: i64,
+    #[serde(default)]
     pub avg_profit_margin: f64,
-    pub top_brands: Vec<(String, i64)>,
+    pub top_brands: Vec<BrandStats>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BrandStats {
+    pub name: String,
+    pub total_products: i64,
+    pub total_items: i64,
+    pub avg_price: f64,
+    pub total_value: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,6 +114,76 @@ pub struct DashboardMetrics {
     pub recent_transactions: Vec<Value>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiDashboardMetrics {
+    pub timestamp: String,
+    pub inventory: InventoryMetrics,
+    pub sales: SalesMetrics,
+    pub system: SystemMetrics,
+    pub performance: PerformanceMetrics,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InventoryMetrics {
+    pub total_items: i64,
+    pub items_in_stock: i64,
+    pub items_sold: i64,
+    pub items_listed: i64,
+    pub total_inventory_value: f64,
+    pub average_purchase_price: f64,
+    pub top_brands: Vec<Value>,
+    pub status_breakdown: HashMap<String, Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SalesMetrics {
+    pub recent_activity: Vec<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SystemMetrics {
+    pub status: String,
+    pub uptime_seconds: f64,  // Changed to f64 to handle floating point values
+    pub environment: String,
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PerformanceMetrics {
+    pub total_requests: i64,
+    pub error_rate: f64,
+    pub avg_response_time: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnrichmentStats {
+    pub completed: i64,
+    pub missing: i64,
+    pub completion_percentage: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnrichmentStatusResponse {
+    pub timestamp: String,
+    pub total_products: i64,
+    pub enrichment_stats: EnrichmentStatsBreakdown,
+    pub overall_completion: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnrichmentStatsBreakdown {
+    pub sku: EnrichmentStats,
+    pub description: EnrichmentStats,
+    pub retail_price: EnrichmentStats,
+    pub release_date: EnrichmentStats,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnrichmentResponse {
+    pub message: String,
+    pub target_products: String,
+}
+
 impl ApiClient {
     pub fn new(base_url: String) -> Self {
         Self {
@@ -108,8 +206,23 @@ impl ApiClient {
         }
         
         let response = self.client.get(&url).send().await?;
-        let items: Vec<InventoryItem> = response.json().await?;
-        Ok(items)
+        
+        // Parse the response which contains items and pagination info
+        let response_json: serde_json::Value = response.json().await?;
+        
+        // Extract just the items array from the response
+        if let Some(items_value) = response_json.get("items") {
+            match serde_json::from_value::<Vec<InventoryItem>>(items_value.clone()) {
+                Ok(items) => Ok(items),
+                Err(_) => Ok(vec![]), // Return empty vec if parsing fails
+            }
+        } else {
+            // Fallback: try to parse the entire response as an array (for compatibility)
+            match serde_json::from_value::<Vec<InventoryItem>>(response_json) {
+                Ok(items) => Ok(items),
+                Err(_) => Ok(vec![]), // Return empty vec if parsing fails
+            }
+        }
     }
 
     pub async fn get_product_stats(&self) -> Result<ProductStats, reqwest::Error> {
@@ -136,7 +249,18 @@ impl ApiClient {
     pub async fn get_dashboard_metrics(&self) -> Result<DashboardMetrics, reqwest::Error> {
         let url = format!("{}/api/v1/dashboard/metrics", self.base_url);
         let response = self.client.get(&url).send().await?;
-        let metrics: DashboardMetrics = response.json().await?;
+        let api_metrics: ApiDashboardMetrics = response.json().await?;
+        
+        // Convert API response to simplified DashboardMetrics
+        let metrics = DashboardMetrics {
+            total_inventory_value: api_metrics.inventory.total_inventory_value,
+            monthly_sales: 0.0, // TODO: calculate from recent_activity
+            profit_margin: 0.0, // TODO: calculate profit margin
+            active_listings: api_metrics.inventory.items_listed,
+            pending_imports: 0, // TODO: get from import status
+            recent_transactions: api_metrics.sales.recent_activity,
+        };
+        
         Ok(metrics)
     }
 
@@ -164,5 +288,30 @@ impl ApiClient {
         let response = self.client.get(&url).send().await?;
         let csv_data = response.text().await?;
         Ok(csv_data)
+    }
+
+    pub async fn get_enrichment_status(&self) -> Result<EnrichmentStatusResponse, reqwest::Error> {
+        let url = format!("{}/api/v1/products/enrichment/status", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let status: EnrichmentStatusResponse = response.json().await?;
+        Ok(status)
+    }
+
+    pub async fn start_product_enrichment(&self, product_ids: Option<Vec<String>>) -> Result<EnrichmentResponse, reqwest::Error> {
+        let mut url = format!("{}/api/v1/products/enrich", self.base_url);
+        
+        if let Some(ids) = product_ids {
+            let query_params: Vec<String> = ids
+                .iter()
+                .map(|id| format!("product_ids={}", id))
+                .collect();
+            if !query_params.is_empty() {
+                url = format!("{}?{}", url, query_params.join("&"));
+            }
+        }
+        
+        let response = self.client.post(&url).send().await?;
+        let enrichment_response: EnrichmentResponse = response.json().await?;
+        Ok(enrichment_response)
     }
 }

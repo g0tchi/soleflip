@@ -1,14 +1,8 @@
-use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics};
+use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use tauri::State;
 use uuid::Uuid;
-
-// Global API client state
-pub struct AppState {
-    pub api_client: ApiClient,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemStatus {
@@ -17,14 +11,6 @@ pub struct SystemStatus {
     pub last_check: String,
     pub version: String,
     pub environment: String,
-}
-
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            api_client: ApiClient::new("http://localhost:8000".to_string()),
-        }
-    }
 }
 
 #[tauri::command]
@@ -122,19 +108,48 @@ pub async fn get_system_status() -> Result<SystemStatus, String> {
     let client = ApiClient::new("http://localhost:8000".to_string());
     
     match client.health_check().await {
-        Ok(health) => Ok(SystemStatus {
-            api_connected: true,
-            database_healthy: health.status == "healthy",
-            last_check: health.timestamp,
-            version: health.version,
-            environment: health.environment,
-        }),
-        Err(e) => Ok(SystemStatus {
+        Ok(health) => {
+            // Check if database component is healthy
+            let database_healthy = health.components
+                .get("database")
+                .and_then(|db| db.get("status"))
+                .and_then(|status| status.as_str())
+                .map_or(false, |status| status == "healthy");
+            
+            Ok(SystemStatus {
+                api_connected: true,
+                database_healthy,
+                last_check: health.timestamp,
+                version: health.version,
+                environment: health.environment,
+            })
+        },
+        Err(_e) => Ok(SystemStatus {
             api_connected: false,
             database_healthy: false,
             last_check: chrono::Utc::now().to_rfc3339(),
             version: "unknown".to_string(),
             environment: "unknown".to_string(),
         }),
+    }
+}
+
+#[tauri::command]
+pub async fn get_enrichment_status() -> Result<EnrichmentStatusResponse, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_enrichment_status().await {
+        Ok(status) => Ok(status),
+        Err(e) => Err(format!("Failed to fetch enrichment status: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn start_product_enrichment(product_ids: Option<Vec<String>>) -> Result<EnrichmentResponse, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.start_product_enrichment(product_ids).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to start product enrichment: {}", e)),
     }
 }
