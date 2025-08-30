@@ -18,7 +18,7 @@ interface InventoryItem {
   brand: string;
   size: string;
   condition: string;
-  purchase_price: number;
+  purchase_price: number | null;
   current_value: number;
   status: string;
 }
@@ -204,9 +204,10 @@ const Inventory = () => {
             </thead>
             <tbody>
               {filteredItems.map((item) => {
-                const profit = item.current_value - item.purchase_price;
-                const profitMargin = item.purchase_price > 0 
-                  ? ((profit / item.purchase_price) * 100)
+                const purchasePrice = item.purchase_price || 0;
+                const profit = item.current_value - purchasePrice;
+                const profitMargin = purchasePrice > 0 
+                  ? ((profit / purchasePrice) * 100)
                   : 0;
 
                 return (
@@ -216,7 +217,7 @@ const Inventory = () => {
                     <td className="text-retro-yellow">{item.brand}</td>
                     <td>{item.size}</td>
                     <td>{item.condition}</td>
-                    <td className="text-retro-cyan">{formatCurrency(item.purchase_price)}</td>
+                    <td className="text-retro-cyan">{formatCurrency(purchasePrice)}</td>
                     <td className="text-retro-green">{formatCurrency(item.current_value)}</td>
                     <td className={profit >= 0 ? 'text-retro-green' : 'text-retro-magenta'}>
                       {formatCurrency(profit)}

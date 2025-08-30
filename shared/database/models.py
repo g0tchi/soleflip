@@ -10,6 +10,10 @@ from sqlalchemy.sql import func
 import uuid
 from cryptography.fernet import Fernet
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import the schema helper
 from shared.database.utils import get_schema_ref, IS_POSTGRES

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npx @tauri-apps/cli icon:*)",
+      "Bash(python:*)",
+      "Bash(powershell:*)",
+      "Read(C:\\nth_dev\\soleflip/**)",
+      "Bash(curl:*)",
+      "Bash(npm run tauri:*)",
+      "Bash(npm run build:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\nth_dev\\soleflip"
+    ]
+  }
+}

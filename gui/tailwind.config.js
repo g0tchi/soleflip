@@ -15,6 +15,37 @@ export default {
           purple: '#8b00ff',
           blue: '#0080ff',
         },
+        claude: {
+          orange: '#f97316',
+          amber: '#f59e0b', 
+          warmgray: '#78716c',
+          slate: '#64748b',
+          primary: '#f97316',
+          secondary: '#f59e0b',
+          accent: '#78716c',
+        },
+        'purple-haze': {
+          primary: '#7f5af0',
+          secondary: '#2cb67d',
+          bg: '#16161a',
+          surface: '#242629',
+          card: '#2e2f33',
+          border: '#72757e',
+          text: '#94a1b2',
+          headline: '#fffffe',
+        },
+        'happy-hues': {
+          primary: '#7f5af0',
+          secondary: '#2cb67d',
+          tertiary: '#f2757e',
+          bg: '#16161a',
+          surface: '#242629',
+          card: '#2e2f33',
+          border: '#3a3d42',
+          text: '#94a1b2',
+          headline: '#fffffe',
+          button: '#fffffe',
+        },
         dark: {
           bg: '#0a0a0a',
           surface: '#1a1a1a',
@@ -26,36 +57,6 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace'],
         retro: ['Orbitron', 'monospace'],
       },
-      animation: {
-        'glow': 'glow 2s ease-in-out infinite alternate',
-        'matrix': 'matrix 0.5s linear infinite',
-        'scan': 'scan 2s linear infinite',
-        'flicker': 'flicker 0.15s ease-in-out infinite alternate',
-      },
-      keyframes: {
-        glow: {
-          '0%': { 
-            boxShadow: '0 0 5px currentColor',
-            textShadow: '0 0 5px currentColor'
-          },
-          '100%': { 
-            boxShadow: '0 0 20px currentColor, 0 0 30px currentColor',
-            textShadow: '0 0 10px currentColor'
-          },
-        },
-        matrix: {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100vh)' },
-        },
-        scan: {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100vw)' },
-        },
-        flicker: {
-          '0%, 100%': { opacity: 1 },
-          '50%': { opacity: 0.8 },
-        }
-      }
     },
   },
   plugins: [],

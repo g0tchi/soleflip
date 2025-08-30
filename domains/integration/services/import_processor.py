@@ -118,11 +118,12 @@ class ImportProcessor:
                 total_records=len(data)
             )
 
+            logger.info("Starting validation", batch_id=str(batch_id), source_type=source_type.value, data_sample=str(data[0])[:200] if data else "empty")
             validation_result = await self._validate_data(data, source_type)
             
             if not validation_result.is_valid:
+                logger.error("Validation failed", batch_id=str(batch_id), errors=validation_result.errors)
                 await self.update_batch_status(batch_id, ImportStatus.FAILED, error_records=len(data))
-                # Optionally store validation errors in the batch or records
                 return
 
             from .transformers import get_transformer

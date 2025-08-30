@@ -6,8 +6,7 @@ import {
   Clock, 
   CheckCircle, 
   AlertTriangle,
-  RefreshCw,
-  Download 
+  RefreshCw
 } from 'lucide-react';
 
 interface ImportResponse {

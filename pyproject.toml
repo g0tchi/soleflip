@@ -94,6 +94,7 @@ markers = [
     "api: API endpoint tests",
     "slow: Slow running tests",
     "database: Tests requiring database",
+    "performance: Performance tests",
 ]
 asyncio_mode = "auto"
 

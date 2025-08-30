@@ -20,7 +20,15 @@ async fn main() {
             commands::export_data_csv,
             commands::get_system_status,
             commands::get_enrichment_status,
-            commands::start_product_enrichment
+            commands::start_product_enrichment,
+            commands::get_pricing_recommendation,
+            commands::get_market_analysis,
+            commands::get_pricing_insights,
+            commands::get_pricing_strategies,
+            commands::generate_sales_forecast,
+            commands::get_market_trends,
+            commands::get_forecast_models,
+            commands::get_predictive_insights
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

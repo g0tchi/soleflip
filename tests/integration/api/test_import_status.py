@@ -85,4 +85,6 @@ async def test_get_import_status_not_found(test_client: AsyncClient, override_db
 
     # Assert
     assert response.status_code == 404
-    assert response.json()["detail"] == "Import batch not found"
+    response_data = response.json()
+    assert "error" in response_data
+    assert response_data["error"]["message"] == "Import batch not found"

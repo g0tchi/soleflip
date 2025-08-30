@@ -1,17 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Critical base styles to prevent disappearing content */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+#root {
+  height: 100vh !important;
+  width: 100vw !important;
+  display: block !important;
+}
+
 @layer base {
   * {
-    @apply border-border;
+    @apply border-gray-700;
   }
   
   body {
-    @apply bg-dark-bg text-retro-cyan font-mono overflow-hidden;
+    @apply font-sans overflow-hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Default theme - Retro Cyan */
+  .theme-retro-cyan {
+    --primary-color: #00ffff;
+    --bg-color: #0a0a0a;
+    --surface-color: #1a1a1a;
+    --card-color: #2a2a2a;
+    --border-color: #3a3a3a;
+  }
+
+  .theme-retro-cyan body {
+    @apply bg-dark-bg text-retro-cyan;
     background-image: 
       radial-gradient(circle at 25% 25%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 75% 75%, rgba(255, 0, 255, 0.1) 0%, transparent 50%);
+  }
+
+  /* Retro Green Theme */
+  .theme-retro-green {
+    --primary-color: #00ff00;
+    --bg-color: #0a0f0a;
+    --surface-color: #1a2a1a;
+    --card-color: #2a3a2a;
+    --border-color: #3a4a3a;
+  }
+
+  .theme-retro-green body {
+    @apply bg-green-950 text-retro-green;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(0, 255, 0, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(0, 128, 0, 0.1) 0%, transparent 50%);
+  }
+
+  /* Retro Magenta Theme */
+  .theme-retro-magenta {
+    --primary-color: #ff00ff;
+    --bg-color: #0f0a0f;
+    --surface-color: #2a1a2a;
+    --card-color: #3a2a3a;
+    --border-color: #4a3a4a;
+  }
+
+  .theme-retro-magenta body {
+    @apply bg-purple-950 text-retro-magenta;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(255, 0, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(128, 0, 128, 0.1) 0%, transparent 50%);
+  }
+
+  /* Retro Yellow Theme */
+  .theme-retro-yellow {
+    --primary-color: #ffff00;
+    --bg-color: #0f0f0a;
+    --surface-color: #2a2a1a;
+    --card-color: #3a3a2a;
+    --border-color: #4a4a3a;
+  }
+
+  .theme-retro-yellow body {
+    @apply bg-yellow-950 text-retro-yellow;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(255, 255, 0, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(128, 128, 0, 0.1) 0%, transparent 50%);
+  }
+
+  /* Claude Code Theme */
+  .theme-claude-code {
+    --primary-color: #f97316;
+    --secondary-color: #f59e0b;
+    --bg-color: #0c0a09;
+    --surface-color: #1c1917;
+    --card-color: #292524;
+    --border-color: #44403c;
+  }
+
+  .theme-claude-code body {
+    @apply bg-stone-950 text-claude-orange;
+    background: linear-gradient(135deg, #0c0a09 0%, #1c1917 50%, #292524 100%);
+  }
+
+  /* Happy Hues Modern Theme */
+  .theme-happy-hues-modern {
+    --primary-color: #7f5af0;
+    --secondary-color: #2cb67d;
+    --tertiary-color: #f2757e;
+    --bg-color: #16161a;
+    --surface-color: #242629;
+    --card-color: #2e2f33;
+    --border-color: #3a3d42;
+    --text-color: #94a1b2;
+    --headline-color: #fffffe;
+    --button-text-color: #fffffe;
+  }
+
+  .theme-happy-hues-modern body {
+    background: #16161a !important;
+    color: #94a1b2 !important;
+    font-weight: 400;
+  }
+  
+  .theme-happy-hues-modern #root {
+    background: #16161a !important;
+    color: #94a1b2 !important;
   }
   
   html {
@@ -24,51 +156,154 @@
 }
 
 @layer components {
-  .retro-border {
-    @apply border border-retro-cyan shadow-[0_0_10px_rgba(0,255,255,0.3)];
+  /* Modern Components */
+  .modern-card {
+    background: #2e2f33 !important;
+    border: 1px solid #3a3d42 !important;
+    @apply rounded-2xl p-8 transition-all duration-300;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: block !important;
+    visibility: visible !important;
   }
-  
-  .retro-glow {
-    @apply animate-glow;
+
+  .modern-card:hover {
+    background: #34353a;
+    border-color: #7f5af0;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   }
-  
-  .retro-button {
-    @apply px-4 py-2 border border-retro-cyan bg-transparent text-retro-cyan 
-           hover:bg-retro-cyan hover:text-dark-bg transition-all duration-300
-           shadow-[0_0_10px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
-           font-mono uppercase tracking-wider;
+
+  .modern-button {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200;
+    background: #7f5af0;
+    color: #fffffe;
+    border: none;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .modern-button:hover {
+    background: #8b66f5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(127, 90, 240, 0.3);
+  }
+
+  .modern-button-secondary {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200;
+    background: #2cb67d;
+    color: #fffffe;
+    border: none;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .modern-button-secondary:hover {
+    background: #35c487;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(44, 182, 125, 0.3);
+  }
+
+  .modern-button-outline {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200;
+    background: transparent;
+    color: #94a1b2;
+    border: 1px solid #3a3d42;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .modern-button-outline:hover {
+    background: #7f5af0;
+    color: #fffffe;
+    border-color: #7f5af0;
+    transform: translateY(-1px);
+  }
+
+  .modern-input {
+    @apply px-4 py-3 rounded-xl border transition-all duration-200;
+    background: #242629;
+    border-color: #3a3d42;
+    color: #fffffe;
+    font-weight: 400;
+  }
+
+  .modern-input:focus {
+    outline: none;
+    border-color: #7f5af0;
+    box-shadow: 0 0 0 3px rgba(127, 90, 240, 0.1);
+  }
+
+  .modern-input::placeholder {
+    color: #72757e;
+  }
+
+  .modern-heading {
+    color: #fffffe;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+
+  .modern-subheading {
+    color: #94a1b2;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .modern-table {
+    @apply w-full border-collapse;
+    background: #2e2f33;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #3a3d42;
+  }
+
+  .modern-table th {
+    background: #242629;
+    color: #fffffe;
+    font-weight: 600;
+    @apply px-6 py-4 text-left;
+    border-bottom: 1px solid #3a3d42;
+  }
+
+  .modern-table td {
+    background: #2e2f33;
+    color: #94a1b2;
+    @apply px-6 py-4;
+    border-bottom: 1px solid #3a3d42;
+  }
+
+  .modern-table tr:hover td {
+    background: #34353a;
+  }
+
+  .modern-table tr:last-child td {
+    border-bottom: none;
   }
   
   .retro-button-success {
     @apply retro-button border-retro-green text-retro-green
-           hover:bg-retro-green hover:text-dark-bg
-           shadow-[0_0_10px_rgba(0,255,0,0.3)] hover:shadow-[0_0_20px_rgba(0,255,0,0.6)];
+           hover:bg-retro-green hover:text-dark-bg;
   }
   
   .retro-button-warning {
     @apply retro-button border-retro-yellow text-retro-yellow
-           hover:bg-retro-yellow hover:text-dark-bg
-           shadow-[0_0_10px_rgba(255,255,0,0.3)] hover:shadow-[0_0_20px_rgba(255,255,0,0.6)];
+           hover:bg-retro-yellow hover:text-dark-bg;
   }
   
   .retro-button-danger {
     @apply retro-button border-retro-magenta text-retro-magenta
-           hover:bg-retro-magenta hover:text-dark-bg
-           shadow-[0_0_10px_rgba(255,0,255,0.3)] hover:shadow-[0_0_20px_rgba(255,0,255,0.6)];
+           hover:bg-retro-magenta hover:text-dark-bg;
   }
   
   .retro-card {
-    @apply bg-dark-surface border border-dark-border p-6 rounded-none
-           shadow-[0_0_20px_rgba(0,255,255,0.1)] 
-           hover:shadow-[0_0_30px_rgba(0,255,255,0.2)]
-           transition-all duration-300;
+    @apply bg-dark-surface border border-dark-border p-6 rounded-none;
   }
   
   .retro-input {
     @apply bg-dark-surface border border-retro-cyan text-retro-cyan
            px-3 py-2 font-mono placeholder:text-retro-cyan/50
-           focus:outline-none focus:shadow-[0_0_10px_rgba(0,255,255,0.5)]
-           focus:border-retro-cyan/80 transition-all duration-300;
+           focus:outline-none focus:border-retro-cyan/80 transition-colors duration-200;
   }
   
   .retro-table {
@@ -86,39 +321,24 @@
   }
   
   .retro-table tr:hover td {
-    @apply bg-dark-card shadow-[0_0_10px_rgba(0,255,255,0.1)];
+    @apply bg-dark-card;
   }
   
   .ascii-art {
     @apply font-mono text-retro-cyan whitespace-pre text-xs leading-tight;
-    text-shadow: 0 0 10px currentColor;
   }
   
-  .matrix-bg::before {
-    content: '';
-    @apply absolute inset-0 opacity-5 pointer-events-none;
-    background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 1) 25%, rgba(0, 255, 255, 1) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 1) 75%, rgba(0, 255, 255, 1) 76%, transparent 77%, transparent);
-    background-size: 2px 2px;
-  }
-  
-  .scan-line {
-    @apply absolute top-0 left-0 w-full h-0.5 bg-retro-cyan opacity-70 animate-scan;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
-  }
   
   .status-healthy {
     @apply text-retro-green;
-    text-shadow: 0 0 5px currentColor;
   }
   
   .status-warning {
     @apply text-retro-yellow;
-    text-shadow: 0 0 5px currentColor;
   }
   
   .status-error {
     @apply text-retro-magenta;
-    text-shadow: 0 0 5px currentColor;
   }
   
   .progress-bar {
@@ -126,13 +346,254 @@
   }
   
   .progress-fill {
-    @apply h-full bg-retro-cyan transition-all duration-500 relative;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    @apply h-full bg-retro-cyan transition-all duration-300;
   }
-  
-  .progress-fill::after {
-    content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
-           animate-scan;
+
+  /* Claude Code Theme */
+  .claude-button {
+    @apply px-4 py-2 border border-claude-orange bg-transparent text-claude-orange 
+           hover:bg-claude-orange hover:text-white transition-colors duration-200
+           font-mono uppercase tracking-wider rounded;
+  }
+
+  .claude-button-amber {
+    @apply claude-button border-claude-amber text-claude-amber
+           hover:bg-claude-amber hover:text-white;
+  }
+
+  .claude-card {
+    @apply bg-stone-900/90 border border-stone-700 p-6 rounded-lg;
+  }
+
+  .claude-input {
+    @apply bg-stone-800 border border-claude-orange text-claude-orange
+           px-3 py-2 font-mono placeholder:text-claude-orange/50 rounded
+           focus:outline-none focus:border-claude-orange/80 transition-colors duration-200;
+  }
+
+  .claude-table {
+    @apply w-full border-collapse;
+  }
+
+  .claude-table th {
+    @apply border border-claude-orange bg-stone-800 px-4 py-2 text-left
+           font-mono uppercase tracking-wider text-claude-orange rounded-tl rounded-tr;
+  }
+
+  .claude-table td {
+    @apply border border-stone-700 bg-stone-900/90 px-4 py-2
+           font-mono text-sm text-stone-200;
+  }
+
+  .claude-table tr:hover td {
+    @apply bg-stone-800;
+  }
+
+  /* Claude themed status indicators */
+  .status-claude-healthy {
+    @apply text-claude-amber;
+  }
+
+  .status-claude-warning {
+    @apply text-claude-orange;
+  }
+
+  .status-claude-error {
+    @apply text-red-400;
+  }
+
+  /* Claude progress bar */
+  .claude-progress-bar {
+    @apply bg-stone-800 border border-claude-orange h-6 relative overflow-hidden rounded;
+  }
+
+  .claude-progress-fill {
+    @apply h-full bg-gradient-to-r from-claude-orange to-claude-amber transition-all duration-300 rounded;
+  }
+
+  /* Theme-specific overrides for Claude Code */
+  .theme-claude-code .retro-border {
+    @apply border border-claude-orange;
+  }
+
+  .theme-claude-code .retro-button {
+    @apply border-claude-orange text-claude-orange hover:bg-claude-orange hover:text-stone-900;
+  }
+
+  .theme-claude-code .retro-card {
+    @apply bg-stone-900/90 border-stone-700;
+  }
+
+  .theme-claude-code .retro-input {
+    @apply bg-stone-800 border-claude-orange text-claude-orange
+           focus:border-claude-orange/80;
+  }
+
+  .theme-claude-code .retro-table th {
+    @apply border-claude-orange bg-stone-800 text-claude-orange;
+  }
+
+  .theme-claude-code .retro-table td {
+    @apply border-stone-700 bg-stone-900/90 text-stone-200;
+  }
+
+  .theme-claude-code .retro-table tr:hover td {
+    @apply bg-stone-800;
+  }
+
+  .theme-claude-code .ascii-art {
+    @apply text-claude-orange;
+  }
+
+  .theme-claude-code h1, 
+  .theme-claude-code h2, 
+  .theme-claude-code h3 {
+    @apply text-claude-orange;
+  }
+
+  /* Purple Haze Theme Components */
+  .purple-haze-button {
+    @apply px-4 py-2 border-2 border-purple-500 bg-transparent text-purple-500 
+           hover:bg-purple-500 hover:text-white transition-all duration-300
+           font-mono uppercase tracking-wider rounded-lg;
+    background-color: transparent;
+    border-color: #7f5af0;
+    color: #7f5af0;
+  }
+
+  .purple-haze-button:hover {
+    background-color: #7f5af0;
+    color: #fffffe;
+  }
+
+  .purple-haze-button-success {
+    @apply border-green-400 text-green-400 hover:bg-green-400 hover:text-gray-900;
+    border-color: #2cb67d;
+    color: #2cb67d;
+  }
+
+  .purple-haze-button-success:hover {
+    background-color: #2cb67d;
+    color: #16161a;
+  }
+
+  .purple-haze-card {
+    background-color: #2e2f33;
+    border: 1px solid #72757e;
+    @apply p-6 rounded-lg transition-all duration-300;
+  }
+
+  .purple-haze-card:hover {
+    background-color: #3a3d42;
+    border-color: #7f5af0;
+  }
+
+  .purple-haze-input {
+    background-color: #242629;
+    border: 1px solid #72757e;
+    color: #94a1b2;
+    @apply px-3 py-2 font-mono rounded-lg
+           focus:outline-none focus:border-purple-500 transition-all duration-300;
+  }
+
+  .purple-haze-input:focus {
+    border-color: #7f5af0;
+  }
+
+  .purple-haze-input::placeholder {
+    color: #72757e;
+  }
+
+  .purple-haze-table {
+    @apply w-full border-collapse;
+  }
+
+  .purple-haze-table th {
+    background-color: #2e2f33;
+    border: 1px solid #72757e;
+    color: #fffffe;
+    @apply px-4 py-2 text-left font-mono uppercase tracking-wider;
+  }
+
+  .purple-haze-table td {
+    background-color: #242629;
+    border: 1px solid #72757e;
+    color: #94a1b2;
+    @apply px-4 py-2 font-mono text-sm;
+  }
+
+  .purple-haze-table tr:hover td {
+    background-color: #2e2f33;
+  }
+
+  /* Purple Haze theme-specific overrides */
+  .theme-purple-haze .retro-border {
+    @apply border-purple-500;
+    border-color: #7f5af0;
+  }
+
+  .theme-purple-haze .retro-button {
+    @apply border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white;
+    border-color: #7f5af0;
+    color: #7f5af0;
+  }
+
+  .theme-purple-haze .retro-button:hover {
+    background-color: #7f5af0;
+    color: #fffffe;
+  }
+
+  .theme-purple-haze .retro-card {
+    background-color: #2e2f33;
+    border-color: #72757e;
+  }
+
+  .theme-purple-haze .retro-input {
+    background-color: #242629;
+    border-color: #72757e;
+    color: #94a1b2;
+  }
+
+  .theme-purple-haze .retro-input:focus {
+    border-color: #7f5af0;
+  }
+
+  .theme-purple-haze .retro-table th {
+    background-color: #2e2f33;
+    border-color: #72757e;
+    color: #fffffe;
+  }
+
+  .theme-purple-haze .retro-table td {
+    background-color: #242629;
+    border-color: #72757e;
+    color: #94a1b2;
+  }
+
+  .theme-purple-haze .retro-table tr:hover td {
+    background-color: #2e2f33;
+  }
+
+  .theme-purple-haze .ascii-art {
+    color: #7f5af0;
+  }
+
+  .theme-purple-haze h1, 
+  .theme-purple-haze h2, 
+  .theme-purple-haze h3 {
+    color: #fffffe;
+  }
+
+  /* Purple Haze status indicators */
+  .status-purple-haze-healthy {
+    color: #2cb67d;
+  }
+
+  .status-purple-haze-warning {
+    color: #7f5af0;
+  }
+
+  .status-purple-haze-error {
+    color: #ff6b6b;
   }
 }

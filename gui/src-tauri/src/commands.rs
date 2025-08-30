@@ -1,4 +1,4 @@
-use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse};
+use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -151,5 +151,87 @@ pub async fn start_product_enrichment(product_ids: Option<Vec<String>>) -> Resul
     match client.start_product_enrichment(product_ids).await {
         Ok(response) => Ok(response),
         Err(e) => Err(format!("Failed to start product enrichment: {}", e)),
+    }
+}
+
+// Pricing Commands
+#[tauri::command]
+pub async fn get_pricing_recommendation(request: PricingRequest) -> Result<PricingRecommendation, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_pricing_recommendation(request).await {
+        Ok(recommendation) => Ok(recommendation),
+        Err(e) => Err(format!("Failed to get pricing recommendation: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_analysis(product_id: String) -> Result<MarketAnalysis, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_market_analysis(product_id).await {
+        Ok(analysis) => Ok(analysis),
+        Err(e) => Err(format!("Failed to get market analysis: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_pricing_insights() -> Result<PricingInsights, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_pricing_insights().await {
+        Ok(insights) => Ok(insights),
+        Err(e) => Err(format!("Failed to get pricing insights: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_pricing_strategies() -> Result<HashMap<String, Value>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_pricing_strategies().await {
+        Ok(strategies) => Ok(strategies),
+        Err(e) => Err(format!("Failed to get pricing strategies: {}", e)),
+    }
+}
+
+// Analytics/Forecast Commands
+#[tauri::command]
+pub async fn generate_sales_forecast(request: ForecastRequest) -> Result<ForecastAnalysis, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.generate_sales_forecast(request).await {
+        Ok(forecast) => Ok(forecast),
+        Err(e) => Err(format!("Failed to generate sales forecast: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_market_trends(days_back: Option<i32>) -> Result<Vec<MarketTrend>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_market_trends(days_back).await {
+        Ok(trends) => Ok(trends),
+        Err(e) => Err(format!("Failed to get market trends: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_forecast_models() -> Result<HashMap<String, Value>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_forecast_models().await {
+        Ok(models) => Ok(models),
+        Err(e) => Err(format!("Failed to get forecast models: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_predictive_insights() -> Result<PredictiveInsights, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_predictive_insights().await {
+        Ok(insights) => Ok(insights),
+        Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
     }
 }

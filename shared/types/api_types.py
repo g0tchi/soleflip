@@ -33,7 +33,7 @@ class SearchParams(BaseModel):
 class SortParams(BaseModel):
     """Sort parameters"""
     sort_by: Optional[str] = Field(None, description="Field to sort by")
-    sort_direction: Optional[str] = Field("asc", regex="^(asc|desc)$", description="Sort direction")
+    sort_direction: Optional[str] = Field("asc", pattern="^(asc|desc)$", description="Sort direction")
 
 
 class BulkOperationParams(BaseModel):
@@ -101,7 +101,7 @@ class SupplierCreateRequest(BaseModel):
     """Supplier creation request"""
     name: str = Field(..., min_length=1, max_length=100, description="Supplier name")
     supplier_type: SupplierType = Field(..., description="Supplier type")
-    email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+    email: Optional[str] = Field(None, pattern=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
     phone: Optional[str] = Field(None, max_length=50, description="Phone number")
     website: Optional[str] = Field(None, max_length=200, description="Website URL")
     contact_person: Optional[str] = Field(None, max_length=100, description="Contact person")
@@ -388,7 +388,7 @@ class FileUploadResponse(BaseModel):
 
 class BatchUploadRequest(BaseModel):
     """Batch upload request model"""
-    file_type: str = Field(..., regex="^(csv|json|xlsx)$")
+    file_type: str = Field(..., pattern="^(csv|json|xlsx)$")
     delimiter: Optional[str] = Field(",", max_length=1, description="CSV delimiter")
     has_header: bool = Field(True, description="File has header row")
     encoding: str = Field("utf-8", description="File encoding")

@@ -1,26 +1,29 @@
 import { useState } from 'react';
 import { 
-  Settings as SettingsIcon, 
   Database, 
   Palette, 
   Bell,
   Shield,
   Save,
-  RefreshCw 
+  RefreshCw
 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Settings = () => {
-  const [theme, setTheme] = useState('retro-cyan');
+  const { theme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(30);
   const [apiEndpoint, setApiEndpoint] = useState('http://localhost:8000');
   const [isSaving, setIsSaving] = useState(false);
 
   const themes = [
-    { value: 'retro-cyan', label: 'Cyan Matrix', color: 'text-retro-cyan' },
-    { value: 'retro-green', label: 'Green Terminal', color: 'text-retro-green' },
-    { value: 'retro-magenta', label: 'Magenta Neon', color: 'text-retro-magenta' },
-    { value: 'retro-yellow', label: 'Amber Classic', color: 'text-retro-yellow' }
+    { value: 'happy-hues-modern', label: 'Happy Hues Modern', color: 'text-purple-500', preview: '◉◉◉' },
+    { value: 'retro-cyan', label: 'Cyan Matrix', color: 'text-retro-cyan', preview: '●●●' },
+    { value: 'retro-green', label: 'Green Terminal', color: 'text-retro-green', preview: '●●●' },
+    { value: 'retro-magenta', label: 'Magenta Neon', color: 'text-retro-magenta', preview: '●●●' },
+    { value: 'retro-yellow', label: 'Amber Classic', color: 'text-retro-yellow', preview: '●●●' },
+    { value: 'claude-code', label: 'Claude Code', color: 'text-claude-orange', preview: '◉◉◉' },
+    { value: 'purple-haze', label: 'Purple Haze', color: 'text-purple-500', preview: '◆◆◆' }
   ];
 
   const handleSave = async () => {
@@ -36,7 +39,7 @@ const Settings = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-retro font-bold text-retro-cyan animate-glow">
+        <h1 className="text-3xl font-retro font-bold text-retro-cyan">
           SETTINGS
         </h1>
         <p className="text-retro-cyan/70 font-mono mt-1">
@@ -58,7 +61,7 @@ const Settings = () => {
             </label>
             <select
               value={theme}
-              onChange={(e) => setTheme(e.target.value)}
+              onChange={(e) => setTheme(e.target.value as any)}
               className="retro-input w-full"
             >
               {themes.map((themeOption) => (
@@ -79,9 +82,16 @@ const Settings = () => {
 ║   THEME PREVIEW  ║  
 ╚══════════════════╝`}
               </div>
-              <div className="mt-2 flex space-x-4 text-sm">
+              <div className="mt-2 flex space-x-2 text-sm">
                 {themes.map((t) => (
-                  <span key={t.value} className={t.color}>●</span>
+                  <span 
+                    key={t.value} 
+                    className={`${t.color} cursor-pointer transition-all duration-300 hover:scale-125`}
+                    onClick={() => setTheme(t.value as any)}
+                    title={t.label}
+                  >
+                    {t.preview}
+                  </span>
                 ))}
               </div>
             </div>

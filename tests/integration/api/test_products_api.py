@@ -47,7 +47,9 @@ async def test_get_stockx_product_details_not_found(async_client, api_helper, mo
 
     # Assertions
     assert response.status_code == 404
-    assert response.json() == {"detail": f"Product with ID '{product_id}' not found on StockX."}
+    response_data = response.json()
+    assert "error" in response_data
+    assert response_data["error"]["message"] == f"Product with ID '{product_id}' not found on StockX."
     mock_external_services['stockx'].get_product_details.assert_called_once_with(product_id)
 
 
@@ -99,7 +101,9 @@ async def test_search_stockx_products_service_error(mocker):
 
     # Assertions
     assert response.status_code == 502
-    assert response.json() == {"detail": "Failed to retrieve search results from StockX."}
+    response_data = response.json()
+    assert "error" in response_data
+    assert response_data["error"]["message"] == "Failed to retrieve search results from StockX."
     StockXService.search_stockx_catalog.assert_called_once_with(query=search_query, page=1, page_size=10)
 
 
@@ -153,4 +157,6 @@ async def test_get_market_data_not_found(mocker):
     response = client.get(f"/api/v1/products/{product_id}/stockx-market-data")
 
     assert response.status_code == 404
-    assert response.json() == {"detail": f"Product with ID '{product_id}' not found on StockX."}
+    response_data = response.json()
+    assert "error" in response_data
+    assert response_data["error"]["message"] == f"Product with ID '{product_id}' not found on StockX."

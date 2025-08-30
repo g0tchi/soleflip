@@ -81,7 +81,9 @@ async def test_get_active_orders_service_error(test_client: AsyncClient, mock_st
 
     # Assert
     assert response.status_code == 500
-    assert "An unexpected error occurred" in response.json()["detail"]
+    response_data = response.json()
+    assert "error" in response_data
+    assert "An unexpected error occurred" in response_data["error"]["message"]
 
 
 async def test_get_historical_orders_success(test_client: AsyncClient, mock_stockx_service):
@@ -132,4 +134,6 @@ async def test_get_historical_orders_service_error(test_client: AsyncClient, moc
 
     # Assert
     assert response.status_code == 500
-    assert "An unexpected error occurred" in response.json()["detail"]
+    response_data = response.json()
+    assert "error" in response_data
+    assert "An unexpected error occurred" in response_data["error"]["message"]

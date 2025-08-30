@@ -29,6 +29,19 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
+@router.get("",
+    response_model=PaginatedResponse[InventoryItemResponse], 
+    summary="Get All Inventory Items (Legacy)",
+    description="Legacy endpoint that redirects to /items. Retrieve all inventory items with optional filtering and pagination"
+)
+async def get_inventory_items_legacy(
+    pagination: PaginationParams = Depends(),
+    search: SearchParams = Depends(),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Legacy inventory endpoint - redirects to /items"""
+    return await get_inventory_items(pagination, search, inventory_service)
+
 
 @router.get("/items", 
     response_model=PaginatedResponse[InventoryItemResponse],

@@ -184,6 +184,121 @@ pub struct EnrichmentResponse {
     pub target_products: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingRequest {
+    pub product_id: String,
+    pub inventory_id: Option<String>,
+    pub strategy: Option<String>,
+    pub target_margin: Option<f64>,
+    pub condition: String,
+    pub size: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingRecommendation {
+    pub product_id: String,
+    pub suggested_price: f64,
+    pub strategy_used: String,
+    pub confidence_score: f64,
+    pub margin_percent: f64,
+    pub markup_percent: f64,
+    pub reasoning: Vec<String>,
+    pub market_position: Option<String>,
+    pub price_range: Option<HashMap<String, f64>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MarketAnalysis {
+    pub product_id: String,
+    pub current_market_price: Option<f64>,
+    pub price_trend: String,
+    pub market_position: String,
+    pub competitor_count: i32,
+    pub demand_score: f64,
+    pub supply_score: f64,
+    pub recommended_action: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingInsights {
+    pub timestamp: String,
+    pub summary: PricingInsightsSummary,
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingInsightsSummary {
+    pub total_products_analyzed: i32,
+    pub average_price: f64,
+    pub average_margin_percent: f64,
+    pub total_price_updates: i32,
+    pub recent_updates_30d: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ForecastRequest {
+    pub product_id: Option<String>,
+    pub brand_id: Option<String>,
+    pub category_id: Option<String>,
+    pub horizon_days: i32,
+    pub model: Option<String>,
+    pub confidence_level: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SalesForecast {
+    pub target_id: String,
+    pub target_type: String,
+    pub forecast_date: String,
+    pub horizon_days: i32,
+    pub predicted_sales: f64,
+    pub predicted_revenue: f64,
+    pub confidence_interval_lower: f64,
+    pub confidence_interval_upper: f64,
+    pub model_used: String,
+    pub accuracy_score: Option<f64>,
+    pub trend: String,
+    pub seasonality_factor: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ForecastAnalysis {
+    pub forecast: SalesForecast,
+    pub historical_data: Vec<HashMap<String, Value>>,
+    pub key_insights: Vec<String>,
+    pub recommendations: Vec<String>,
+    pub model_performance: HashMap<String, Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MarketTrend {
+    pub period: String,
+    pub trend_direction: String,
+    pub strength: f64,
+    pub key_drivers: Vec<String>,
+    pub forecast_impact: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PredictiveInsights {
+    pub timestamp: String,
+    pub business_metrics: BusinessMetrics,
+    pub predictive_insights: Vec<String>,
+    pub growth_opportunities: Vec<String>,
+    pub risk_factors: Vec<String>,
+    pub recommendations: Vec<String>,
+    pub confidence_score: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BusinessMetrics {
+    pub transactions_90d: i32,
+    pub revenue_90d: f64,
+    pub avg_transaction_value: f64,
+    pub active_products: i32,
+    pub active_brands: i32,
+}
+
 impl ApiClient {
     pub fn new(base_url: String) -> Self {
         Self {
@@ -313,5 +428,64 @@ impl ApiClient {
         let response = self.client.post(&url).send().await?;
         let enrichment_response: EnrichmentResponse = response.json().await?;
         Ok(enrichment_response)
+    }
+
+    pub async fn get_pricing_recommendation(&self, request: PricingRequest) -> Result<PricingRecommendation, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/recommend", self.base_url);
+        let response = self.client.post(&url).json(&request).send().await?;
+        let recommendation: PricingRecommendation = response.json().await?;
+        Ok(recommendation)
+    }
+
+    pub async fn get_market_analysis(&self, product_id: String) -> Result<MarketAnalysis, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/market-analysis/{}", self.base_url, product_id);
+        let response = self.client.get(&url).send().await?;
+        let analysis: MarketAnalysis = response.json().await?;
+        Ok(analysis)
+    }
+
+    pub async fn get_pricing_insights(&self) -> Result<PricingInsights, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/insights", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let insights: PricingInsights = response.json().await?;
+        Ok(insights)
+    }
+
+    pub async fn get_pricing_strategies(&self) -> Result<HashMap<String, Value>, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/strategies", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let strategies: HashMap<String, Value> = response.json().await?;
+        Ok(strategies)
+    }
+
+    pub async fn generate_sales_forecast(&self, request: ForecastRequest) -> Result<ForecastAnalysis, reqwest::Error> {
+        let url = format!("{}/api/v1/analytics/forecast/sales", self.base_url);
+        let response = self.client.post(&url).json(&request).send().await?;
+        let forecast: ForecastAnalysis = response.json().await?;
+        Ok(forecast)
+    }
+
+    pub async fn get_market_trends(&self, days_back: Option<i32>) -> Result<Vec<MarketTrend>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/analytics/trends/market", self.base_url);
+        if let Some(days) = days_back {
+            url = format!("{}?days_back={}", url, days);
+        }
+        let response = self.client.get(&url).send().await?;
+        let trends: Vec<MarketTrend> = response.json().await?;
+        Ok(trends)
+    }
+
+    pub async fn get_forecast_models(&self) -> Result<HashMap<String, Value>, reqwest::Error> {
+        let url = format!("{}/api/v1/analytics/models", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let models: HashMap<String, Value> = response.json().await?;
+        Ok(models)
+    }
+
+    pub async fn get_predictive_insights(&self) -> Result<PredictiveInsights, reqwest::Error> {
+        let url = format!("{}/api/v1/analytics/insights/predictive", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let insights: PredictiveInsights = response.json().await?;
+        Ok(insights)
     }
 }
