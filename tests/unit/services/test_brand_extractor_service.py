@@ -7,13 +7,16 @@ from shared.database.models import Brand, BrandPattern
 
 pytestmark = pytest.mark.asyncio
 
+
 @pytest.fixture
 def mock_db_session():
     return AsyncMock()
 
+
 @pytest.fixture
 def brand_extractor_service(mock_db_session):
     return BrandExtractorService(db_session=mock_db_session)
+
 
 async def test_extract_brand_from_name(brand_extractor_service, mock_db_session):
     # Arrange
@@ -31,6 +34,7 @@ async def test_extract_brand_from_name(brand_extractor_service, mock_db_session)
     # Assert
     assert brand is not None
     assert brand.name == "Nike"
+
 
 async def test_extract_brand_from_name_not_found(brand_extractor_service, mock_db_session):
     # Arrange

@@ -7,6 +7,7 @@ import sys
 IS_TESTING = "pytest" in sys.modules
 IS_POSTGRES = os.getenv("DATABASE_URL", "").startswith("postgresql") and not IS_TESTING
 
+
 def get_schema_ref(table_name: str, schema_name: str) -> str:
     """
     Constructs a schema-qualified table name for ForeignKey references,

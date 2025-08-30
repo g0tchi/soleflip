@@ -1,6 +1,7 @@
 """
 Domain-specific type definitions
 """
+
 from typing import Dict, List, Optional, Union, Literal
 from typing_extensions import TypedDict, NotRequired
 from datetime import datetime
@@ -12,6 +13,7 @@ from .base_types import EntityId, Price, Quantity, Timestamp, JSONDict
 # Product Domain Types
 class ProductStatus(str, Enum):
     """Product status enumeration"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     DISCONTINUED = "discontinued"
@@ -20,6 +22,7 @@ class ProductStatus(str, Enum):
 
 class InventoryStatus(str, Enum):
     """Inventory item status enumeration"""
+
     IN_STOCK = "in_stock"
     LISTED_STOCKX = "listed_stockx"
     LISTED_ALIAS = "listed_alias"
@@ -30,6 +33,7 @@ class InventoryStatus(str, Enum):
 
 class SizeRegion(str, Enum):
     """Size region enumeration"""
+
     US = "US"
     UK = "UK"
     EU = "EU"
@@ -40,6 +44,7 @@ class SizeRegion(str, Enum):
 
 class ProductData(TypedDict):
     """Product data structure"""
+
     id: NotRequired[EntityId]
     sku: str
     name: str
@@ -56,6 +61,7 @@ class ProductData(TypedDict):
 
 class InventoryItemData(TypedDict):
     """Inventory item data structure"""
+
     id: NotRequired[EntityId]
     product_id: EntityId
     size_id: EntityId
@@ -73,6 +79,7 @@ class InventoryItemData(TypedDict):
 
 class BrandData(TypedDict):
     """Brand data structure"""
+
     id: NotRequired[EntityId]
     name: str
     slug: str
@@ -85,6 +92,7 @@ class BrandData(TypedDict):
 
 class CategoryData(TypedDict):
     """Category data structure"""
+
     id: NotRequired[EntityId]
     name: str
     slug: str
@@ -97,6 +105,7 @@ class CategoryData(TypedDict):
 
 class SizeData(TypedDict):
     """Size data structure"""
+
     id: NotRequired[EntityId]
     category_id: NotRequired[EntityId]
     value: str
@@ -109,6 +118,7 @@ class SizeData(TypedDict):
 # Sales Domain Types
 class TransactionStatus(str, Enum):
     """Transaction status enumeration"""
+
     PENDING = "pending"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
@@ -118,6 +128,7 @@ class TransactionStatus(str, Enum):
 
 class PlatformType(str, Enum):
     """Platform type enumeration"""
+
     STOCKX = "stockx"
     GOAT = "goat"
     ALIAS = "alias"
@@ -128,6 +139,7 @@ class PlatformType(str, Enum):
 
 class TransactionData(TypedDict):
     """Transaction data structure"""
+
     id: NotRequired[EntityId]
     inventory_id: EntityId
     platform_id: EntityId
@@ -147,6 +159,7 @@ class TransactionData(TypedDict):
 
 class PlatformData(TypedDict):
     """Platform data structure"""
+
     id: NotRequired[EntityId]
     name: str
     slug: str
@@ -161,6 +174,7 @@ class PlatformData(TypedDict):
 
 class ListingData(TypedDict):
     """Listing data structure"""
+
     id: NotRequired[EntityId]
     inventory_item_id: EntityId
     platform_id: NotRequired[EntityId]
@@ -179,6 +193,7 @@ class ListingData(TypedDict):
 
 class OrderData(TypedDict):
     """Order data structure"""
+
     id: NotRequired[EntityId]
     inventory_item_id: EntityId
     listing_id: NotRequired[EntityId]
@@ -200,6 +215,7 @@ class OrderData(TypedDict):
 # Supplier Domain Types
 class SupplierType(str, Enum):
     """Supplier type enumeration"""
+
     RETAILER = "retailer"
     WHOLESALER = "wholesaler"
     MANUFACTURER = "manufacturer"
@@ -210,6 +226,7 @@ class SupplierType(str, Enum):
 
 class SupplierStatus(str, Enum):
     """Supplier status enumeration"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -218,6 +235,7 @@ class SupplierStatus(str, Enum):
 
 class BusinessSize(str, Enum):
     """Business size enumeration"""
+
     MICRO = "micro"
     SMALL = "small"
     MEDIUM = "medium"
@@ -227,6 +245,7 @@ class BusinessSize(str, Enum):
 
 class SupplierData(TypedDict):
     """Supplier data structure"""
+
     id: NotRequired[EntityId]
     name: str
     slug: str
@@ -237,7 +256,7 @@ class SupplierData(TypedDict):
     email: NotRequired[str]
     phone: NotRequired[str]
     website: NotRequired[str]
-    
+
     # Address information
     address_line1: NotRequired[str]
     address_line2: NotRequired[str]
@@ -245,12 +264,12 @@ class SupplierData(TypedDict):
     state_province: NotRequired[str]
     postal_code: NotRequired[str]
     country: NotRequired[str]
-    
+
     # Business information
     tax_id: NotRequired[str]
     vat_number: NotRequired[str]
     business_registration: NotRequired[str]
-    
+
     # Terms and conditions
     return_policy_days: NotRequired[int]
     return_policy_text: NotRequired[str]
@@ -261,39 +280,39 @@ class SupplierData(TypedDict):
     credit_limit: NotRequired[Decimal]
     discount_percent: NotRequired[Decimal]
     minimum_order_amount: NotRequired[Decimal]
-    
+
     # Performance metrics
     rating: NotRequired[Decimal]
     reliability_score: NotRequired[int]
     quality_score: NotRequired[int]
-    
+
     # Status and flags
     status: SupplierStatus
     preferred: NotRequired[bool]
     verified: NotRequired[bool]
-    
+
     # Operational details
     average_processing_days: NotRequired[int]
     ships_internationally: NotRequired[bool]
     accepts_returns_by_mail: NotRequired[bool]
     provides_authenticity_guarantee: NotRequired[bool]
-    
+
     # API integration
     has_api: NotRequired[bool]
     api_endpoint: NotRequired[str]
     api_key_encrypted: NotRequired[str]
-    
+
     # Statistics
     total_orders_count: NotRequired[int]
     total_order_value: NotRequired[Decimal]
     average_order_value: NotRequired[Decimal]
     last_order_date: NotRequired[datetime]
-    
+
     # Notes and metadata
     notes: NotRequired[str]
     internal_notes: NotRequired[str]
     tags: NotRequired[JSONDict]
-    
+
     created_at: NotRequired[Timestamp]
     updated_at: NotRequired[Timestamp]
 
@@ -301,6 +320,7 @@ class SupplierData(TypedDict):
 # Integration Domain Types
 class ImportSourceType(str, Enum):
     """Import source type enumeration"""
+
     CSV_UPLOAD = "csv_upload"
     STOCKX_API = "stockx_api"
     MANUAL_ENTRY = "manual_entry"
@@ -310,6 +330,7 @@ class ImportSourceType(str, Enum):
 
 class ImportStatus(str, Enum):
     """Import status enumeration"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -320,6 +341,7 @@ class ImportStatus(str, Enum):
 
 class ImportBatchData(TypedDict):
     """Import batch data structure"""
+
     id: NotRequired[EntityId]
     source_type: ImportSourceType
     source_file: NotRequired[str]
@@ -336,6 +358,7 @@ class ImportBatchData(TypedDict):
 
 class ImportRecordData(TypedDict):
     """Import record data structure"""
+
     id: NotRequired[EntityId]
     batch_id: EntityId
     source_data: JSONDict
@@ -352,6 +375,7 @@ class ImportRecordData(TypedDict):
 # Analytics Types
 class MetricType(str, Enum):
     """Metric type enumeration"""
+
     COUNT = "count"
     SUM = "sum"
     AVERAGE = "average"
@@ -361,6 +385,7 @@ class MetricType(str, Enum):
 
 class TimeGranularity(str, Enum):
     """Time granularity for analytics"""
+
     HOURLY = "hourly"
     DAILY = "daily"
     WEEKLY = "weekly"
@@ -371,6 +396,7 @@ class TimeGranularity(str, Enum):
 
 class AnalyticsMetric(TypedDict):
     """Analytics metric structure"""
+
     name: str
     type: MetricType
     value: Union[int, float, Decimal]
@@ -383,6 +409,7 @@ class AnalyticsMetric(TypedDict):
 
 class DashboardData(TypedDict):
     """Dashboard data structure"""
+
     title: str
     metrics: List[AnalyticsMetric]
     charts: List[Dict[str, any]]
@@ -393,6 +420,7 @@ class DashboardData(TypedDict):
 # Search and Filter Types
 class SearchScope(str, Enum):
     """Search scope enumeration"""
+
     PRODUCTS = "products"
     INVENTORY = "inventory"
     TRANSACTIONS = "transactions"
@@ -403,12 +431,14 @@ class SearchScope(str, Enum):
 
 class SortDirection(str, Enum):
     """Sort direction enumeration"""
+
     ASC = "asc"
     DESC = "desc"
 
 
 class SearchQuery(TypedDict):
     """Search query structure"""
+
     query: NotRequired[str]
     scope: SearchScope
     filters: NotRequired[Dict[str, any]]
@@ -420,6 +450,7 @@ class SearchQuery(TypedDict):
 
 class SearchResult(TypedDict):
     """Search result structure"""
+
     items: List[Dict[str, any]]
     total: int
     query: SearchQuery
@@ -430,6 +461,7 @@ class SearchResult(TypedDict):
 # Webhook Types
 class WebhookEvent(str, Enum):
     """Webhook event enumeration"""
+
     PRODUCT_CREATED = "product.created"
     PRODUCT_UPDATED = "product.updated"
     INVENTORY_UPDATED = "inventory.updated"
@@ -440,6 +472,7 @@ class WebhookEvent(str, Enum):
 
 class WebhookPayload(TypedDict):
     """Webhook payload structure"""
+
     event: WebhookEvent
     data: Dict[str, any]
     timestamp: datetime
@@ -451,6 +484,7 @@ class WebhookPayload(TypedDict):
 # Configuration Types
 class ExternalServiceConfig(TypedDict):
     """External service configuration"""
+
     enabled: bool
     base_url: str
     api_key: NotRequired[str]
@@ -461,6 +495,7 @@ class ExternalServiceConfig(TypedDict):
 
 class StockXConfig(ExternalServiceConfig):
     """StockX specific configuration"""
+
     client_id: str
     client_secret: str
     refresh_token: str
@@ -468,6 +503,7 @@ class StockXConfig(ExternalServiceConfig):
 
 class IntegrationSettings(TypedDict):
     """Integration settings structure"""
+
     stockx: NotRequired[StockXConfig]
     metabase: NotRequired[ExternalServiceConfig]
     n8n: NotRequired[ExternalServiceConfig]

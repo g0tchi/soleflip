@@ -5,6 +5,7 @@ import sys
 # Set a valid key for this script to run without a .env file
 os.environ["FIELD_ENCRYPTION_KEY"] = "HXfzzwhvSyuNwcvmWhG3rYixL0TiuSkHiJJ0EI4sG7U="
 
+
 def main():
     db_path = "./soleflip_demo.db"
     print(f"--- Running Database Reset Script ---")

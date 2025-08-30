@@ -4,10 +4,11 @@ from uuid import UUID
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock
 
-from main import app # Import the app instance
+from main import app  # Import the app instance
 
 # Mark all tests in this file as API and integration tests that require a DB
 pytestmark = [pytest.mark.api, pytest.mark.integration, pytest.mark.database]
+
 
 @pytest.fixture
 def mock_stockx_service():
@@ -16,19 +17,22 @@ def mock_stockx_service():
     service.get_historical_orders = AsyncMock()
     return service
 
+
 @pytest.fixture(autouse=True)
 def override_dependencies(mock_stockx_service):
     """Fixture to automatically override the get_stockx_service dependency."""
     from domains.integration.api.webhooks import get_stockx_service
+
     app.dependency_overrides[get_stockx_service] = lambda: mock_stockx_service
     yield
     app.dependency_overrides.clear()
+
 
 async def test_import_trigger_and_status_check(
     test_client: AsyncClient,
     mock_stockx_service,
     override_db_dependency,
-    sample_stockx_csv_data # Using this as sample API data
+    sample_stockx_csv_data,  # Using this as sample API data
 ):
     """
     Tests the full flow:
@@ -44,7 +48,7 @@ async def test_import_trigger_and_status_check(
     # --- Act 1: Trigger the import ---
     response_trigger = await test_client.post(
         "/api/v1/integration/stockx/import-orders",
-        json={"from_date": "2024-01-01", "to_date": "2024-01-31"}
+        json={"from_date": "2024-01-01", "to_date": "2024-01-31"},
     )
 
     # --- Assert 1: Check the trigger response ---
@@ -72,6 +76,7 @@ async def test_import_trigger_and_status_check(
     assert status_data["processed_records"] == 2
     assert status_data["error_records"] == 0
     assert status_data["completed_at"] is not None
+
 
 async def test_get_import_status_not_found(test_client: AsyncClient, override_db_dependency):
     """

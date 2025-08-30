@@ -1,11 +1,27 @@
 """
 Base type definitions and type aliases
 """
+
 from typing import (
-    Any, Dict, List, Optional, Union, Tuple, Set, 
-    Callable, Awaitable, AsyncGenerator, Generator,
-    TypeVar, Generic, Protocol, runtime_checkable,
-    Literal, Final, ClassVar, TYPE_CHECKING
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+    Tuple,
+    Set,
+    Callable,
+    Awaitable,
+    AsyncGenerator,
+    Generator,
+    TypeVar,
+    Generic,
+    Protocol,
+    runtime_checkable,
+    Literal,
+    Final,
+    ClassVar,
+    TYPE_CHECKING,
 )
 from typing_extensions import TypedDict, NotRequired
 from datetime import datetime, date
@@ -65,18 +81,19 @@ FileSize = int  # Size in bytes
 MimeType = str
 
 # Generic types
-T = TypeVar('T')
-K = TypeVar('K')
-V = TypeVar('V')
-P = ParamSpec('P')
+T = TypeVar("T")
+K = TypeVar("K")
+V = TypeVar("V")
+P = ParamSpec("P")
 
 # Response types
-ResponseData = TypeVar('ResponseData')
-ErrorData = TypeVar('ErrorData')
+ResponseData = TypeVar("ResponseData")
+ErrorData = TypeVar("ErrorData")
 
 
 class StatusEnum(str, Enum):
     """Base status enumeration"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     PENDING = "pending"
@@ -87,6 +104,7 @@ class StatusEnum(str, Enum):
 
 class PriorityEnum(IntEnum):
     """Priority levels"""
+
     LOW = 1
     MEDIUM = 2
     HIGH = 3
@@ -95,6 +113,7 @@ class PriorityEnum(IntEnum):
 
 class EnvironmentEnum(str, Enum):
     """Application environments"""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -105,12 +124,14 @@ class EnvironmentEnum(str, Enum):
 @runtime_checkable
 class Identifiable(Protocol):
     """Protocol for objects with an ID"""
+
     id: EntityId
 
 
 @runtime_checkable
 class Timestamped(Protocol):
     """Protocol for objects with timestamps"""
+
     created_at: datetime
     updated_at: datetime
 
@@ -118,12 +139,14 @@ class Timestamped(Protocol):
 @runtime_checkable
 class Serializable(Protocol):
     """Protocol for objects that can be serialized to dict"""
+
     def to_dict(self) -> Dict[str, Any]: ...
 
 
 @runtime_checkable
 class Cacheable(Protocol):
     """Protocol for cacheable objects"""
+
     def cache_key(self) -> str: ...
     def cache_ttl(self) -> int: ...
 
@@ -131,6 +154,7 @@ class Cacheable(Protocol):
 # Configuration types
 class DatabaseConfig(TypedDict):
     """Database configuration structure"""
+
     url: str
     pool_size: int
     max_overflow: int
@@ -139,6 +163,7 @@ class DatabaseConfig(TypedDict):
 
 class APIConfig(TypedDict):
     """API configuration structure"""
+
     host: str
     port: int
     title: str
@@ -148,6 +173,7 @@ class APIConfig(TypedDict):
 
 class SecurityConfig(TypedDict):
     """Security configuration structure"""
+
     secret_key: str
     encryption_key: str
     cors_origins: List[str]
@@ -157,6 +183,7 @@ class SecurityConfig(TypedDict):
 # Error types
 class ErrorInfo(TypedDict):
     """Error information structure"""
+
     code: str
     message: str
     details: NotRequired[Dict[str, Any]]
@@ -165,6 +192,7 @@ class ErrorInfo(TypedDict):
 
 class ValidationError(TypedDict):
     """Validation error structure"""
+
     field: str
     message: str
     code: str
@@ -174,6 +202,7 @@ class ValidationError(TypedDict):
 # Pagination types
 class PaginationInfo(TypedDict):
     """Pagination information"""
+
     skip: int
     limit: int
     total: int
@@ -184,6 +213,7 @@ class PaginationInfo(TypedDict):
 
 class FilterParams(TypedDict, total=False):
     """Filter parameters for queries"""
+
     search: str
     brand: str
     category: str
@@ -208,9 +238,11 @@ AsyncServiceResult = Awaitable[ServiceResult]
 RepositoryFilter = Dict[str, Any]
 RepositorySort = Dict[str, Union[Literal["asc"], Literal["desc"]]]
 
+
 # External API types
 class HTTPMethod(str, Enum):
     """HTTP methods"""
+
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
@@ -222,6 +254,7 @@ class HTTPMethod(str, Enum):
 
 class HTTPStatus(IntEnum):
     """Common HTTP status codes"""
+
     OK = 200
     CREATED = 201
     ACCEPTED = 202
@@ -242,12 +275,14 @@ class HTTPStatus(IntEnum):
 # Utility types for complex operations
 class AsyncContextManager(Protocol[T]):
     """Protocol for async context managers"""
+
     async def __aenter__(self) -> T: ...
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> Optional[bool]: ...
 
 
 class Comparable(Protocol):
     """Protocol for comparable objects"""
+
     def __lt__(self, other: Any) -> bool: ...
     def __le__(self, other: Any) -> bool: ...
     def __gt__(self, other: Any) -> bool: ...
@@ -273,6 +308,7 @@ MAX_PAGE_SIZE: Final[int] = 1000
 DEFAULT_PAGE_SIZE: Final[int] = 50
 MAX_BULK_SIZE: Final[int] = 10000
 DEFAULT_CACHE_TTL: Final[int] = 300
+
 
 # Type guards
 def is_uuid(value: Any) -> bool:
@@ -331,36 +367,36 @@ def ensure_list(value: Union[T, List[T]]) -> List[T]:
 # Generic result types
 class Result(Generic[T]):
     """Result type for operations that can succeed or fail"""
-    
+
     def __init__(self, success: bool, data: Optional[T] = None, error: Optional[str] = None):
         self.success = success
         self.data = data
         self.error = error
-    
+
     @classmethod
-    def ok(cls, data: T) -> 'Result[T]':
+    def ok(cls, data: T) -> "Result[T]":
         """Create successful result"""
         return cls(True, data=data)
-    
+
     @classmethod
-    def fail(cls, error: str) -> 'Result[T]':
+    def fail(cls, error: str) -> "Result[T]":
         """Create failed result"""
         return cls(False, error=error)
-    
+
     def is_ok(self) -> bool:
         """Check if result is successful"""
         return self.success
-    
+
     def is_err(self) -> bool:
         """Check if result is an error"""
         return not self.success
-    
+
     def unwrap(self) -> T:
         """Get data or raise exception"""
         if not self.success:
             raise RuntimeError(self.error or "Operation failed")
         return self.data
-    
+
     def unwrap_or(self, default: T) -> T:
         """Get data or default value"""
         return self.data if self.success else default
@@ -369,39 +405,39 @@ class Result(Generic[T]):
 # Option type for nullable values
 class Option(Generic[T]):
     """Option type for nullable values"""
-    
+
     def __init__(self, value: Optional[T]):
         self._value = value
-    
+
     @classmethod
-    def some(cls, value: T) -> 'Option[T]':
+    def some(cls, value: T) -> "Option[T]":
         """Create Some option"""
         return cls(value)
-    
+
     @classmethod
-    def none(cls) -> 'Option[T]':
+    def none(cls) -> "Option[T]":
         """Create None option"""
         return cls(None)
-    
+
     def is_some(self) -> bool:
         """Check if option has a value"""
         return self._value is not None
-    
+
     def is_none(self) -> bool:
         """Check if option is None"""
         return self._value is None
-    
+
     def unwrap(self) -> T:
         """Get value or raise exception"""
         if self._value is None:
             raise RuntimeError("Called unwrap on None option")
         return self._value
-    
+
     def unwrap_or(self, default: T) -> T:
         """Get value or default"""
         return self._value if self._value is not None else default
-    
-    def map(self, func: Callable[[T], K]) -> 'Option[K]':
+
+    def map(self, func: Callable[[T], K]) -> "Option[K]":
         """Transform value if present"""
         if self._value is None:
             return Option.none()

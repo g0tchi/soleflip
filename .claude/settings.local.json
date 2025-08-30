@@ -5,7 +5,11 @@
       "Bash(python:*)",
       "Bash(alembic current:*)",
       "Bash(alembic:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -8,6 +8,7 @@ from shared.database.models import Brand, BrandPattern
 
 logger = structlog.get_logger(__name__)
 
+
 class BrandExtractorService:
     """
     A service to extract brand information from product names using
@@ -26,7 +27,9 @@ class BrandExtractorService:
             return
 
         logger.info("Loading brand patterns from database...")
-        stmt = select(BrandPattern).order_by(BrandPattern.priority.asc(), BrandPattern.created_at.asc())
+        stmt = select(BrandPattern).order_by(
+            BrandPattern.priority.asc(), BrandPattern.created_at.asc()
+        )
         result = await self.db_session.execute(stmt)
         self._patterns = result.scalars().all()
         logger.info(f"Loaded {len(self._patterns)} brand patterns.")
@@ -43,13 +46,23 @@ class BrandExtractorService:
 
         for p in self._patterns:
             try:
-                if p.pattern_type == 'regex':
+                if p.pattern_type == "regex":
                     if re.search(p.pattern, product_name, re.IGNORECASE):
-                        logger.debug("Found brand match", brand=p.brand.name, pattern=p.pattern, product=product_name)
+                        logger.debug(
+                            "Found brand match",
+                            brand=p.brand.name,
+                            pattern=p.pattern,
+                            product=product_name,
+                        )
                         return p.brand
-                elif p.pattern_type == 'keyword':
+                elif p.pattern_type == "keyword":
                     if p.pattern.lower() in product_name.lower():
-                        logger.debug("Found brand match", brand=p.brand.name, pattern=p.pattern, product=product_name)
+                        logger.debug(
+                            "Found brand match",
+                            brand=p.brand.name,
+                            pattern=p.pattern,
+                            product=product_name,
+                        )
                         return p.brand
             except re.error as e:
                 logger.warning("Invalid regex pattern in database", pattern=p.pattern, error=str(e))

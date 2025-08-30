@@ -1,15 +1,19 @@
 import asyncio
 import asyncpg
 
+
 async def create_brand_deep_dive_schema():
-    conn = await asyncpg.connect('postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip')
-    
+    conn = await asyncpg.connect(
+        "postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip"
+    )
+
     print("=== CREATING BRAND DEEP DIVE SCHEMA ===")
-    
+
     # 1. Extend brands table with comprehensive information
     print("1. Extending brands table with deep dive fields...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         ALTER TABLE core.brands 
         ADD COLUMN IF NOT EXISTS founder_name VARCHAR(200),
         ADD COLUMN IF NOT EXISTS headquarters_city VARCHAR(100),
@@ -32,13 +36,15 @@ async def create_brand_deep_dive_schema():
         ADD COLUMN IF NOT EXISTS key_technologies TEXT[],
         ADD COLUMN IF NOT EXISTS brand_status VARCHAR(50) DEFAULT 'active', -- active, discontinued, acquired, merged
         ADD COLUMN IF NOT EXISTS authenticity_level VARCHAR(20) DEFAULT 'verified' -- verified, suspected, replica
-    """)
+    """
+    )
     print("OK Extended brands table with deep dive fields")
-    
+
     # 2. Create brand history/timeline table
     print("2. Creating brand history table...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS core.brand_history (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             brand_id UUID REFERENCES core.brands(id) ON DELETE CASCADE,
@@ -51,18 +57,22 @@ async def create_brand_deep_dive_schema():
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         )
-    """)
-    
-    await conn.execute("""
+    """
+    )
+
+    await conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_brand_history_brand_date 
         ON core.brand_history(brand_id, event_date)
-    """)
+    """
+    )
     print("OK Created brand_history table")
-    
+
     # 3. Create brand relationships table (for complex ownership structures)
     print("3. Creating brand relationships table...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS core.brand_relationships (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             parent_brand_id UUID REFERENCES core.brands(id),
@@ -76,13 +86,15 @@ async def create_brand_deep_dive_schema():
             created_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(parent_brand_id, child_brand_id, relationship_type)
         )
-    """)
+    """
+    )
     print("OK Created brand_relationships table")
-    
+
     # 4. Create brand collaborations table
     print("4. Creating brand collaborations table...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS core.brand_collaborations (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             primary_brand_id UUID REFERENCES core.brands(id),
@@ -99,13 +111,15 @@ async def create_brand_deep_dive_schema():
             hype_score INTEGER CHECK (hype_score BETWEEN 1 AND 10),
             created_at TIMESTAMP DEFAULT NOW()
         )
-    """)
+    """
+    )
     print("OK Created brand_collaborations table")
-    
+
     # 5. Create brand personalities/attributes table
     print("5. Creating brand attributes table...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS core.brand_attributes (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             brand_id UUID REFERENCES core.brands(id) ON DELETE CASCADE,
@@ -117,13 +131,15 @@ async def create_brand_deep_dive_schema():
             created_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(brand_id, attribute_category, attribute_name)
         )
-    """)
+    """
+    )
     print("OK Created brand_attributes table")
-    
+
     # 6. Create brand financial data table
     print("6. Creating brand financial history...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS core.brand_financials (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             brand_id UUID REFERENCES core.brands(id) ON DELETE CASCADE,
@@ -141,12 +157,13 @@ async def create_brand_deep_dive_schema():
             created_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(brand_id, fiscal_year)
         )
-    """)
+    """
+    )
     print("OK Created brand_financials table")
-    
+
     # 7. Create indexes for performance
     print("7. Creating performance indexes...")
-    
+
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_brands_founder ON core.brands(founder_name)",
         "CREATE INDEX IF NOT EXISTS idx_brands_parent_company ON core.brands(parent_company)",
@@ -155,22 +172,23 @@ async def create_brand_deep_dive_schema():
         "CREATE INDEX IF NOT EXISTS idx_brand_attributes_category ON core.brand_attributes(attribute_category)",
         "CREATE INDEX IF NOT EXISTS idx_collaborations_date ON core.brand_collaborations(launch_date)",
     ]
-    
+
     for idx_query in indexes:
         await conn.execute(idx_query)
-    
+
     print("OK Created performance indexes")
-    
+
     print("\n=== BRAND DEEP DIVE SCHEMA CREATED ===")
     print("New capabilities:")
     print("- Complete brand histories and timelines")
     print("- Complex ownership and relationship mapping")
-    print("- Collaboration tracking and analysis") 
+    print("- Collaboration tracking and analysis")
     print("- Brand personality and attribute profiling")
     print("- Financial performance history")
     print("- Sustainability and innovation tracking")
-    
+
     await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(create_brand_deep_dive_schema())

@@ -1,32 +1,82 @@
-# Use a slim, recent version of Python
+# Multi-stage build for production optimization
 FROM python:3.11-slim as base
 
-# Set environment variables to prevent writing .pyc files and to run in unbuffered mode
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Set the working directory in the container
-WORKDIR /app
-
-# Install system dependencies required for building some Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create and activate a virtual environment to isolate dependencies
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Create app user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy the entire application source code into the container first
-COPY . .
+# Set working directory
+WORKDIR /app
 
-# Install the project and its dependencies defined in pyproject.toml
-# Now all source files (like 'domains/') are available for the build process.
-RUN pip install --no-cache-dir .
+# Copy requirements first for better caching
+COPY pyproject.toml ./
+COPY README.md ./
 
-# Expose the port that the application will run on
+# Install Python dependencies
+RUN pip install -e .
+
+# Development stage
+FROM base as development
+
+# Install development dependencies
+RUN pip install -e .[dev]
+
+# Copy source code
+COPY --chown=appuser:appuser . .
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
 EXPOSE 8000
 
-# The command to run the application using uvicorn
-# --host 0.0.0.0 is required to make the application accessible from outside the container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command for development
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Production stage
+FROM base as production
+
+# Copy source code
+COPY --chown=appuser:appuser . .
+
+# Install production dependencies only
+RUN pip install -e . --no-dev
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Production command
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+
+# Testing stage for CI/CD
+FROM development as testing
+
+# Run tests
+RUN python -m pytest tests/ --tb=short
+
+# Final production stage
+FROM production as final

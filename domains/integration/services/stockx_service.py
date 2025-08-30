@@ -13,20 +13,25 @@ logger = structlog.get_logger(__name__)
 STOCKX_API_BASE_URL = "https://api.stockx.com/v2"
 STOCKX_AUTH_URL = "https://accounts.stockx.com/oauth/token"
 
+
 class StockXCredentials:
     """A data class for holding all necessary StockX credentials."""
+
     def __init__(self, client_id: str, client_secret: str, refresh_token: str, api_key: str):
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.api_key = api_key
 
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class StockXService:
     """
     A service to interact with the StockX Public API, handling the OAuth2 refresh token flow.
     """
+
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
         self._access_token: Optional[str] = None
@@ -42,7 +47,12 @@ class StockXService:
             return self._credentials
 
         logger.info("Loading StockX credentials from database for current request.")
-        keys = ["stockx_client_id", "stockx_client_secret", "stockx_refresh_token", "stockx_api_key"]
+        keys = [
+            "stockx_client_id",
+            "stockx_client_secret",
+            "stockx_refresh_token",
+            "stockx_api_key",
+        ]
         results = await self.db_session.execute(
             select(SystemConfig).where(SystemConfig.key.in_(keys))
         )
@@ -56,7 +66,7 @@ class StockXService:
             client_id=configs["stockx_client_id"],
             client_secret=configs["stockx_client_secret"],
             refresh_token=configs["stockx_refresh_token"],
-            api_key=configs["stockx_api_key"]
+            api_key=configs["stockx_api_key"],
         )
         return self._credentials
 
@@ -85,18 +95,22 @@ class StockXService:
                 expires_in = token_data.get("expires_in", 3600) - 60
                 self._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
-                logger.info("Successfully refreshed StockX access token.", expires_at=self._token_expiry)
+                logger.info(
+                    "Successfully refreshed StockX access token.", expires_at=self._token_expiry
+                )
 
             except httpx.HTTPStatusError as e:
                 logger.error(
                     "Failed to refresh StockX access token",
                     status_code=e.response.status_code,
-                    response=e.response.text
+                    response=e.response.text,
                 )
                 # If refresh fails, credentials might be bad. Clear local cache.
                 self._access_token = None
                 self._token_expiry = None
-                raise Exception("Could not refresh StockX access token. Please check your credentials.") from e
+                raise Exception(
+                    "Could not refresh StockX access token. Please check your credentials."
+                ) from e
 
     async def _get_valid_access_token(self) -> str:
         """
@@ -104,13 +118,17 @@ class StockXService:
         This method is thread-safe using an async lock.
         """
         async with self._lock:
-            if self._access_token and self._token_expiry and self._token_expiry > datetime.now(timezone.utc):
+            if (
+                self._access_token
+                and self._token_expiry
+                and self._token_expiry > datetime.now(timezone.utc)
+            ):
                 return self._access_token
 
             # If token is missing or expired, refresh it
             await self._refresh_access_token()
             if not self._access_token:
-                 raise Exception("Failed to obtain a valid access token.")
+                raise Exception("Failed to obtain a valid access token.")
             return self._access_token
 
     async def get_historical_orders(
@@ -121,7 +139,7 @@ class StockXService:
         product_id: Optional[str] = None,
         variant_id: Optional[str] = None,
         inventory_types: Optional[str] = None,
-        initiated_shipment_display_ids: Optional[str] = None
+        initiated_shipment_display_ids: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Fetches all historical orders within a given date range, handling authentication,
@@ -136,8 +154,8 @@ class StockXService:
                 "productId": product_id,
                 "variantId": variant_id,
                 "inventoryTypes": inventory_types,
-                "initiatedShipmentDisplayIds": initiated_shipment_display_ids
-            }
+                "initiatedShipmentDisplayIds": initiated_shipment_display_ids,
+            },
         )
 
         params = {
@@ -147,15 +165,19 @@ class StockXService:
             "productId": product_id,
             "variantId": variant_id,
             "inventoryTypes": inventory_types,
-            "initiatedShipmentDisplayIds": initiated_shipment_display_ids
+            "initiatedShipmentDisplayIds": initiated_shipment_display_ids,
         }
 
         # Filter out None values so they aren't sent as query params
         filtered_params = {key: value for key, value in params.items() if value is not None}
 
-        return await self._make_paginated_get_request("/selling/orders/history", filtered_params, "orders")
+        return await self._make_paginated_get_request(
+            "/selling/orders/history", filtered_params, "orders"
+        )
 
-    async def _make_paginated_get_request(self, endpoint: str, params: Dict[str, Any], data_key: str) -> List[Dict[str, Any]]:
+    async def _make_paginated_get_request(
+        self, endpoint: str, params: Dict[str, Any], data_key: str
+    ) -> List[Dict[str, Any]]:
         """
         A generic helper to make paginated GET requests to the StockX API.
         """
@@ -165,7 +187,7 @@ class StockXService:
         headers = {
             "x-api-key": api_key,
             "Authorization": f"Bearer {access_token}",
-            "User-Agent": "SoleFlipperApp/1.0"
+            "User-Agent": "SoleFlipperApp/1.0",
         }
 
         all_items = []
@@ -179,13 +201,17 @@ class StockXService:
                 request_params["pageSize"] = 100
 
                 try:
-                    response = await client.get(endpoint, params=request_params, headers=headers, timeout=30.0)
+                    response = await client.get(
+                        endpoint, params=request_params, headers=headers, timeout=30.0
+                    )
 
                     if response.status_code == 401:
                         logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
-                        access_token = await self._get_valid_access_token() # Force refresh
+                        access_token = await self._get_valid_access_token()  # Force refresh
                         headers["Authorization"] = f"Bearer {access_token}"
-                        response = await client.get(endpoint, params=request_params, headers=headers, timeout=30.0)
+                        response = await client.get(
+                            endpoint, params=request_params, headers=headers, timeout=30.0
+                        )
 
                     response.raise_for_status()
 
@@ -193,7 +219,12 @@ class StockXService:
                     items = data.get(data_key, [])
                     all_items.extend(items)
 
-                    logger.info(f"Fetched page from {endpoint}", page=page, count=len(items), data_key=data_key)
+                    logger.info(
+                        f"Fetched page from {endpoint}",
+                        page=page,
+                        count=len(items),
+                        data_key=data_key,
+                    )
 
                     if not data.get("hasNextPage") or not items:
                         break
@@ -202,7 +233,11 @@ class StockXService:
                     await asyncio.sleep(1)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(f"HTTP error on {endpoint}", status_code=e.response.status_code, response=e.response.text)
+                    logger.error(
+                        f"HTTP error on {endpoint}",
+                        status_code=e.response.status_code,
+                        response=e.response.text,
+                    )
                     raise
                 except httpx.RequestError as e:
                     logger.error(f"Request error on {endpoint}", error=str(e))
@@ -287,22 +322,23 @@ class StockXService:
             return response_data
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                logger.warning("Product not found in StockX catalog when fetching variants.", product_id=product_id)
-                return [] # Return empty list if the product itself is not found
+                logger.warning(
+                    "Product not found in StockX catalog when fetching variants.",
+                    product_id=product_id,
+                )
+                return []  # Return empty list if the product itself is not found
             else:
                 raise
 
-    async def search_stockx_catalog(self, query: str, page: int = 1, page_size: int = 10) -> Optional[Dict[str, Any]]:
+    async def search_stockx_catalog(
+        self, query: str, page: int = 1, page_size: int = 10
+    ) -> Optional[Dict[str, Any]]:
         """
         Searches the StockX catalog using a freeform query.
         """
         logger.info("Searching StockX catalog.", query=query, page=page, page_size=page_size)
         endpoint = "/catalog/search"
-        params = {
-            "query": query,
-            "pageNumber": page,
-            "pageSize": page_size
-        }
+        params = {"query": query, "pageNumber": page, "pageSize": page_size}
 
         try:
             response_data = await self._make_get_request(endpoint, params=params)
@@ -313,15 +349,19 @@ class StockXService:
             logger.warning(
                 "Received an unexpected HTTP status error during StockX catalog search.",
                 status_code=e.response.status_code,
-                query=query
+                query=query,
             )
             return None
 
-    async def get_market_data_from_stockx(self, product_id: str, currency_code: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    async def get_market_data_from_stockx(
+        self, product_id: str, currency_code: Optional[str] = None
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         Fetches market data (highest bid, lowest ask) for all variants of a given product.
         """
-        logger.info("Fetching market data from StockX.", product_id=product_id, currency=currency_code)
+        logger.info(
+            "Fetching market data from StockX.", product_id=product_id, currency=currency_code
+        )
         endpoint = f"/catalog/products/{product_id}/market-data"
         params = {}
         if currency_code:
@@ -333,17 +373,21 @@ class StockXService:
             return response_data
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                logger.warning("Product not found on StockX when fetching market data.", product_id=product_id)
+                logger.warning(
+                    "Product not found on StockX when fetching market data.", product_id=product_id
+                )
                 return None
             else:
                 logger.error(
                     "Received an unexpected HTTP status error during StockX market data fetch.",
                     status_code=e.response.status_code,
-                    product_id=product_id
+                    product_id=product_id,
                 )
                 raise
 
-    async def _make_get_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def _make_get_request(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         A generic helper to make a single, non-paginated GET request to the StockX API.
         """
@@ -353,7 +397,7 @@ class StockXService:
         headers = {
             "x-api-key": api_key,
             "Authorization": f"Bearer {access_token}",
-            "User-Agent": "SoleFlipperApp/1.0"
+            "User-Agent": "SoleFlipperApp/1.0",
         }
 
         async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
@@ -362,15 +406,21 @@ class StockXService:
 
                 if response.status_code == 401:
                     logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
-                    access_token = await self._get_valid_access_token() # Force refresh
+                    access_token = await self._get_valid_access_token()  # Force refresh
                     headers["Authorization"] = f"Bearer {access_token}"
-                    response = await client.get(endpoint, params=params, headers=headers, timeout=30.0)
+                    response = await client.get(
+                        endpoint, params=params, headers=headers, timeout=30.0
+                    )
 
                 response.raise_for_status()
                 return response.json()
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"HTTP error on {endpoint}", status_code=e.response.status_code, response=e.response.text)
+                logger.error(
+                    f"HTTP error on {endpoint}",
+                    status_code=e.response.status_code,
+                    response=e.response.text,
+                )
                 raise
             except httpx.RequestError as e:
                 logger.error(f"Request error on {endpoint}", error=str(e))
@@ -386,7 +436,7 @@ class StockXService:
         logger.info(
             "Fetching shipping document from StockX API.",
             order_number=order_number,
-            shipping_id=shipping_id
+            shipping_id=shipping_id,
         )
         endpoint = f"/selling/orders/{order_number}/shipping-document/{shipping_id}"
 
@@ -398,7 +448,7 @@ class StockXService:
                 logger.warning(
                     "Shipping document not found in StockX.",
                     order_number=order_number,
-                    shipping_id=shipping_id
+                    shipping_id=shipping_id,
                 )
                 return None
             else:
@@ -415,7 +465,7 @@ class StockXService:
         headers = {
             "x-api-key": api_key,
             "Authorization": f"Bearer {access_token}",
-            "User-Agent": "SoleFlipperApp/1.0"
+            "User-Agent": "SoleFlipperApp/1.0",
         }
 
         async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
@@ -424,7 +474,7 @@ class StockXService:
 
                 if response.status_code == 401:
                     logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
-                    access_token = await self._get_valid_access_token() # Force refresh
+                    access_token = await self._get_valid_access_token()  # Force refresh
                     headers["Authorization"] = f"Bearer {access_token}"
                     response = await client.get(endpoint, headers=headers, timeout=30.0)
 
@@ -433,7 +483,11 @@ class StockXService:
                 return response.content
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"HTTP error on {endpoint}", status_code=e.response.status_code, response=e.response.text)
+                logger.error(
+                    f"HTTP error on {endpoint}",
+                    status_code=e.response.status_code,
+                    response=e.response.text,
+                )
                 raise
             except httpx.RequestError as e:
                 logger.error(f"Request error on {endpoint}", error=str(e))

@@ -1,6 +1,7 @@
 """
 Database fixtures for testing
 """
+
 import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
@@ -32,15 +33,15 @@ async def test_engine():
         connect_args={
             "check_same_thread": False,
         },
-        future=True
+        future=True,
     )
-    
+
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     await engine.dispose()
 
@@ -49,11 +50,9 @@ async def test_engine():
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session"""
     session_factory = async_sessionmaker(
-        bind=test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
+        bind=test_engine, class_=AsyncSession, expire_on_commit=False
     )
-    
+
     async with session_factory() as session:
         yield session
         await session.rollback()  # Rollback any changes
@@ -64,16 +63,14 @@ async def db_session_with_transaction(test_engine) -> AsyncGenerator[AsyncSessio
     """Create a test database session with transaction rollback"""
     connection = await test_engine.connect()
     transaction = await connection.begin()
-    
+
     session_factory = async_sessionmaker(
-        bind=connection,
-        class_=AsyncSession,
-        expire_on_commit=False
+        bind=connection, class_=AsyncSession, expire_on_commit=False
     )
-    
+
     async with session_factory() as session:
         yield session
-        
+
     await transaction.rollback()
     await connection.close()
 
@@ -84,9 +81,7 @@ def test_db_manager(test_engine) -> DatabaseManager:
     manager = DatabaseManager()
     manager.engine = test_engine
     manager.session_factory = async_sessionmaker(
-        bind=test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
+        bind=test_engine, class_=AsyncSession, expire_on_commit=False
     )
     return manager
 
@@ -104,43 +99,44 @@ async def clean_database(db_session):
     for table in reversed(Base.metadata.sorted_tables):
         await db_session.execute(f"DELETE FROM {table.name}")
     await db_session.commit()
-    
+
     yield
-    
+
     # Rollback any changes after test
     await db_session.rollback()
 
 
 class DatabaseTestHelper:
     """Helper class for database operations in tests"""
-    
+
     def __init__(self, session: AsyncSession):
         self.session = session
-    
+
     async def create_and_commit(self, obj):
         """Create object and commit to database"""
         self.session.add(obj)
         await self.session.commit()
         await self.session.refresh(obj)
         return obj
-    
+
     async def count_records(self, model_class) -> int:
         """Count records in a table"""
         from sqlalchemy import select, func
-        result = await self.session.execute(
-            select(func.count()).select_from(model_class)
-        )
+
+        result = await self.session.execute(select(func.count()).select_from(model_class))
         return result.scalar()
-    
+
     async def get_all_records(self, model_class):
         """Get all records from a table"""
         from sqlalchemy import select
+
         result = await self.session.execute(select(model_class))
         return result.scalars().all()
-    
+
     async def clear_table(self, model_class):
         """Clear all records from a table"""
         from sqlalchemy import delete
+
         await self.session.execute(delete(model_class))
         await self.session.commit()
 

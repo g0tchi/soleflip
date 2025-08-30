@@ -2,6 +2,7 @@
 n8n-Compatible Webhook Endpoints
 Replaces direct SQL queries in n8n with proper API endpoints
 """
+
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
@@ -22,11 +23,14 @@ router = APIRouter()
 
 # --- Dependency Provider Functions ---
 
+
 def get_import_processor(db: AsyncSession = Depends(get_db_session)) -> ImportProcessor:
     return ImportProcessor(db)
 
+
 def get_stockx_service(db: AsyncSession = Depends(get_db_session)) -> StockXService:
     return StockXService(db)
+
 
 def get_import_repository(db: AsyncSession = Depends(get_db_session)) -> ImportRepository:
     return ImportRepository(db)
@@ -34,14 +38,17 @@ def get_import_repository(db: AsyncSession = Depends(get_db_session)) -> ImportR
 
 # --- Pydantic Models for API ---
 
+
 class StockXImportRequest(BaseModel):
     from_date: date
     to_date: date
+
 
 class StockXImportResponse(BaseModel):
     status: str = "processing_started"
     message: str = "Import has been successfully queued."
     batch_id: UUID
+
 
 class ImportStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -56,45 +63,59 @@ class ImportStatusResponse(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
 
+
 @router.post(
     "/stockx/import-orders",
     response_model=StockXImportResponse,
     status_code=202,
-    tags=["StockX Integration", "Import"]
+    tags=["StockX Integration", "Import"],
 )
 async def stockx_import_orders_webhook(
     request: StockXImportRequest,
     background_tasks: BackgroundTasks,
     stockx_service: StockXService = Depends(get_stockx_service),
-    import_processor: ImportProcessor = Depends(get_import_processor)
+    import_processor: ImportProcessor = Depends(get_import_processor),
 ):
     """
     Triggers a background task to import historical orders from the StockX API
     for a given date range.
     """
-    logger.info("StockX API import triggered via webhook", from_date=request.from_date, to_date=request.to_date)
+    logger.info(
+        "StockX API import triggered via webhook",
+        from_date=request.from_date,
+        to_date=request.to_date,
+    )
 
     batch = await import_processor.create_initial_batch(
         source_type=SourceType.STOCKX,
-        filename=f"stockx_api_import_{request.from_date}_to_{request.to_date}.json"
+        filename=f"stockx_api_import_{request.from_date}_to_{request.to_date}.json",
     )
 
     async def run_import_task(batch_id: UUID):
         try:
-            orders_data = await stockx_service.get_historical_orders(from_date=request.from_date, to_date=request.to_date)
+            orders_data = await stockx_service.get_historical_orders(
+                from_date=request.from_date, to_date=request.to_date
+            )
             if not orders_data:
                 logger.info("No new orders found from StockX API.", batch_id=str(batch_id))
-                await import_processor.update_batch_status(batch_id, ImportStatus.COMPLETED, processed_records=0, total_records=0)
+                await import_processor.update_batch_status(
+                    batch_id, ImportStatus.COMPLETED, processed_records=0, total_records=0
+                )
                 return
 
             await import_processor.process_import(
                 batch_id=batch_id,
                 source_type=SourceType.STOCKX,
                 data=orders_data,
-                raw_data=orders_data
+                raw_data=orders_data,
             )
         except Exception as e:
-            logger.error("StockX API import background task failed", batch_id=str(batch_id), error=str(e), exc_info=True)
+            logger.error(
+                "StockX API import background task failed",
+                batch_id=str(batch_id),
+                error=str(e),
+                exc_info=True,
+            )
             await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
 
     background_tasks.add_task(run_import_task, batch.id)
@@ -102,14 +123,9 @@ async def stockx_import_orders_webhook(
     return StockXImportResponse(batch_id=batch.id)
 
 
-@router.get(
-    "/import-status/{batch_id}",
-    response_model=ImportStatusResponse,
-    tags=["Import"]
-)
+@router.get("/import-status/{batch_id}", response_model=ImportStatusResponse, tags=["Import"])
 async def get_import_status(
-    batch_id: UUID,
-    repo: ImportRepository = Depends(get_import_repository)
+    batch_id: UUID, repo: ImportRepository = Depends(get_import_repository)
 ):
     """
     Retrieves the current status of an import batch.

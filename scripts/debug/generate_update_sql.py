@@ -4,10 +4,11 @@ import getpass
 from datetime import datetime, timezone
 
 # Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
+
 
 def generate_sql():
     """
@@ -40,12 +41,12 @@ def generate_sql():
     }
 
     # 3. Generate SQL
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Copy and run the following SQL statements in your database tool (e.g., Adminer).")
     print("Connect to the 'metabase' database and select the 'core' schema.")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
-    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f%z")
 
     for key, value in creds_to_encrypt.items():
         if not value:
@@ -63,9 +64,12 @@ def generate_sql():
         )
         print(sql)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("After running these commands, the main application should work correctly.")
-    print("Don't forget to revert the DATABASE_URL in your .env file to use 'metabase-db:5432' for the main application.")
+    print(
+        "Don't forget to revert the DATABASE_URL in your .env file to use 'metabase-db:5432' for the main application."
+    )
+
 
 if __name__ == "__main__":
     generate_sql()

@@ -1,6 +1,7 @@
 """
 API-specific type definitions
 """
+
 from typing import Dict, List, Optional, Union, Any, Generic, TypeVar
 from typing_extensions import TypedDict, NotRequired
 from datetime import datetime
@@ -8,17 +9,20 @@ from pydantic import BaseModel, Field
 from .base_types import EntityId, HTTPStatus, JSONDict
 from .domain_types import *
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 # Request Types
 class PaginationParams(BaseModel):
     """Pagination parameters"""
+
     skip: int = Field(default=0, ge=0, description="Number of items to skip")
     limit: int = Field(default=50, ge=1, le=1000, description="Number of items to return")
 
 
 class SearchParams(BaseModel):
     """Search parameters"""
+
     query: Optional[str] = Field(None, description="Search query")
     brand: Optional[str] = Field(None, description="Filter by brand")
     category: Optional[str] = Field(None, description="Filter by category")
@@ -32,12 +36,16 @@ class SearchParams(BaseModel):
 
 class SortParams(BaseModel):
     """Sort parameters"""
+
     sort_by: Optional[str] = Field(None, description="Field to sort by")
-    sort_direction: Optional[str] = Field("asc", pattern="^(asc|desc)$", description="Sort direction")
+    sort_direction: Optional[str] = Field(
+        "asc", pattern="^(asc|desc)$", description="Sort direction"
+    )
 
 
 class BulkOperationParams(BaseModel):
     """Bulk operation parameters"""
+
     batch_size: int = Field(default=1000, ge=1, le=10000, description="Batch size for processing")
     validate_only: bool = Field(default=False, description="Only validate, don't process")
     overwrite_existing: bool = Field(default=False, description="Overwrite existing records")
@@ -47,6 +55,7 @@ class BulkOperationParams(BaseModel):
 # Request Models
 class ProductCreateRequest(BaseModel):
     """Product creation request"""
+
     sku: str = Field(..., min_length=3, max_length=100, description="Product SKU")
     name: str = Field(..., min_length=1, max_length=255, description="Product name")
     brand_name: str = Field(..., min_length=1, max_length=100, description="Brand name")
@@ -58,6 +67,7 @@ class ProductCreateRequest(BaseModel):
 
 class ProductUpdateRequest(BaseModel):
     """Product update request"""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Product name")
     description: Optional[str] = Field(None, max_length=1000, description="Product description")
     retail_price: Optional[float] = Field(None, ge=0, description="Retail price")
@@ -66,6 +76,7 @@ class ProductUpdateRequest(BaseModel):
 
 class InventoryItemCreateRequest(BaseModel):
     """Inventory item creation request"""
+
     product_id: EntityId = Field(..., description="Product ID")
     size_value: str = Field(..., min_length=1, max_length=20, description="Size value")
     size_region: SizeRegion = Field(..., description="Size region")
@@ -78,6 +89,7 @@ class InventoryItemCreateRequest(BaseModel):
 
 class InventoryItemUpdateRequest(BaseModel):
     """Inventory item update request"""
+
     quantity: Optional[int] = Field(None, ge=0, description="Quantity")
     purchase_price: Optional[float] = Field(None, ge=0, description="Purchase price")
     status: Optional[InventoryStatus] = Field(None, description="Status")
@@ -86,26 +98,30 @@ class InventoryItemUpdateRequest(BaseModel):
 
 class TransactionCreateRequest(BaseModel):
     """Transaction creation request"""
+
     inventory_id: EntityId = Field(..., description="Inventory item ID")
     platform_name: str = Field(..., min_length=1, max_length=100, description="Platform name")
     transaction_date: datetime = Field(..., description="Transaction date")
     sale_price: float = Field(..., ge=0, description="Sale price")
     platform_fee: float = Field(..., ge=0, description="Platform fee")
     shipping_cost: float = Field(default=0, ge=0, description="Shipping cost")
-    buyer_destination_country: Optional[str] = Field(None, max_length=100, description="Buyer country")
+    buyer_destination_country: Optional[str] = Field(
+        None, max_length=100, description="Buyer country"
+    )
     buyer_destination_city: Optional[str] = Field(None, max_length=100, description="Buyer city")
     notes: Optional[str] = Field(None, max_length=1000, description="Notes")
 
 
 class SupplierCreateRequest(BaseModel):
     """Supplier creation request"""
+
     name: str = Field(..., min_length=1, max_length=100, description="Supplier name")
     supplier_type: SupplierType = Field(..., description="Supplier type")
-    email: Optional[str] = Field(None, pattern=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+    email: Optional[str] = Field(None, pattern=r"^[^@]+@[^@]+\.[^@]+$", description="Email address")
     phone: Optional[str] = Field(None, max_length=50, description="Phone number")
     website: Optional[str] = Field(None, max_length=200, description="Website URL")
     contact_person: Optional[str] = Field(None, max_length=100, description="Contact person")
-    
+
     # Address
     address_line1: Optional[str] = Field(None, max_length=200, description="Address line 1")
     address_line2: Optional[str] = Field(None, max_length=200, description="Address line 2")
@@ -113,7 +129,7 @@ class SupplierCreateRequest(BaseModel):
     state_province: Optional[str] = Field(None, max_length=100, description="State/Province")
     postal_code: Optional[str] = Field(None, max_length=20, description="Postal code")
     country: Optional[str] = Field(default="Germany", max_length=50, description="Country")
-    
+
     # Business details
     business_size: Optional[BusinessSize] = Field(None, description="Business size")
     payment_terms: Optional[str] = Field(None, max_length=100, description="Payment terms")
@@ -122,6 +138,7 @@ class SupplierCreateRequest(BaseModel):
 
 class ImportBatchCreateRequest(BaseModel):
     """Import batch creation request"""
+
     source_type: ImportSourceType = Field(..., description="Import source type")
     source_file: Optional[str] = Field(None, description="Source file path")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
@@ -130,12 +147,14 @@ class ImportBatchCreateRequest(BaseModel):
 # Response Models
 class BaseResponse(BaseModel):
     """Base response model"""
+
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     request_id: Optional[str] = None
 
 
 class SuccessResponse(BaseResponse):
     """Success response model"""
+
     success: bool = Field(default=True)
     message: str
     data: Optional[Any] = None
@@ -143,12 +162,14 @@ class SuccessResponse(BaseResponse):
 
 class ErrorResponse(BaseResponse):
     """Error response model"""
+
     success: bool = Field(default=False)
     error: Dict[str, Any]
 
 
 class ValidationErrorResponse(BaseResponse):
     """Validation error response model"""
+
     success: bool = Field(default=False)
     error: Dict[str, Any]
     field_errors: Dict[str, List[str]]
@@ -156,32 +177,34 @@ class ValidationErrorResponse(BaseResponse):
 
 class PaginationInfo(BaseModel):
     """Pagination information model"""
+
     skip: int = Field(..., ge=0)
     limit: int = Field(..., ge=1)
     total: int = Field(..., ge=0)
     has_more: bool
     page: int = Field(..., ge=1)
     total_pages: int = Field(..., ge=1)
-    
+
     @classmethod
-    def create(cls, skip: int, limit: int, total: int) -> 'PaginationInfo':
+    def create(cls, skip: int, limit: int, total: int) -> "PaginationInfo":
         """Create pagination info from parameters"""
         page = (skip // limit) + 1
         total_pages = max(1, (total + limit - 1) // limit)
         has_more = skip + limit < total
-        
+
         return cls(
             skip=skip,
             limit=limit,
             total=total,
             has_more=has_more,
             page=page,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
 
 class PaginatedResponse(BaseResponse, Generic[T]):
     """Paginated response model"""
+
     items: List[T]
     pagination: PaginationInfo
     filters: Optional[Dict[str, Any]] = None
@@ -189,6 +212,7 @@ class PaginatedResponse(BaseResponse, Generic[T]):
 
 class ProductResponse(BaseModel):
     """Product response model"""
+
     id: EntityId
     sku: str
     name: str
@@ -208,6 +232,7 @@ class ProductResponse(BaseModel):
 
 class InventoryItemResponse(BaseModel):
     """Inventory item response model"""
+
     id: EntityId
     product_id: EntityId
     product_name: str
@@ -229,6 +254,7 @@ class InventoryItemResponse(BaseModel):
 
 class TransactionResponse(BaseModel):
     """Transaction response model"""
+
     id: EntityId
     inventory_item_id: EntityId
     product_name: str
@@ -252,6 +278,7 @@ class TransactionResponse(BaseModel):
 
 class SupplierResponse(BaseModel):
     """Supplier response model"""
+
     id: EntityId
     name: str
     slug: str
@@ -273,6 +300,7 @@ class SupplierResponse(BaseModel):
 
 class BrandResponse(BaseModel):
     """Brand response model"""
+
     id: EntityId
     name: str
     slug: str
@@ -283,6 +311,7 @@ class BrandResponse(BaseModel):
 
 class CategoryResponse(BaseModel):
     """Category response model"""
+
     id: EntityId
     name: str
     slug: str
@@ -295,6 +324,7 @@ class CategoryResponse(BaseModel):
 
 class ImportBatchResponse(BaseModel):
     """Import batch response model"""
+
     id: EntityId
     source_type: ImportSourceType
     source_file: Optional[str] = None
@@ -313,6 +343,7 @@ class ImportBatchResponse(BaseModel):
 
 class BulkOperationResponse(BaseResponse):
     """Bulk operation response model"""
+
     operation: str
     total_items: int
     successful_items: int
@@ -323,6 +354,7 @@ class BulkOperationResponse(BaseResponse):
 
 class SyncOperationResponse(BaseResponse):
     """Sync operation response model"""
+
     operation: str
     service_name: str
     items_synced: int
@@ -336,6 +368,7 @@ class SyncOperationResponse(BaseResponse):
 
 class HealthCheckResponse(BaseModel):
     """Health check response model"""
+
     status: str  # "healthy" | "degraded" | "unhealthy"
     timestamp: datetime
     version: str
@@ -346,6 +379,7 @@ class HealthCheckResponse(BaseModel):
 
 class InventorySummaryResponse(BaseModel):
     """Inventory summary response model"""
+
     total_items: int
     items_in_stock: int
     items_sold: int
@@ -360,6 +394,7 @@ class InventorySummaryResponse(BaseModel):
 # Webhook Types
 class WebhookRequest(BaseModel):
     """Webhook request model"""
+
     event: WebhookEvent
     data: Dict[str, Any]
     timestamp: datetime
@@ -370,6 +405,7 @@ class WebhookRequest(BaseModel):
 
 class WebhookResponse(BaseModel):
     """Webhook response model"""
+
     received: bool = True
     processed: bool
     message: Optional[str] = None
@@ -379,6 +415,7 @@ class WebhookResponse(BaseModel):
 # File Upload Types
 class FileUploadResponse(BaseModel):
     """File upload response model"""
+
     filename: str
     size: int
     content_type: str
@@ -388,6 +425,7 @@ class FileUploadResponse(BaseModel):
 
 class BatchUploadRequest(BaseModel):
     """Batch upload request model"""
+
     file_type: str = Field(..., pattern="^(csv|json|xlsx)$")
     delimiter: Optional[str] = Field(",", max_length=1, description="CSV delimiter")
     has_header: bool = Field(True, description="File has header row")
@@ -398,6 +436,7 @@ class BatchUploadRequest(BaseModel):
 # API Metadata Types
 class APIMetadata(TypedDict):
     """API metadata structure"""
+
     title: str
     version: str
     description: str
@@ -408,6 +447,7 @@ class APIMetadata(TypedDict):
 
 class OpenAPIConfig(TypedDict):
     """OpenAPI configuration structure"""
+
     openapi_url: str
     docs_url: Optional[str]
     redoc_url: Optional[str]
@@ -417,6 +457,7 @@ class OpenAPIConfig(TypedDict):
 # Rate Limiting Types
 class RateLimitInfo(BaseModel):
     """Rate limit information model"""
+
     limit: int
     remaining: int
     reset_time: datetime
@@ -425,6 +466,7 @@ class RateLimitInfo(BaseModel):
 
 class RateLimitResponse(BaseModel):
     """Rate limit exceeded response model"""
+
     error: str = "Rate limit exceeded"
     rate_limit: RateLimitInfo
     message: str = "Too many requests. Please try again later."
@@ -433,6 +475,7 @@ class RateLimitResponse(BaseModel):
 # Cache Types
 class CacheInfo(BaseModel):
     """Cache information model"""
+
     key: str
     hit: bool
     ttl: Optional[int] = None
@@ -441,6 +484,7 @@ class CacheInfo(BaseModel):
 
 class CacheStats(BaseModel):
     """Cache statistics model"""
+
     hits: int
     misses: int
     hit_rate: float

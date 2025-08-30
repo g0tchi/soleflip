@@ -8,6 +8,7 @@ from shared.database.models import SystemConfig
 # Mark all tests in this file as asyncio
 pytestmark = pytest.mark.asyncio
 
+
 @pytest.fixture
 def mock_db_session():
     """Creates a mock of an async SQLAlchemy session."""
@@ -18,11 +19,13 @@ def mock_db_session():
     session.execute.return_value = mock_result
     return session, mock_result
 
+
 @pytest.fixture
 def stockx_service(mock_db_session):
     """Provides a new instance of the StockXService with a mocked db_session."""
     session, _ = mock_db_session
     return StockXService(db_session=session)
+
 
 def _create_mock_config(key, value):
     """Helper to create a mock SystemConfig object."""
@@ -30,6 +33,7 @@ def _create_mock_config(key, value):
     # Mock the instance method `get_value` on the object
     config.get_value = MagicMock(return_value=value)
     return config
+
 
 async def test_load_credentials_success(stockx_service, mock_db_session):
     """
@@ -55,6 +59,7 @@ async def test_load_credentials_success(stockx_service, mock_db_session):
     assert credentials.api_key == "test_api_key"
     session.execute.assert_called_once()
 
+
 async def test_load_credentials_missing_key(stockx_service, mock_db_session):
     """
     Tests that a ValueError is raised if a required credential is missing.
@@ -65,8 +70,12 @@ async def test_load_credentials_missing_key(stockx_service, mock_db_session):
     mock_result.scalars.return_value = mock_configs
 
     # Act & Assert
-    with pytest.raises(ValueError, match="Missing required StockX credential in system_config: stockx_client_secret"):
+    with pytest.raises(
+        ValueError,
+        match="Missing required StockX credential in system_config: stockx_client_secret",
+    ):
         await stockx_service._load_credentials()
+
 
 async def test_refresh_access_token_success(stockx_service):
     """
@@ -74,8 +83,12 @@ async def test_refresh_access_token_success(stockx_service):
     """
     # Arrange
     # We patch _load_credentials because its testing is separate.
-    with patch.object(stockx_service, '_load_credentials', new_callable=AsyncMock) as mock_load_creds, \
-         patch('httpx.AsyncClient') as MockAsyncClient:
+    with (
+        patch.object(
+            stockx_service, "_load_credentials", new_callable=AsyncMock
+        ) as mock_load_creds,
+        patch("httpx.AsyncClient") as MockAsyncClient,
+    ):
 
         mock_load_creds.return_value = StockXCredentials("id", "secret", "refresh", "api_key")
 
@@ -95,7 +108,8 @@ async def test_refresh_access_token_success(stockx_service):
         assert stockx_service._token_expiry > datetime.now(timezone.utc)
         mock_instance.post.assert_called_once()
         post_args = mock_instance.post.call_args
-        assert post_args.kwargs['data']['grant_type'] == "refresh_token"
+        assert post_args.kwargs["data"]["grant_type"] == "refresh_token"
+
 
 async def test_get_valid_access_token_uses_cache(stockx_service):
     """
@@ -105,13 +119,16 @@ async def test_get_valid_access_token_uses_cache(stockx_service):
     stockx_service._access_token = "cached_token"
     stockx_service._token_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
 
-    with patch.object(stockx_service, '_refresh_access_token', new_callable=AsyncMock) as mock_refresh:
+    with patch.object(
+        stockx_service, "_refresh_access_token", new_callable=AsyncMock
+    ) as mock_refresh:
         # Act
         token = await stockx_service._get_valid_access_token()
 
         # Assert
         assert token == "cached_token"
         mock_refresh.assert_not_called()
+
 
 async def test_get_valid_access_token_refreshes_expired_token(stockx_service):
     """
@@ -121,10 +138,13 @@ async def test_get_valid_access_token_refreshes_expired_token(stockx_service):
     stockx_service._access_token = "expired_token"
     stockx_service._token_expiry = datetime.now(timezone.utc) - timedelta(hours=1)
 
-    with patch.object(stockx_service, '_refresh_access_token', new_callable=AsyncMock) as mock_refresh:
+    with patch.object(
+        stockx_service, "_refresh_access_token", new_callable=AsyncMock
+    ) as mock_refresh:
         # We need to set the token inside the mock, because the original is expired
         async def side_effect():
             stockx_service._access_token = "refreshed_token"
+
         mock_refresh.side_effect = side_effect
 
         # Act
@@ -134,12 +154,15 @@ async def test_get_valid_access_token_refreshes_expired_token(stockx_service):
         assert token == "refreshed_token"
         mock_refresh.assert_called_once()
 
+
 async def test_get_active_orders_success(stockx_service):
     """
     Tests successfully fetching active orders.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_paginated_get_request', new_callable=AsyncMock) as mock_paginated_get:
+    with patch.object(
+        stockx_service, "_make_paginated_get_request", new_callable=AsyncMock
+    ) as mock_paginated_get:
         mock_paginated_get.return_value = [{"id": "active_order_1"}]
 
         # Act
@@ -149,17 +172,16 @@ async def test_get_active_orders_success(stockx_service):
         assert len(orders) == 1
         assert orders[0]["id"] == "active_order_1"
         mock_paginated_get.assert_called_once_with(
-            "/selling/orders/active",
-            {"orderStatus": "SHIPPED"},
-            "orders"
+            "/selling/orders/active", {"orderStatus": "SHIPPED"}, "orders"
         )
+
 
 async def test_get_product_details_success(stockx_service):
     """
     Tests successfully fetching product details.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = {"productId": "product123", "title": "Test Product"}
         product_id = "product123"
 
@@ -171,18 +193,18 @@ async def test_get_product_details_success(stockx_service):
         assert details["title"] == "Test Product"
         mock_get.assert_called_once_with(f"/catalog/products/{product_id}")
 
+
 async def test_get_product_details_not_found(stockx_service):
     """
     Tests handling of a 404 Not Found error when fetching product details.
     """
     # Arrange
     import httpx
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         # Simulate the HTTP client raising a 404 error
         mock_get.side_effect = httpx.HTTPStatusError(
-            "Not Found",
-            request=MagicMock(),
-            response=MagicMock(status_code=404)
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
         product_id = "nonexistent_product"
 
@@ -193,12 +215,13 @@ async def test_get_product_details_not_found(stockx_service):
         assert details is None
         mock_get.assert_called_once_with(f"/catalog/products/{product_id}")
 
+
 async def test_get_all_product_variants_success(stockx_service):
     """
     Tests successfully fetching all product variants.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = [{"variantId": "variant1"}, {"variantId": "variant2"}]
         product_id = "product123"
 
@@ -210,18 +233,18 @@ async def test_get_all_product_variants_success(stockx_service):
         assert variants[0]["variantId"] == "variant1"
         mock_get.assert_called_once_with(f"/catalog/products/{product_id}/variants")
 
+
 async def test_get_all_product_variants_not_found(stockx_service):
     """
     Tests handling of a 404 Not Found error when fetching product variants.
     """
     # Arrange
     import httpx
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         # Simulate the HTTP client raising a 404 error
         mock_get.side_effect = httpx.HTTPStatusError(
-            "Not Found",
-            request=MagicMock(),
-            response=MagicMock(status_code=404)
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
         product_id = "nonexistent_product"
 
@@ -232,12 +255,15 @@ async def test_get_all_product_variants_not_found(stockx_service):
         assert variants == []
         mock_get.assert_called_once_with(f"/catalog/products/{product_id}/variants")
 
+
 async def test_get_all_listings_success(stockx_service):
     """
     Tests successfully fetching all listings.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_paginated_get_request', new_callable=AsyncMock) as mock_paginated_get:
+    with patch.object(
+        stockx_service, "_make_paginated_get_request", new_callable=AsyncMock
+    ) as mock_paginated_get:
         mock_paginated_get.return_value = [{"listingId": "listing1"}]
 
         # Act
@@ -247,17 +273,16 @@ async def test_get_all_listings_success(stockx_service):
         assert len(listings) == 1
         assert listings[0]["listingId"] == "listing1"
         mock_paginated_get.assert_called_once_with(
-            "/selling/listings",
-            {"listingStatuses": "ACTIVE"},
-            "listings"
+            "/selling/listings", {"listingStatuses": "ACTIVE"}, "listings"
         )
+
 
 async def test_get_order_details_success(stockx_service):
     """
     Tests successfully fetching order details.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = {"orderNumber": "123-456", "status": "SHIPPED"}
         order_number = "123-456"
 
@@ -269,17 +294,17 @@ async def test_get_order_details_success(stockx_service):
         assert details["status"] == "SHIPPED"
         mock_get.assert_called_once_with(f"/selling/orders/{order_number}")
 
+
 async def test_get_order_details_not_found(stockx_service):
     """
     Tests handling of a 404 Not Found error when fetching order details.
     """
     # Arrange
     import httpx
-    with patch.object(stockx_service, '_make_get_request', new_callable=AsyncMock) as mock_get:
+
+    with patch.object(stockx_service, "_make_get_request", new_callable=AsyncMock) as mock_get:
         mock_get.side_effect = httpx.HTTPStatusError(
-            "Not Found",
-            request=MagicMock(),
-            response=MagicMock(status_code=404)
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
         order_number = "nonexistent_order"
 
@@ -290,12 +315,15 @@ async def test_get_order_details_not_found(stockx_service):
         assert details is None
         mock_get.assert_called_once_with(f"/selling/orders/{order_number}")
 
+
 async def test_get_shipping_document_success(stockx_service):
     """
     Tests successfully fetching a shipping document.
     """
     # Arrange
-    with patch.object(stockx_service, '_make_get_request_for_binary', new_callable=AsyncMock) as mock_get_binary:
+    with patch.object(
+        stockx_service, "_make_get_request_for_binary", new_callable=AsyncMock
+    ) as mock_get_binary:
         mock_get_binary.return_value = b"%PDF-1.4..."
         order_number = "123-456"
         shipping_id = "789"
@@ -306,7 +334,10 @@ async def test_get_shipping_document_success(stockx_service):
         # Assert
         assert pdf_bytes is not None
         assert pdf_bytes == b"%PDF-1.4..."
-        mock_get_binary.assert_called_once_with(f"/selling/orders/{order_number}/shipping-document/{shipping_id}")
+        mock_get_binary.assert_called_once_with(
+            f"/selling/orders/{order_number}/shipping-document/{shipping_id}"
+        )
+
 
 async def test_get_shipping_document_not_found(stockx_service):
     """
@@ -314,11 +345,12 @@ async def test_get_shipping_document_not_found(stockx_service):
     """
     # Arrange
     import httpx
-    with patch.object(stockx_service, '_make_get_request_for_binary', new_callable=AsyncMock) as mock_get_binary:
+
+    with patch.object(
+        stockx_service, "_make_get_request_for_binary", new_callable=AsyncMock
+    ) as mock_get_binary:
         mock_get_binary.side_effect = httpx.HTTPStatusError(
-            "Not Found",
-            request=MagicMock(),
-            response=MagicMock(status_code=404)
+            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
         )
         order_number = "123-456"
         shipping_id = "nonexistent_shipping_id"
@@ -328,4 +360,6 @@ async def test_get_shipping_document_not_found(stockx_service):
 
         # Assert
         assert pdf_bytes is None
-        mock_get_binary.assert_called_once_with(f"/selling/orders/{order_number}/shipping-document/{shipping_id}")
+        mock_get_binary.assert_called_once_with(
+            f"/selling/orders/{order_number}/shipping-document/{shipping_id}"
+        )

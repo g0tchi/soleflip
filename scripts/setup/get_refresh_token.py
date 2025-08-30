@@ -7,13 +7,15 @@ import os
 # This script needs to import from the application's shared modules.
 # We add the project root to the Python path to make this possible.
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
 
 STOCKX_AUTH_URL = "https://accounts.stockx.com/oauth/token"
 STOCKX_AUTHORIZE_URL = "https://accounts.stockx.com/authorize"
+
 
 async def main():
     """
@@ -28,7 +30,9 @@ async def main():
 
     # --- Step 1: Get required info and generate URL ---
     client_id = input("1. Enter your Client ID from the StockX developer portal: ").strip()
-    callback_uri = input("2. Enter your Callback/Redirect URI (e.g., https://localhost/callback or your n8n webhook): ").strip()
+    callback_uri = input(
+        "2. Enter your Callback/Redirect URI (e.g., https://localhost/callback or your n8n webhook): "
+    ).strip()
 
     if not all([client_id, callback_uri]):
         print("\n❌ Error: Client ID and Callback URI are required. Please try again.")
@@ -40,7 +44,7 @@ async def main():
         "redirect_uri": callback_uri,
         "scope": "offline_access openid",
         "audience": "gateway.stockx.com",
-        "state": "soleflipper-setup"
+        "state": "soleflipper-setup",
     }
 
     auth_url = f"{STOCKX_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
@@ -145,6 +149,7 @@ async def main():
 if __name__ == "__main__":
     # Load .env file to get DATABASE_URL and FIELD_ENCRYPTION_KEY
     from dotenv import load_dotenv
+
     load_dotenv()
 
     # Check for encryption key before running

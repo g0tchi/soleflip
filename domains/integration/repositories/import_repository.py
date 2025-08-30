@@ -2,6 +2,7 @@
 Repository for Integration Domain Models
 Provides database access logic for import-related entities.
 """
+
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +12,12 @@ from sqlalchemy import select
 from domains.inventory.repositories.base_repository import BaseRepository
 from shared.database.models import ImportBatch
 
+
 class ImportRepository(BaseRepository[ImportBatch]):
     """
     Repository for accessing and manipulating ImportBatch entities.
     """
+
     def __init__(self, db_session: AsyncSession):
         """
         Initializes the repository with the database session.

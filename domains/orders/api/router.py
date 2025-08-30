@@ -9,15 +9,20 @@ from domains.integration.api.webhooks import get_stockx_service
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
+
 @router.get("/active", response_model=List[Dict[str, Any]])
 async def get_active_orders(
     orderStatus: Optional[str] = Query(None, description="Filter by order status."),
     productId: Optional[str] = Query(None, description="Filter by product ID."),
     variantId: Optional[str] = Query(None, description="Filter by variant ID."),
     sortOrder: Optional[str] = Query("CREATEDAT", description="Sort order for the results."),
-    inventoryTypes: Optional[str] = Query(None, description="Comma-separated list of inventory types."),
-    initiatedShipmentDisplayIds: Optional[str] = Query(None, description="Filter by shipment display IDs."),
-    stockx_service: StockXService = Depends(get_stockx_service)
+    inventoryTypes: Optional[str] = Query(
+        None, description="Comma-separated list of inventory types."
+    ),
+    initiatedShipmentDisplayIds: Optional[str] = Query(
+        None, description="Filter by shipment display IDs."
+    ),
+    stockx_service: StockXService = Depends(get_stockx_service),
 ):
     """
     Get all active orders from the StockX marketplace.
@@ -35,24 +40,32 @@ async def get_active_orders(
             variantId=variantId,
             sortOrder=sortOrder,
             inventoryTypes=inventoryTypes,
-            initiatedShipmentDisplayIds=initiatedShipmentDisplayIds
+            initiatedShipmentDisplayIds=initiatedShipmentDisplayIds,
         )
         return active_orders
     except Exception as e:
         logger.exception("Failed to get active orders")
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred. See logs for details.")
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred. See logs for details."
+        )
 
 
 @router.get("/stockx-history", response_model=List[Dict[str, Any]])
 async def get_historical_orders(
     fromDate: date,
     toDate: date,
-    orderStatus: Optional[str] = Query(None, description="Filter by order status. e.g. COMPLETED, CANCELED"),
+    orderStatus: Optional[str] = Query(
+        None, description="Filter by order status. e.g. COMPLETED, CANCELED"
+    ),
     productId: Optional[str] = Query(None, description="Filter by product ID."),
     variantId: Optional[str] = Query(None, description="Filter by variant ID."),
-    inventoryTypes: Optional[str] = Query(None, description="Comma-separated list of inventory types. e.g. STANDARD,FLEX"),
-    initiatedShipmentDisplayIds: Optional[str] = Query(None, description="Filter by shipment display IDs."),
-    stockx_service: StockXService = Depends(get_stockx_service)
+    inventoryTypes: Optional[str] = Query(
+        None, description="Comma-separated list of inventory types. e.g. STANDARD,FLEX"
+    ),
+    initiatedShipmentDisplayIds: Optional[str] = Query(
+        None, description="Filter by shipment display IDs."
+    ),
+    stockx_service: StockXService = Depends(get_stockx_service),
 ):
     """
     Get all historical orders from the StockX marketplace, with optional filters.
@@ -67,9 +80,11 @@ async def get_historical_orders(
             product_id=productId,
             variant_id=variantId,
             inventory_types=inventoryTypes,
-            initiated_shipment_display_ids=initiatedShipmentDisplayIds
+            initiated_shipment_display_ids=initiatedShipmentDisplayIds,
         )
         return historical_orders
     except Exception as e:
         logger.exception("Failed to get historical orders")
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred. See logs for details.")
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred. See logs for details."
+        )

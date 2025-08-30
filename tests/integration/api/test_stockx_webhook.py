@@ -16,6 +16,7 @@ def mock_stockx_service():
 @pytest.fixture(autouse=True)
 def override_dependencies(mock_stockx_service):
     from domains.integration.api.webhooks import get_stockx_service
+
     app.dependency_overrides[get_stockx_service] = lambda: mock_stockx_service
     yield
     app.dependency_overrides.clear()

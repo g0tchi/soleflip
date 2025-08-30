@@ -2,6 +2,7 @@
 Inventory Domain Service
 Business logic layer for inventory management
 """
+
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 from decimal import Decimal
@@ -12,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 from ..repositories.product_repository import ProductRepository
-from ..repositories.base_repository import BaseRepository
+from ..repositories.inventory_repository import (
+    InventoryRepository,
+    InventoryStats as RepoInventoryStats,
+)
+from shared.repositories import BaseRepository
 from shared.database.models import Product, InventoryItem, Brand, Category, Size
 
 logger = structlog.get_logger(__name__)
@@ -66,33 +71,21 @@ class InventoryService:
         self.brand_repo = BaseRepository(Brand, self.db_session)
         self.category_repo = BaseRepository(Category, self.db_session)
         self.size_repo = BaseRepository(Size, self.db_session)
-        self.inventory_repo = BaseRepository(InventoryItem, self.db_session)
+        self.inventory_repo = InventoryRepository(self.db_session)
         self.stockx_service = stockx_service
 
     async def get_inventory_overview(self) -> InventoryStats:
-        """Get overall inventory statistics"""
-        all_items = await self.inventory_repo.get_all()
+        """Get overall inventory statistics using optimized aggregation query"""
+        repo_stats = await self.inventory_repo.get_inventory_stats()
 
-        total_items = len(all_items)
-        in_stock = sum(1 for item in all_items if item.status == "in_stock")
-        sold = sum(1 for item in all_items if item.status == "sold")
-        listed = sum(1 for item in all_items if "listed" in item.status)
-
-        total_value = sum(
-            item.purchase_price or Decimal("0")
-            for item in all_items
-            if item.status == "in_stock"
-        )
-
-        purchase_prices = [
-            item.purchase_price
-            for item in all_items
-            if item.purchase_price is not None
-        ]
-        avg_purchase_price = (
-            sum(purchase_prices) / len(purchase_prices)
-            if purchase_prices
-            else Decimal("0")
+        # Convert repository stats to service stats (compatibility)
+        return InventoryStats(
+            total_items=repo_stats.total_items,
+            in_stock=repo_stats.in_stock,
+            sold=repo_stats.sold,
+            listed=repo_stats.listed,
+            total_value=repo_stats.total_value,
+            avg_purchase_price=repo_stats.avg_purchase_price,
         )
 
         self.logger.info(
@@ -148,8 +141,7 @@ class InventoryService:
                         "size_id": size.id,
                         "quantity": inv_request.quantity,
                         "purchase_price": inv_request.purchase_price,
-                        "purchase_date": inv_request.purchase_date
-                        or datetime.now(timezone.utc),
+                        "purchase_date": inv_request.purchase_date or datetime.now(timezone.utc),
                         "supplier": inv_request.supplier,
                         "status": "in_stock",
                     }
@@ -190,13 +182,9 @@ class InventoryService:
             "error",
         ]
         if new_status not in valid_statuses:
-            raise ValueError(
-                f"Invalid status: {new_status}. Must be one of {valid_statuses}"
-            )
+            raise ValueError(f"Invalid status: {new_status}. Must be one of {valid_statuses}")
 
-        success = await self.product_repo.update_inventory_status(
-            inventory_id, new_status, notes
-        )
+        success = await self.product_repo.update_inventory_status(inventory_id, new_status, notes)
 
         if success:
             self.logger.info(
@@ -239,18 +227,14 @@ class InventoryService:
         )
         return [p.to_dict() for p in products]
 
-    async def get_product_details(
-        self, product_id: UUID
-    ) -> Optional[Dict[str, Any]]:
+    async def get_product_details(self, product_id: UUID) -> Optional[Dict[str, Any]]:
         """Get detailed product information with inventory"""
         product = await self.product_repo.get_with_inventory(product_id)
         if not product:
             return None
 
         product_dict = product.to_dict()
-        product_dict["inventory_items"] = [
-            item.to_dict() for item in product.inventory_items
-        ]
+        product_dict["inventory_items"] = [item.to_dict() for item in product.inventory_items]
         return product_dict
 
     async def sync_inventory_from_stockx(self, product_id: UUID) -> Dict[str, int]:
@@ -258,7 +242,9 @@ class InventoryService:
         Synchronizes all inventory items for a given product with the variants from the StockX API.
         Performs an "upsert" logic: updates existing items, creates new ones.
         """
-        self.logger.info("Syncing inventory variants from StockX for product", product_id=str(product_id))
+        self.logger.info(
+            "Syncing inventory variants from StockX for product", product_id=str(product_id)
+        )
         stats = {"created": 0, "updated": 0, "skipped": 0}
 
         # 1. Fetch our local product and all its current inventory items
@@ -267,7 +253,9 @@ class InventoryService:
             raise ValueError(f"Product with ID {product_id} not found.")
 
         if not product.sku:
-            self.logger.warning("Product has no SKU, cannot sync from StockX", product_id=str(product_id))
+            self.logger.warning(
+                "Product has no SKU, cannot sync from StockX", product_id=str(product_id)
+            )
             return stats
 
         # Create a map of existing items by their StockX variant ID for efficient lookup
@@ -281,12 +269,17 @@ class InventoryService:
         stockx_service = self.stockx_service
         if not stockx_service:
             from domains.integration.services.stockx_service import StockXService
+
             stockx_service = StockXService(self.db_session)
 
         stockx_variants = await stockx_service.get_all_product_variants(product.sku)
 
         if not stockx_variants:
-            self.logger.info("No variants found on StockX for product", product_id=str(product_id), sku=product.sku)
+            self.logger.info(
+                "No variants found on StockX for product",
+                product_id=str(product_id),
+                sku=product.sku,
+            )
             return stats
 
         # 3. Loop through StockX variants and perform upsert
@@ -303,26 +296,31 @@ class InventoryService:
                 # --- UPDATE ---
                 # Here we would update any fields that might change.
                 # For now, we just log it.
-                self.logger.info("Updating existing inventory item from StockX variant", item_id=str(existing_item.id))
+                self.logger.info(
+                    "Updating existing inventory item from StockX variant",
+                    item_id=str(existing_item.id),
+                )
                 # Example: existing_item.is_flex_eligible = variant.get('isFlexEligible')
                 stats["updated"] += 1
             else:
                 # --- CREATE ---
-                self.logger.info("Creating new inventory item from StockX variant", variant_id=variant_id)
+                self.logger.info(
+                    "Creating new inventory item from StockX variant", variant_id=variant_id
+                )
 
                 # We need to find or create the Size object
                 size_value = variant.get("variantValue", "Unknown")
                 size = await self.size_repo.find_one_or_create(
-                    {"value": size_value, "region": "US"}, # Assuming US region for StockX sizes
-                    category_id=product.category_id
+                    {"value": size_value, "region": "US"},  # Assuming US region for StockX sizes
+                    category_id=product.category_id,
                 )
 
                 new_item = InventoryItem(
                     product_id=product.id,
                     size_id=size.id,
-                    quantity=0, # New items from sync start with 0 quantity
+                    quantity=0,  # New items from sync start with 0 quantity
                     status="in_stock",
-                    external_ids={"stockx": variant_id}
+                    external_ids={"stockx": variant_id},
                 )
                 self.db_session.add(new_item)
                 stats["created"] += 1
@@ -332,10 +330,7 @@ class InventoryService:
         return stats
 
     async def get_items_paginated(
-        self, 
-        skip: int = 0, 
-        limit: int = 100, 
-        filters: Optional[Dict[str, Any]] = None
+        self, skip: int = 0, limit: int = 100, filters: Optional[Dict[str, Any]] = None
     ) -> tuple[List[Dict[str, Any]], int]:
         """
         Get paginated inventory items with optional filters
@@ -344,23 +339,27 @@ class InventoryService:
         try:
             items = await self.inventory_repo.get_all_paginated(skip, limit, filters)
             total_count = await self.inventory_repo.count_all(filters)
-            
+
             # Convert to dictionaries with related data
             result_items = []
             for item in items:
                 item_dict = item.to_dict()
                 if item.product:
                     item_dict["product_name"] = item.product.name
-                    item_dict["brand_name"] = item.product.brand.name if item.product.brand else None
-                    item_dict["category_name"] = item.product.category.name if item.product.category else None
+                    item_dict["brand_name"] = (
+                        item.product.brand.name if item.product.brand else None
+                    )
+                    item_dict["category_name"] = (
+                        item.product.category.name if item.product.category else None
+                    )
                 else:
                     item_dict["product_name"] = "Unknown"
                     item_dict["brand_name"] = None
                     item_dict["category_name"] = "Unknown"
                 result_items.append(item_dict)
-            
+
             return result_items, total_count
-            
+
         except Exception as e:
             self.logger.error("Failed to get paginated inventory items", error=str(e))
             raise
@@ -372,12 +371,12 @@ class InventoryService:
         try:
             # Get basic stats
             stats = await self.get_inventory_overview()
-            
+
             # Get additional summary data
             top_brands = await self._get_top_brands()
             status_breakdown = await self._get_status_breakdown()
             recent_activity = await self._get_recent_activity()
-            
+
             return {
                 "total_items": stats.total_items,
                 "items_in_stock": stats.in_stock,
@@ -387,7 +386,7 @@ class InventoryService:
                 "average_purchase_price": float(stats.avg_purchase_price),
                 "top_brands": top_brands,
                 "status_breakdown": status_breakdown,
-                "recent_activity": recent_activity
+                "recent_activity": recent_activity,
             }
         except Exception as e:
             self.logger.error("Failed to get inventory summary", error=str(e))
@@ -400,7 +399,7 @@ class InventoryService:
 
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
-        # Placeholder implementation  
+        # Placeholder implementation
         return {"in_stock": 0, "sold": 0, "listed": 0}
 
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
@@ -414,25 +413,26 @@ class InventoryService:
         """
         try:
             item = await self.inventory_repo.get_by_id_with_related(
-                item_id, 
-                related=["product", "product.brand", "product.category", "size"]
+                item_id, related=["product", "product.brand", "product.category", "size"]
             )
-            
+
             if not item:
                 return None
-                
+
             item_dict = item.to_dict()
             if item.product:
                 item_dict["product_name"] = item.product.name
                 item_dict["brand_name"] = item.product.brand.name if item.product.brand else None
-                item_dict["category_name"] = item.product.category.name if item.product.category else None
+                item_dict["category_name"] = (
+                    item.product.category.name if item.product.category else None
+                )
             else:
                 item_dict["product_name"] = "Unknown"
                 item_dict["brand_name"] = None
                 item_dict["category_name"] = "Unknown"
-                
+
             return item_dict
-            
+
         except Exception as e:
             self.logger.error("Failed to get item details", item_id=str(item_id), error=str(e))
             raise
@@ -445,11 +445,11 @@ class InventoryService:
             item = await self.get_item_detailed(item_id)
             if not item:
                 raise ValueError(f"Inventory item with ID {item_id} not found")
-            
+
             # Placeholder implementation for now
             self.logger.info("Syncing item from StockX", item_id=str(item_id))
             return {"status": "synced", "item_id": str(item_id)}
-            
+
         except Exception as e:
             self.logger.error("Failed to sync item from StockX", item_id=str(item_id), error=str(e))
             raise

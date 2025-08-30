@@ -1,15 +1,19 @@
 import asyncio
 import asyncpg
 
+
 async def create_brand_deep_dive_views():
-    conn = await asyncpg.connect('postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip')
-    
+    conn = await asyncpg.connect(
+        "postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip"
+    )
+
     print("=== CREATING BRAND DEEP DIVE ANALYTICS VIEWS ===")
-    
+
     # 1. Brand Encyclopedia View
     print("1. Creating Brand Encyclopedia view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_encyclopedia AS
         SELECT 
             b.id,
@@ -44,13 +48,15 @@ async def create_brand_deep_dive_views():
         FROM core.brands b
         WHERE b.brand_story IS NOT NULL
         ORDER BY b.annual_revenue_usd DESC NULLS LAST
-    """)
+    """
+    )
     print("OK Created Brand Encyclopedia view")
-    
+
     # 2. Brand Timeline View
     print("2. Creating Brand Timeline view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_timeline AS
         SELECT 
             b.name as brand_name,
@@ -74,13 +80,15 @@ async def create_brand_deep_dive_views():
         FROM core.brands b
         JOIN core.brand_history bh ON bh.brand_id = b.id
         ORDER BY b.name, bh.event_date
-    """)
+    """
+    )
     print("OK Created Brand Timeline view")
-    
+
     # 3. Brand Collaboration Network
     print("3. Creating Brand Collaboration Network view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_collaboration_network AS
         SELECT 
             pb.name as primary_brand,
@@ -109,13 +117,15 @@ async def create_brand_deep_dive_views():
         JOIN core.brands pb ON pb.id = bc.primary_brand_id
         JOIN core.brands cb ON cb.id = bc.collaborator_brand_id
         ORDER BY bc.estimated_revenue_usd DESC NULLS LAST, bc.hype_score DESC
-    """)
+    """
+    )
     print("OK Created Brand Collaboration Network view")
-    
+
     # 4. Brand Innovation Timeline
     print("4. Creating Brand Innovation Timeline view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_innovation_timeline AS
         WITH innovation_events AS (
             SELECT 
@@ -151,13 +161,15 @@ async def create_brand_deep_dive_views():
         FROM innovation_events
         WHERE is_innovation_event = true
         ORDER BY brand_name, event_date
-    """)
+    """
+    )
     print("OK Created Brand Innovation Timeline view")
-    
+
     # 5. Brand Financial Evolution
     print("5. Creating Brand Financial Evolution view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_financial_evolution AS
         SELECT 
             b.name as brand_name,
@@ -189,13 +201,15 @@ async def create_brand_deep_dive_views():
         FROM core.brands b
         JOIN core.brand_financials bf ON bf.brand_id = b.id
         ORDER BY b.name, bf.fiscal_year DESC
-    """)
+    """
+    )
     print("OK Created Brand Financial Evolution view")
-    
+
     # 6. Brand Personality & Attributes Analysis
     print("6. Creating Brand Personality Analysis view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_personality_analysis AS
         SELECT 
             b.name as brand_name,
@@ -235,13 +249,15 @@ async def create_brand_deep_dive_views():
         WHERE b.brand_values IS NOT NULL
         GROUP BY b.id, b.name, b.category, b.segment, b.target_demographic, b.brand_values, b.sustainability_score
         ORDER BY b.sustainability_score DESC, b.name
-    """)
+    """
+    )
     print("OK Created Brand Personality Analysis view")
-    
+
     # 7. Brand Influence & Cultural Impact
     print("7. Creating Brand Cultural Impact view...")
-    
-    await conn.execute("""
+
+    await conn.execute(
+        """
         CREATE OR REPLACE VIEW analytics.brand_cultural_impact AS
         WITH brand_metrics AS (
             SELECT 
@@ -284,38 +300,48 @@ async def create_brand_deep_dive_views():
         FROM brand_metrics
         WHERE brand_age > 0
         ORDER BY cultural_impact_score DESC, brand_name
-    """)
+    """
+    )
     print("OK Created Brand Cultural Impact view")
-    
+
     print("\n8. Testing new deep dive views...")
-    
+
     # Test the views
     try:
-        encyclopedia_count = await conn.fetchval("SELECT COUNT(*) FROM analytics.brand_encyclopedia")
+        encyclopedia_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM analytics.brand_encyclopedia"
+        )
         print(f"  Brand Encyclopedia: {encyclopedia_count} detailed brand profiles")
-        
-        timeline_count = await conn.fetchval("SELECT COUNT(*) FROM analytics.brand_timeline")  
+
+        timeline_count = await conn.fetchval("SELECT COUNT(*) FROM analytics.brand_timeline")
         print(f"  Brand Timeline: {timeline_count} historical events")
-        
-        collab_count = await conn.fetchval("SELECT COUNT(*) FROM analytics.brand_collaboration_network")
+
+        collab_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM analytics.brand_collaboration_network"
+        )
         print(f"  Collaboration Network: {collab_count} partnerships")
-        
-        impact_sample = await conn.fetch("""
+
+        impact_sample = await conn.fetch(
+            """
             SELECT brand_name, cultural_influence_tier, cultural_impact_score
             FROM analytics.brand_cultural_impact
             ORDER BY cultural_impact_score DESC
             LIMIT 5
-        """)
-        
+        """
+        )
+
         print("  Top Cultural Impact Brands:")
         for brand in impact_sample:
-            print(f"    {brand['brand_name']}: {brand['cultural_influence_tier']} (Score: {brand['cultural_impact_score']})")
-            
+            print(
+                f"    {brand['brand_name']}: {brand['cultural_influence_tier']} (Score: {brand['cultural_impact_score']})"
+            )
+
     except Exception as e:
         print(f"  ERROR testing views: {e}")
-    
+
     print("\n=== BRAND DEEP DIVE ANALYTICS VIEWS CREATED ===")
     await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(create_brand_deep_dive_views())
