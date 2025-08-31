@@ -20,7 +20,9 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(gh run watch:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []

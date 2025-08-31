@@ -128,3 +128,29 @@ class InventoryRepository(BaseRepository[InventoryItem]):
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    async def get_all_paginated(
+        self, skip: int = 0, limit: int = 100, filters: Optional[Dict[str, Any]] = None
+    ) -> List[InventoryItem]:
+        """Get paginated list of inventory items with eager loaded relationships"""
+        query = (
+            select(InventoryItem)
+            .options(
+                selectinload(InventoryItem.product).selectinload(Product.brand),
+                selectinload(InventoryItem.product).selectinload(Product.category),
+                selectinload(InventoryItem.size),
+            )
+        )
+
+        # Apply filters if provided
+        if filters:
+            for field, value in filters.items():
+                if value is not None:
+                    if hasattr(InventoryItem, field):
+                        query = query.where(getattr(InventoryItem, field) == value)
+
+        # Apply pagination
+        query = query.offset(skip).limit(limit)
+
+        result = await self.db.execute(query)
+        return result.scalars().all()

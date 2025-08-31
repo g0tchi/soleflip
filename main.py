@@ -137,7 +137,7 @@ from domains.products.api.router import router as products_router
 from shared.monitoring.prometheus import router as prometheus_router
 
 # Authentication routes (public)
-app.include_router(auth_router, tags=["Authentication"])
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integration"])
 app.include_router(
     upload_router, prefix="/api/v1/integration", tags=["Integration"]

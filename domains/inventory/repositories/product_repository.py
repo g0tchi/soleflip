@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from shared.database.models import Brand, Category, InventoryItem, Product, Size
 
-from .base_repository import BaseRepository
+from shared.repositories import BaseRepository
 
 
 class ProductRepository(BaseRepository[Product]):
