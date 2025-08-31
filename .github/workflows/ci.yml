@@ -85,7 +85,7 @@ jobs:
       - name: Set up test environment
         run: |
           echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/soleflip_test" > .env
-          echo "FIELD_ENCRYPTION_KEY=test-key-for-ci-cd-only-not-secure" >> .env
+          echo "FIELD_ENCRYPTION_KEY=2QnM2TYhCP4gsdMbu5dHa6viDdwlIGk4h3z6-7woRGo=" >> .env
           echo "ENVIRONMENT=testing" >> .env
       - name: Run database migrations
         run: python -m alembic upgrade head
@@ -181,7 +181,7 @@ jobs:
       - name: Start services with docker-compose
         run: |
           echo "DATABASE_URL=postgresql+asyncpg://metabaseuser:metabasepass@localhost:2665/soleflip" > .env
-          echo "FIELD_ENCRYPTION_KEY=test-key-for-ci-cd-only-not-secure" >> .env
+          echo "FIELD_ENCRYPTION_KEY=2QnM2TYhCP4gsdMbu5dHa6viDdwlIGk4h3z6-7woRGo=" >> .env
           echo "ENVIRONMENT=testing" >> .env
           docker-compose up -d postgres
           sleep 10
@@ -232,7 +232,7 @@ jobs:
       - name: Set up environment
         run: |
           echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/soleflip_migration_test" > .env
-          echo "FIELD_ENCRYPTION_KEY=test-key-for-ci-cd-only-not-secure" >> .env
+          echo "FIELD_ENCRYPTION_KEY=2QnM2TYhCP4gsdMbu5dHa6viDdwlIGk4h3z6-7woRGo=" >> .env
           echo "ENVIRONMENT=testing" >> .env
       - name: Test migration up
         run: python -m alembic upgrade head
