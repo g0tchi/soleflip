@@ -9,6 +9,7 @@ import ModernAnalytics from './pages/ModernAnalytics';
 import PricingForecast from './pages/PricingForecast';
 import Import from './pages/Import';
 import Database from './pages/Database';
+import ModernDataManagement from './pages/ModernDataManagement';
 import ModernSettings from './pages/ModernSettings';
 import { useTheme } from './contexts/ThemeContext';
 
@@ -29,6 +30,7 @@ function App() {
           <Route path="/inventory" element={isModernTheme ? <ModernInventory /> : <Inventory />} />
           <Route path="/analytics" element={isModernTheme ? <ModernAnalytics /> : <Analytics />} />
           <Route path="/pricing-forecast" element={<PricingForecast />} />
+          <Route path="/data-management" element={isModernTheme ? <ModernDataManagement /> : <Database />} />
           <Route path="/import" element={<Import />} />
           <Route path="/database" element={<Database />} />
           <Route path="/settings" element={<ModernSettings />} />

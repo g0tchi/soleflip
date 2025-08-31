@@ -20,6 +20,11 @@ interface DashboardMetrics {
   active_listings: number;
   pending_imports: number;
   recent_transactions: any[];
+  weekly_stats: {
+    sales_count: number;
+    revenue: number;
+    new_listings: number;
+  };
 }
 
 const ModernDashboard = () => {
@@ -50,14 +55,19 @@ const ModernDashboard = () => {
     profit_margin: 0,
     active_listings: 0,
     pending_imports: 0,
-    recent_transactions: []
+    recent_transactions: [],
+    weekly_stats: {
+      sales_count: 0,
+      revenue: 0,
+      new_listings: 0
+    }
   });
   const [isLoading, setIsLoading] = useState(true);
 
   // Theme-aware styles
   const isModernTheme = theme === 'happy-hues-modern';
   const containerClasses = isModernTheme 
-    ? 'h-full w-full p-8 bg-gray-900 text-gray-200' 
+    ? 'min-h-screen p-8 space-y-8' 
     : 'h-full w-full p-8 bg-dark-bg text-retro-cyan font-mono';
     
   const cardClasses = isModernTheme
@@ -76,7 +86,18 @@ const ModernDashboard = () => {
     try {
       setIsLoading(true);
       const response = await invoke<any>('get_dashboard_metrics');
-      setMetrics(response);
+      
+      // Ensure weekly_stats exists, provide defaults if missing
+      const metricsWithDefaults = {
+        ...response,
+        weekly_stats: response.weekly_stats || {
+          sales_count: 0,
+          revenue: 0,
+          new_listings: 0
+        }
+      };
+      
+      setMetrics(metricsWithDefaults);
     } catch (error) {
       console.error('Failed to fetch dashboard metrics:', error);
       // Keep metrics at zero if API fails - no fake data
@@ -86,7 +107,12 @@ const ModernDashboard = () => {
         profit_margin: 0,
         active_listings: 0,
         pending_imports: 0,
-        recent_transactions: []
+        recent_transactions: [],
+        weekly_stats: {
+          sales_count: 0,
+          revenue: 0,
+          new_listings: 0
+        }
       });
     } finally {
       setIsLoading(false);
@@ -148,14 +174,12 @@ const ModernDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className={containerClasses}>
-        <div className="flex justify-center items-center h-1/2">
-          <div className="text-center">
-            <RefreshCw className={`w-16 h-16 animate-spin mx-auto mb-4 ${
-              isModernTheme ? 'text-purple-500' : 'text-retro-cyan'
-            }`} />
-            <p className={`${headingClasses} text-xl`}>Loading Dashboard...</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className={`w-16 h-16 animate-spin mx-auto mb-4 ${
+            isModernTheme ? 'text-purple-500' : 'text-retro-cyan'
+          }`} />
+          <p className={`${headingClasses} text-xl`}>Loading Dashboard...</p>
         </div>
       </div>
     );
@@ -287,30 +311,39 @@ const ModernDashboard = () => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className={subheadingClasses}>Sales</span>
-                  <span className={headingClasses}>24</span>
+                  <span className={headingClasses}>{metrics.weekly_stats.sales_count}</span>
                 </div>
                 <div className={`w-full h-2 rounded overflow-hidden ${isModernTheme ? 'bg-gray-800' : 'bg-dark-card'}`}>
-                  <div className="w-3/4 h-full bg-purple-500 rounded" />
+                  <div 
+                    className="h-full bg-purple-500 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.sales_count / 50) * 100)}%` }}
+                  />
                 </div>
               </div>
               
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className={subheadingClasses}>Revenue</span>
-                  <span className={headingClasses}>$3,420</span>
+                  <span className={headingClasses}>€{metrics.weekly_stats.revenue.toLocaleString()}</span>
                 </div>
                 <div className={`w-full h-2 rounded overflow-hidden ${isModernTheme ? 'bg-gray-800' : 'bg-dark-card'}`}>
-                  <div className="w-5/6 h-full bg-green-400 rounded" />
+                  <div 
+                    className="h-full bg-green-400 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.revenue / 5000) * 100)}%` }}
+                  />
                 </div>
               </div>
               
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className={subheadingClasses}>Listings</span>
-                  <span className={headingClasses}>12</span>
+                  <span className={subheadingClasses}>New Listings</span>
+                  <span className={headingClasses}>{metrics.weekly_stats.new_listings}</span>
                 </div>
                 <div className={`w-full h-2 rounded overflow-hidden ${isModernTheme ? 'bg-gray-800' : 'bg-dark-card'}`}>
-                  <div className="w-3/5 h-full bg-red-400 rounded" />
+                  <div 
+                    className="h-full bg-red-400 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.new_listings / 20) * 100)}%` }}
+                  />
                 </div>
               </div>
             </div>

@@ -203,8 +203,11 @@ const ModernInventory = () => {
 
         {/* Inventory Table */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <RefreshCw className="w-8 h-8 animate-spin text-purple-400" />
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <RefreshCw className="w-12 h-12 animate-spin text-purple-400 mx-auto mb-4" />
+              <p className="modern-heading text-lg">Loading Inventory...</p>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">

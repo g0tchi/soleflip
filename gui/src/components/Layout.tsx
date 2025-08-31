@@ -4,7 +4,6 @@ import {
   BarChart3, 
   Package, 
   Database, 
-  Upload, 
   Settings, 
   Activity,
   Monitor,
@@ -37,8 +36,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: '/inventory', icon: Package, label: 'Inventory' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/pricing-forecast', icon: Brain, label: 'AI Pricing' },
-    { path: '/import', icon: Upload, label: 'Import' },
-    { path: '/database', icon: Database, label: 'Database' },
+    { path: '/data-management', icon: Database, label: 'Data Management' },
     { path: '/settings', icon: Settings, label: 'Settings' },
   ];
 
