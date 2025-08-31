@@ -3,27 +3,28 @@ API Router for Inventory-related endpoints
 Production-ready CRUD operations for inventory management
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List
 from uuid import UUID
-import structlog
 
+import structlog
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+
+from domains.inventory.services.inventory_service import InventoryService
 from shared.api.dependencies import (
-    get_inventory_service,
-    PaginationParams,
-    SearchParams,
-    validate_inventory_item_id,
-    ResponseFormatter,
     ErrorContext,
+    PaginationParams,
+    ResponseFormatter,
+    SearchParams,
+    get_inventory_service,
+    validate_inventory_item_id,
 )
 from shared.api.responses import (
     InventoryItemResponse,
     InventorySummaryResponse,
     PaginatedResponse,
-    SuccessResponse,
     ResponseBuilder,
+    SuccessResponse,
 )
-from domains.inventory.services.inventory_service import InventoryService
 
 logger = structlog.get_logger(__name__)
 

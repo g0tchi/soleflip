@@ -1,6 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock
-from domains.integration.services.import_processor import ImportProcessor, SourceType, ImportStatus
+
+import pytest
+
+from domains.integration.services.import_processor import ImportProcessor, ImportStatus, SourceType
 
 # Mark all tests in this file as integration tests requiring a database
 pytestmark = [pytest.mark.integration, pytest.mark.database]
@@ -134,8 +136,9 @@ class TestImportPipelinePerformance:
     async def test_memory_usage_large_import(self, import_processor):
         # Arrange
         batch = await import_processor.create_initial_batch(SourceType.STOCKX, "memory.csv")
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss

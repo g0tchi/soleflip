@@ -3,12 +3,13 @@
 Create Database Backup before Schema Changes
 """
 import asyncio
+import os
 import subprocess
 import sys
-import os
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 
 

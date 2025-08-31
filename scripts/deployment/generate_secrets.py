@@ -4,12 +4,13 @@ Generate secrets for SoleFlipper deployment.
 Creates all necessary encryption keys and provides setup instructions.
 """
 
-import secrets
-import base64
-from cryptography.fernet import Fernet
 import argparse
+import base64
 import json
-from typing import Dict, Any
+import secrets
+from typing import Any, Dict
+
+from cryptography.fernet import Fernet
 
 
 def generate_fernet_key() -> str:

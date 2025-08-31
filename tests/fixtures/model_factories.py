@@ -2,35 +2,36 @@
 Model factories for testing using Factory Boy
 """
 
-import factory
-from factory import LazyAttribute, SubFactory, Sequence
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-import uuid
+
+import factory
+from factory import LazyAttribute, Sequence, SubFactory
 
 from shared.database.models import (
     Brand,
     Category,
-    Size,
-    Product,
-    InventoryItem,
-    Supplier,
-    Platform,
-    Transaction,
     ImportBatch,
     ImportRecord,
+    InventoryItem,
+    Platform,
+    Product,
+    Size,
+    Supplier,
+    Transaction,
 )
 from shared.types.domain_types import (
-    ProductStatus,
-    InventoryStatus,
-    SizeRegion,
-    SupplierType,
-    SupplierStatus,
     BusinessSize,
-    TransactionStatus,
-    PlatformType,
     ImportSourceType,
     ImportStatus,
+    InventoryStatus,
+    PlatformType,
+    ProductStatus,
+    SizeRegion,
+    SupplierStatus,
+    SupplierType,
+    TransactionStatus,
 )
 
 

@@ -2,17 +2,18 @@
 Database fixtures for testing
 """
 
-import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy import event
-from sqlalchemy.pool import StaticPool
-import pytest_asyncio
 
-from shared.database.models import Base
-from shared.database.connection import DatabaseManager
+import pytest
+import pytest_asyncio
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
+
 from shared.config.settings import TestingSettings
+from shared.database.connection import DatabaseManager
+from shared.database.models import Base
 
 
 @pytest.fixture(scope="session")
@@ -121,7 +122,7 @@ class DatabaseTestHelper:
 
     async def count_records(self, model_class) -> int:
         """Count records in a table"""
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
 
         result = await self.session.execute(select(func.count()).select_from(model_class))
         return result.scalar()

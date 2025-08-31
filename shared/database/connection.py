@@ -4,14 +4,15 @@ Production-ready PostgreSQL connection with pooling,
 health checks, and migration support.
 """
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import text
 import asyncio
-import structlog
-from typing import AsyncGenerator
 import os
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import structlog
 from dotenv import load_dotenv
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Load environment variables from .env file
 load_dotenv()

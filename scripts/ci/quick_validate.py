@@ -4,11 +4,11 @@ Quick CI/CD Pipeline Validation
 Fast validation of key CI/CD components without running time-intensive tests.
 """
 
+import os
 import subprocess
 import sys
-import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 
 def log(message, status="INFO"):

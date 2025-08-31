@@ -4,10 +4,11 @@ Simple validation test for Pricing & Forecasting System
 Tests basic functionality without complex relationships
 """
 import asyncio
-import asyncpg
-from datetime import datetime, date
-from decimal import Decimal
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
+
+import asyncpg
 
 
 async def validate_pricing_system():

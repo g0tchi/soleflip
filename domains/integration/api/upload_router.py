@@ -1,15 +1,16 @@
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Optional, List
-import pandas as pd
 import io
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import List, Optional
 
-from shared.database.connection import get_db_session
-from domains.integration.services.import_processor import ImportProcessor, SourceType
+import pandas as pd
 import structlog
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from domains.integration.services.import_processor import ImportProcessor, SourceType
+from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
 

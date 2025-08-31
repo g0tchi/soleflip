@@ -3,16 +3,18 @@ FastAPI authentication dependencies.
 """
 
 from typing import Optional
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+
 import structlog
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from .jwt_handler import JWTHandler
-from .models import User, UserRole, TokenPayload
 from shared.repositories.base_repository import BaseRepository
+
+from .jwt_handler import JWTHandler
+from .models import TokenPayload, User, UserRole
 
 logger = structlog.get_logger(__name__)
 

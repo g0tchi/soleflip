@@ -5,7 +5,8 @@ Demo script for the Retro CLI without requiring database connections
 
 import sys
 import time
-from utils import show_banner, keygen_animation, colored_text, wait_for_key, clear_screen
+
+from utils import clear_screen, colored_text, keygen_animation, show_banner, wait_for_key
 
 
 def demo_startup():
@@ -181,6 +182,7 @@ def demo_security():
 
     try:
         from security import SecurityManager
+
         from config import get_config
 
         config = get_config()

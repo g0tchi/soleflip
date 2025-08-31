@@ -4,10 +4,10 @@ Check GitHub repository secrets configuration.
 Verifies that all required secrets are present for deployment.
 """
 
-import subprocess
 import json
+import subprocess
 import sys
-from typing import List, Dict, Any, Set
+from typing import Any, Dict, List, Set
 
 
 class SecretChecker:

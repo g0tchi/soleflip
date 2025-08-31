@@ -3,12 +3,13 @@ Custom Exception Classes and Global Error Handling
 Production-ready error handling with proper logging and user feedback
 """
 
-from typing import Dict, Any, Optional, List
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import structlog
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
-import structlog
-from enum import Enum
-from datetime import datetime
 
 logger = structlog.get_logger(__name__)
 

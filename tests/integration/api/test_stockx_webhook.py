@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
+
 from main import app
 
 pytestmark = [pytest.mark.api, pytest.mark.integration, pytest.mark.database]

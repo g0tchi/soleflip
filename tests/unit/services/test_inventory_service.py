@@ -1,10 +1,12 @@
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 from uuid import uuid4
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from domains.inventory.services.inventory_service import InventoryService
-from shared.database.models import Product, InventoryItem, Brand, Category, Size
+
 from domains.integration.services.stockx_service import StockXService
+from domains.inventory.services.inventory_service import InventoryService
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
 
 pytestmark = pytest.mark.asyncio
 

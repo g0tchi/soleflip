@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from typing import List, Optional, Dict, Any
-import structlog
 from datetime import date
+from typing import Any, Dict, List, Optional
 
-from domains.integration.services.stockx_service import StockXService
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query
+
 from domains.integration.api.webhooks import get_stockx_service
+from domains.integration.services.stockx_service import StockXService
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()

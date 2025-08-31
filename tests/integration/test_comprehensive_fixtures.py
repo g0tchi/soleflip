@@ -3,29 +3,27 @@ Comprehensive test demonstrating the new fixture infrastructure
 Tests the integration between factories, database fixtures, and API fixtures
 """
 
-import pytest
 from uuid import UUID
 
-from tests.fixtures import (
-    # Database fixtures
-    db_session,
-    test_engine,
-    clean_database,
-    db_helper,
-    # Model factories
+import pytest
+
+from tests.fixtures import (  # Database fixtures; Model factories; API fixtures
     BrandFactory,
-    ProductFactory,
-    InventoryItemFactory,
     CompleteProductFactory,
     FactoryHelper,
-    # API fixtures
-    async_client,
-    api_helper,
-    override_get_db,
+    InventoryItemFactory,
+    ProductFactory,
     api_headers,
-    sample_product_data,
+    api_helper,
+    async_client,
+    clean_database,
+    db_helper,
+    db_session,
+    override_get_db,
     response_validator,
+    sample_product_data,
     setup_integration_environment,
+    test_engine,
 )
 
 

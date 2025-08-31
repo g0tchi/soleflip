@@ -5,21 +5,21 @@ Integrates with the new fixture infrastructure in tests.fixtures
 """
 
 import asyncio
-import pytest
-from typing import AsyncGenerator, Dict, Any, Generator
-from uuid import uuid4
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any, AsyncGenerator, Dict, Generator
+from uuid import uuid4
 
+import pytest
 import structlog
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from main import app
-from shared.database.models import Base
 from shared.database.connection import db_manager
+from shared.database.models import Base
 
 # Import comprehensive fixtures from new fixture infrastructure
 from tests.fixtures import *
@@ -112,8 +112,8 @@ async def legacy_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 import anyio
-from httpx import ASGITransport
 from fastapi import BackgroundTasks
+from httpx import ASGITransport
 
 
 # Note: async_client and client fixtures are now provided by tests.fixtures.api_fixtures

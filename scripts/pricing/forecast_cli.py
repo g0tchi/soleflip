@@ -3,14 +3,14 @@
 Forecast CLI - Command-line interface for sales forecasting operations
 Production-ready tool for generating and managing forecasts
 """
-import asyncio
 import argparse
+import asyncio
 import json
+import logging
 import sys
 import uuid
 from datetime import date, datetime, timedelta
-from typing import Optional, Dict, Any, List
-import logging
+from typing import Any, Dict, List, Optional
 
 # Setup logging
 logging.basicConfig(
@@ -21,18 +21,19 @@ logger = logging.getLogger(__name__)
 # Add project root to path
 sys.path.insert(0, ".")
 
-from shared.database.connection import get_db_session
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
+
+from domains.analytics.repositories.forecast_repository import ForecastRepository
 from domains.analytics.services.forecast_engine import (
-    ForecastEngine,
     ForecastConfig,
-    ForecastModel,
+    ForecastEngine,
     ForecastHorizon,
     ForecastLevel,
+    ForecastModel,
 )
-from domains.analytics.repositories.forecast_repository import ForecastRepository
-from shared.database.models import Product, Brand, Category
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from shared.database.connection import get_db_session
+from shared.database.models import Brand, Category, Product
 
 
 class ForecastCLI:

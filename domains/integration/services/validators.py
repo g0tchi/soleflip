@@ -3,13 +3,15 @@ Data Validation System
 Replaces chaotic SQL validation with clean, testable Python validators
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import re
-from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict, List, Optional
+
 import structlog
-from shared.utils import ValidationUtils, ValidationErrors
+
+from shared.utils import ValidationErrors, ValidationUtils
 
 logger = structlog.get_logger(__name__)
 
@@ -24,8 +26,9 @@ class ValidationResult:
     normalized_data: List[Dict[str, Any]]
 
 
-from domains.products.services.brand_service import BrandExtractorService
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from domains.products.services.brand_service import BrandExtractorService
 
 
 class BaseValidator:

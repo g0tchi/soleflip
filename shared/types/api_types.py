@@ -2,10 +2,12 @@
 API-specific type definitions
 """
 
-from typing import Dict, List, Optional, Union, Any, Generic, TypeVar
-from typing_extensions import TypedDict, NotRequired
 from datetime import datetime
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+
 from pydantic import BaseModel, Field
+from typing_extensions import NotRequired, TypedDict
+
 from .base_types import EntityId, HTTPStatus, JSONDict
 from .domain_types import *
 

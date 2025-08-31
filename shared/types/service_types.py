@@ -2,26 +2,27 @@
 Service layer type definitions
 """
 
+from abc import ABC, abstractmethod
+from datetime import datetime
+from enum import Enum
 from typing import (
     Any,
+    Awaitable,
+    Callable,
     Dict,
+    Generic,
     List,
     Optional,
-    Union,
-    Callable,
-    Awaitable,
     Protocol,
     TypeVar,
-    Generic,
+    Union,
     runtime_checkable,
 )
-from typing_extensions import TypedDict, NotRequired
-from datetime import datetime
-from abc import ABC, abstractmethod
-from enum import Enum
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base_types import EntityId, Result, Option
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing_extensions import NotRequired, TypedDict
+
+from .base_types import EntityId, Option, Result
 from .domain_types import *
 
 T = TypeVar("T")

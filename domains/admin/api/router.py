@@ -3,12 +3,13 @@ Admin API Router
 Provides administrative functions like database queries and system management
 """
 
+from typing import Any, Dict, List, Optional
+
+import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 

@@ -8,8 +8,9 @@ from pathlib import Path
 
 sys.path.append(".")
 
-from shared.database.connection import DatabaseManager
 from sqlalchemy import text
+
+from shared.database.connection import DatabaseManager
 
 
 async def check_alias_transactions():

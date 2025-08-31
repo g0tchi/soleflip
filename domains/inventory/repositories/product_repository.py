@@ -3,13 +3,15 @@ Product Repository - Clean Data Access Layer
 Replaces direct SQL queries with maintainable repository pattern
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
+
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, desc
 from sqlalchemy.orm import selectinload
 
-from shared.database.models import Product, Brand, Category, InventoryItem, Size
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
+
 from .base_repository import BaseRepository
 
 

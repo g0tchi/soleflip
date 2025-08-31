@@ -1,6 +1,7 @@
 import asyncio
-import asyncpg
 from datetime import date
+
+import asyncpg
 
 
 async def create_brand_relationships():

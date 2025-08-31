@@ -3,10 +3,11 @@ Common validation utilities shared across domains.
 Extracted to reduce code duplication in validation patterns.
 """
 
-from decimal import Decimal, InvalidOperation
-from datetime import datetime, timezone
-from typing import Any, Optional, Union
 import re
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from typing import Any, Optional, Union
+
 from dateutil import parser as date_parser
 
 

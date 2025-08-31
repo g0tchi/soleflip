@@ -4,15 +4,16 @@ Handles CSV, JSON, and Excel file parsing with robust error handling
 and data normalization for different source formats.
 """
 
-from typing import List, Dict, Any, Optional, Union
-import pandas as pd
-import json
 import io
-from pathlib import Path
+import json
 from abc import ABC, abstractmethod
-import structlog
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
+import structlog
 
 logger = structlog.get_logger(__name__)
 

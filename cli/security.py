@@ -4,16 +4,17 @@ Security and Logging Features for Retro CLI
 Handles logging, session management, and security checks
 """
 
-import os
+import hashlib
 import json
 import logging
-import hashlib
+import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from utils import colored_text
 
 from config import Config
-from utils import colored_text
 
 
 class SecurityManager:

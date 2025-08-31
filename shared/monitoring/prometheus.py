@@ -3,7 +3,8 @@ Prometheus metrics exporter for SoleFlipper application.
 Provides Prometheus-compatible metrics endpoint.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 import structlog
 from fastapi import APIRouter, Response
 from fastapi.responses import PlainTextResponse

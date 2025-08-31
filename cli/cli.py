@@ -4,25 +4,27 @@ Retro Keygen Admin CLI
 A nostalgic CLI tool for database and API management
 """
 
+import os
+import random
 import sys
 import time
-import random
-import os
 from typing import Optional
-from utils import (
-    show_banner,
-    keygen_animation,
-    progress_bar,
-    colored_text,
-    clear_screen,
-    wait_for_key,
-    status_icon,
-    format_status_line,
-    section_header,
-)
-from config import get_config
+
 from db import DatabaseManager
 from shopify import ShopifyManager
+from utils import (
+    clear_screen,
+    colored_text,
+    format_status_line,
+    keygen_animation,
+    progress_bar,
+    section_header,
+    show_banner,
+    status_icon,
+    wait_for_key,
+)
+
+from config import get_config
 
 try:
     from stockx_real import RealStockXManager as StockXManager
@@ -492,8 +494,10 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            from shared.database.connection import db_manager
+
             from sqlalchemy import text
+
+            from shared.database.connection import db_manager
 
             async def analyze():
                 await db_manager.initialize()
@@ -622,8 +626,9 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            from shared.database.connection import db_manager
+
             from domains.integration.services.stockx_service import StockXService
+            from shared.database.connection import db_manager
 
             async def search():
                 await db_manager.initialize()
@@ -672,9 +677,11 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            from shared.database.connection import db_manager
+
+            from sqlalchemy import select, text, update
+
             from domains.integration.services.stockx_service import StockXService
-            from sqlalchemy import text, select, update
+            from shared.database.connection import db_manager
             from shared.database.models import Product
 
             async def enrich_products():
@@ -841,11 +848,13 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            from shared.database.connection import db_manager
-            from domains.integration.services.stockx_service import StockXService
-            from sqlalchemy import text, update
-            from shared.database.models import Product
             import time
+
+            from sqlalchemy import text, update
+
+            from domains.integration.services.stockx_service import StockXService
+            from shared.database.connection import db_manager
+            from shared.database.models import Product
 
             async def bulk_enrich():
                 await db_manager.initialize()
@@ -1019,8 +1028,10 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            from shared.database.connection import db_manager
+
             from sqlalchemy import text
+
+            from shared.database.connection import db_manager
 
             async def show_stats():
                 await db_manager.initialize()

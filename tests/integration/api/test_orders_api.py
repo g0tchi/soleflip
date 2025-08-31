@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import patch, AsyncMock
-from httpx import AsyncClient
 from datetime import date
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from httpx import AsyncClient
 
 from main import app  # Import the app instance
 

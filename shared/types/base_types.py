@@ -2,34 +2,35 @@
 Base type definitions and type aliases
 """
 
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-    Tuple,
-    Set,
-    Callable,
-    Awaitable,
-    AsyncGenerator,
-    Generator,
-    TypeVar,
-    Generic,
-    Protocol,
-    runtime_checkable,
-    Literal,
-    Final,
-    ClassVar,
-    TYPE_CHECKING,
-)
-from typing_extensions import TypedDict, NotRequired
-from datetime import datetime, date
+import sys
+from datetime import date, datetime
 from decimal import Decimal
-from uuid import UUID
 from enum import Enum, IntEnum
 from pathlib import Path
-import sys
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    ClassVar,
+    Dict,
+    Final,
+    Generator,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
+from uuid import UUID
+
+from typing_extensions import NotRequired, TypedDict
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -446,6 +447,6 @@ class Option(Generic[T]):
 
 if TYPE_CHECKING:
     # Additional imports only for type checking
-    from sqlalchemy.ext.asyncio import AsyncSession
     from fastapi import Request, Response
     from pydantic import BaseModel
+    from sqlalchemy.ext.asyncio import AsyncSession

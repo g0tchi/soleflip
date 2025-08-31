@@ -4,23 +4,25 @@ Replaces the chaotic SQL-based import system with a clean,
 testable, and maintainable Python implementation.
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
 import asyncio
+import math
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
 from enum import Enum
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-import math
-from uuid import UUID
-from decimal import Decimal
 
-from shared.database.models import ImportBatch, ImportRecord
-from .validators import StockXValidator, NotionValidator, SalesValidator, AliasValidator
-from .parsers import CSVParser, JSONParser, ExcelParser
-from .transformers import DataTransformer
 from domains.products.services.product_processor import ProductProcessor
 from domains.sales.services.transaction_processor import TransactionProcessor
+from shared.database.models import ImportBatch, ImportRecord
+
+from .parsers import CSVParser, ExcelParser, JSONParser
+from .transformers import DataTransformer
+from .validators import AliasValidator, NotionValidator, SalesValidator, StockXValidator
 
 logger = structlog.get_logger(__name__)
 

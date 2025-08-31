@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.products.services.brand_service import BrandExtractorService

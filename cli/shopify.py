@@ -4,17 +4,18 @@ Shopify API Helper for Retro CLI
 Handles Shopify REST API operations with security focus
 """
 
-import json
 import csv
+import json
 import logging
-from typing import Dict, List, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from utils import clear_screen, colored_text, progress_bar
 
 from config import Config, ShopifyConfig
-from utils import colored_text, progress_bar, clear_screen
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

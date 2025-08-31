@@ -3,13 +3,14 @@ Data Transformation Utilities
 Common patterns for data processing and transformation
 """
 
-from typing import Any, Dict, List, Optional, Union, Callable, Type, TypeVar
+import re
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 from uuid import UUID
-import re
+
 import structlog
-from dataclasses import dataclass, asdict
 
 logger = structlog.get_logger(__name__)
 

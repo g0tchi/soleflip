@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
 from domains.integration.services.stockx_service import StockXService
-from tests.fixtures import async_client, api_helper, override_get_db, mock_external_services
+from tests.fixtures import api_helper, async_client, mock_external_services, override_get_db
 
 
 @pytest.mark.api

@@ -2,17 +2,19 @@
 API fixtures for testing FastAPI endpoints
 """
 
-import pytest
-from typing import AsyncGenerator, Dict, Any, Optional
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
-import pytest_asyncio
+from typing import Any, AsyncGenerator, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
+import pytest
+import pytest_asyncio
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
+
 from main import app
-from shared.config.settings import get_settings, TestingSettings
+from shared.config.settings import TestingSettings, get_settings
 from shared.database.connection import get_db_session
+
 from .database_fixtures import db_session, test_engine
 from .model_factories import FactoryHelper
 

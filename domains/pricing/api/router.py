@@ -2,20 +2,21 @@
 Pricing API Router - Smart pricing recommendations and market analysis
 """
 
-from typing import Dict, Any, List, Optional
-from uuid import UUID
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
 import structlog
-from datetime import datetime, date
-
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
 from domains.inventory.services.inventory_service import InventoryService
-from ..services.pricing_engine import PricingEngine, PricingStrategy, PricingContext
+from shared.database.connection import get_db_session
+
 from ..repositories.pricing_repository import PricingRepository
+from ..services.pricing_engine import PricingContext, PricingEngine, PricingStrategy
 
 logger = structlog.get_logger(__name__)
 
@@ -84,8 +85,9 @@ async def get_pricing_recommendation(
 
     try:
         # Get product and inventory data
-        from shared.database.models import Product, InventoryItem
         from sqlalchemy import select
+
+        from shared.database.models import InventoryItem, Product
 
         # Fetch product
         product_result = await db.execute(select(Product).where(Product.id == request.product_id))
@@ -156,8 +158,9 @@ async def get_market_analysis(
 
     try:
         # Get product
-        from shared.database.models import Product
         from sqlalchemy import select
+
+        from shared.database.models import Product
 
         product_result = await db.execute(select(Product).where(Product.id == product_id))
         product = product_result.scalar_one_or_none()

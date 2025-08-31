@@ -2,20 +2,21 @@
 Analytics & Forecast API Router - Advanced sales forecasting and predictive analytics
 """
 
-from typing import Dict, Any, List, Optional, Union
-from uuid import UUID
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-import structlog
-from datetime import datetime, date, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+from uuid import UUID
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from ..services.forecast_engine import ForecastEngine, ForecastModel, ForecastHorizon
+
 from ..repositories.forecast_repository import ForecastRepository
+from ..services.forecast_engine import ForecastEngine, ForecastHorizon, ForecastModel
 
 logger = structlog.get_logger(__name__)
 
@@ -103,8 +104,9 @@ async def generate_sales_forecast(
         # Generate forecast based on target type
         if request.product_id:
             # Product-level forecast
-            from shared.database.models import Product
             from sqlalchemy import select
+
+            from shared.database.models import Product
 
             product_result = await db.execute(
                 select(Product).where(Product.id == request.product_id)

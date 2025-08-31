@@ -5,19 +5,20 @@ Uses the actual StockX service from the main application
 """
 
 import asyncio
-import json
 import csv
+import json
 import logging
-from typing import Dict, List, Any, Optional
-from datetime import datetime, date, timedelta
-import sys
 import os
+import sys
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 # Add the parent directory to sys.path to import from domains
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from utils import clear_screen, colored_text, progress_bar
+
 from config import Config
-from utils import colored_text, progress_bar, clear_screen
 
 # Import the real StockX service
 try:

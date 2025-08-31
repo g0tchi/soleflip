@@ -4,16 +4,16 @@ Local CI/CD Pipeline Validation Script
 Simulates and validates the entire CI/CD pipeline locally before pushing to GitHub.
 """
 
+import asyncio
+import json
+import os
 import subprocess
 import sys
-import os
-import asyncio
-import time
-import json
-from pathlib import Path
-from typing import List, Dict, Any, Tuple
-from dataclasses import dataclass
 import tempfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 
 @dataclass
@@ -345,8 +345,9 @@ class CIPipelineValidator:
 
             sys.path.insert(0, str(self.project_root))
 
-            from main import app
             from fastapi.testclient import TestClient
+
+            from main import app
 
             client = TestClient(app)
 

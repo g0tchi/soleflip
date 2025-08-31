@@ -2,20 +2,21 @@
 Authentication API endpoints.
 """
 
+from datetime import datetime, timedelta, timezone
+
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timezone, timedelta
-import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
-from shared.auth.models import User, UserCreate, UserResponse, LoginRequest, AuthToken, UserRole
-from shared.auth.jwt_handler import JWTHandler
-from shared.auth.password_hasher import PasswordHasher
+from shared.api.responses import create_error_response, create_success_response
 from shared.auth.dependencies import get_current_user, require_admin_role
+from shared.auth.jwt_handler import JWTHandler
+from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse, UserRole
+from shared.auth.password_hasher import PasswordHasher
+from shared.database.connection import get_db_session
 from shared.repositories.base_repository import BaseRepository
-from shared.api.responses import create_success_response, create_error_response
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(tags=["Authentication"])

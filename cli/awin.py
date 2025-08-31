@@ -4,18 +4,19 @@ Awin Affiliate Data Import for Retro CLI
 Handles Awin API operations and CSV imports with security focus
 """
 
-import os
 import csv
 import json
 import logging
-from typing import Dict, List, Any, Optional
+import os
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from utils import clear_screen, colored_text, progress_bar
 
-from config import Config, AwinConfig
-from utils import colored_text, progress_bar, clear_screen
+from config import AwinConfig, Config
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

@@ -3,21 +3,22 @@ SQLAlchemy Models for SoleFlipper
 Clean, maintainable model definitions with proper relationships
 """
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, Numeric, Boolean, ForeignKey, Date
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+import os
+import uuid
+
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
-from cryptography.fernet import Fernet
-import os
-from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Import the schema helper
-from shared.database.utils import get_schema_ref, IS_POSTGRES
+from shared.database.utils import IS_POSTGRES, get_schema_ref
 
 Base = declarative_base()
 

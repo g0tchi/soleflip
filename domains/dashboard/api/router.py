@@ -3,15 +3,16 @@ Dashboard API Router
 Provides comprehensive dashboard metrics and statistics
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, List
-import structlog
 from datetime import datetime, timedelta
+from typing import Any, Dict, List
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
-from shared.api.dependencies import get_inventory_service
 from domains.inventory.services.inventory_service import InventoryService
+from shared.api.dependencies import get_inventory_service
+from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
 
@@ -35,8 +36,9 @@ async def get_dashboard_metrics(
         inventory_summary = await inventory_service.get_detailed_summary()
 
         # Get real transaction-based analytics data
-        from sqlalchemy import text, func
-        from shared.database.models import Transaction, InventoryItem, Product, Brand
+        from sqlalchemy import func, text
+
+        from shared.database.models import Brand, InventoryItem, Product, Transaction
 
         # Get sales analytics from transactions
         sales_query = text(

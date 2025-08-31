@@ -2,10 +2,10 @@
 Mock Analytics API Router - Temporary endpoints with sample data
 """
 
-from typing import Dict, Any, List
-import structlog
 from datetime import datetime
+from typing import Any, Dict, List
 
+import structlog
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 

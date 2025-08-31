@@ -3,13 +3,14 @@ Health Check System
 Comprehensive health monitoring for production environments
 """
 
-from typing import Dict, List, Optional, Any, Callable, Awaitable, Protocol
-from datetime import datetime, timedelta
-from dataclasses import dataclass
-from enum import Enum
 import asyncio
-import structlog
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 

@@ -5,8 +5,9 @@ Handles environment variables, database connections, and API credentials
 """
 
 import os
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables

@@ -3,10 +3,10 @@
 Retro Keygen Utils - ASCII Art, Animations, and Visual Effects
 """
 
-import time
-import random
 import os
+import random
 import sys
+import time
 from typing import List
 
 

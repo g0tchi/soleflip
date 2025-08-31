@@ -20,9 +20,10 @@ def main():
 
     # 2. Create schema directly from models
     print("\nCreating schema directly from models for a clean slate...")
+    import asyncio
+
     from shared.database.connection import DatabaseManager
     from shared.database.models import Base
-    import asyncio
 
     async def create_schema():
         db_manager_local = DatabaseManager()

@@ -8,9 +8,10 @@ from pathlib import Path
 
 sys.path.append(".")
 
+from sqlalchemy import text
+
 from domains.sales.services.transaction_processor import TransactionProcessor
 from shared.database.connection import DatabaseManager, db_manager
-from sqlalchemy import text
 
 
 async def create_alias_transactions():

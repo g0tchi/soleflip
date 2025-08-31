@@ -4,34 +4,37 @@ Production-ready FastAPI application with proper error handling,
 logging, and monitoring.
 """
 
-from fastapi import FastAPI, Depends
+from contextlib import asynccontextmanager
+
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
-import uvicorn
 from sqlalchemy.ext.asyncio import AsyncSession
-from dotenv import load_dotenv
 
 load_dotenv()
 
-from shared.database.connection import get_db_session, db_manager
-from domains.inventory.services.inventory_service import InventoryService
-from shared.error_handling.exceptions import (
-    SoleFlipException,
-    ValidationException,
-    soleflip_exception_handler,
-    validation_exception_handler,
-    generic_exception_handler,
-    http_exception_handler,
-)
-from shared.logging.logger import RequestLoggingMiddleware
-from shared.config.settings import get_settings
-from fastapi import HTTPException
 from datetime import datetime
+
+from fastapi import HTTPException
+
+from domains.inventory.services.inventory_service import InventoryService
 
 # Import centralized dependencies
 from shared.api.dependencies import get_inventory_service
+from shared.config.settings import get_settings
+from shared.database.connection import db_manager, get_db_session
+from shared.error_handling.exceptions import (
+    SoleFlipException,
+    ValidationException,
+    generic_exception_handler,
+    http_exception_handler,
+    soleflip_exception_handler,
+    validation_exception_handler,
+)
+from shared.logging.logger import RequestLoggingMiddleware
 
 
 @asynccontextmanager
@@ -115,19 +118,20 @@ app.add_exception_handler(ValidationException, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
+from domains.admin.api.router import router as admin_router
+from domains.analytics.api.mock_router import router as analytics_router
+from domains.auth.api.router import router as auth_router
+from domains.dashboard.api.router import router as dashboard_router
+from domains.integration.api.upload_router import router as upload_router
+
 # Include API routers
 from domains.integration.api.webhooks import router as webhook_router
-from domains.integration.api.upload_router import router as upload_router
-from domains.orders.api.router import router as orders_router
-from domains.products.api.router import router as products_router
 from domains.inventory.api.router import router as inventory_router
-from domains.dashboard.api.router import router as dashboard_router
-from domains.admin.api.router import router as admin_router
-from domains.auth.api.router import router as auth_router
+from domains.orders.api.router import router as orders_router
 
 # Temporarily using mock routers until models are fixed
 from domains.pricing.api.mock_router import router as pricing_router
-from domains.analytics.api.mock_router import router as analytics_router
+from domains.products.api.router import router as products_router
 
 # Monitoring routers
 from shared.monitoring.prometheus import router as prometheus_router
@@ -188,7 +192,7 @@ async def get_metrics():
 @app.get("/health/ready", tags=["System"])
 async def readiness_check():
     """Kubernetes readiness probe endpoint"""
-    from shared.monitoring.health import get_health_manager, CheckType
+    from shared.monitoring.health import CheckType, get_health_manager
 
     health_manager = get_health_manager()
     results = await health_manager.run_checks(check_types=[CheckType.READINESS])
@@ -210,7 +214,7 @@ async def readiness_check():
 @app.get("/health/live", tags=["System"])
 async def liveness_check():
     """Kubernetes liveness probe endpoint"""
-    from shared.monitoring.health import get_health_manager, CheckType
+    from shared.monitoring.health import CheckType, get_health_manager
 
     health_manager = get_health_manager()
     results = await health_manager.run_checks(check_types=[CheckType.LIVENESS])

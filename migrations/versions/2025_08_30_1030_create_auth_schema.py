@@ -5,10 +5,9 @@ Revises: 2025_08_30_1000
 Create Date: 2025-08-30 10:30:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
-
 
 # revision identifiers, used by Alembic.
 revision = '2025_08_30_1030'

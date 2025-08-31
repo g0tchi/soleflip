@@ -2,18 +2,18 @@
 API Router for Product-related endpoints
 """
 
-from typing import Dict, Any, List, Optional
-from uuid import UUID
-import structlog
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
-from domains.inventory.services.inventory_service import InventoryService
 from domains.integration.services.stockx_service import StockXService
+from domains.inventory.services.inventory_service import InventoryService
+from shared.database.connection import get_db_session
 from shared.database.models import Product
 
 logger = structlog.get_logger(__name__)
@@ -160,8 +160,9 @@ async def enrich_product_data(
     logger.info("Received request to enrich product data", product_ids=product_ids)
 
     async def run_enrichment_task(product_ids: Optional[List[str]] = None):
-        from shared.database.connection import db_manager
         from sqlalchemy import text
+
+        from shared.database.connection import db_manager
 
         async with db_manager.get_session() as bg_session:
             try:

@@ -1,15 +1,17 @@
 import asyncio
 import os
 import sys
+
 from slugify import slugify
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.database.connection import DatabaseManager  # Import class instead of global instance
-from shared.database.models import Brand, BrandPattern, Base  # Import Base for schema creation
 from sqlalchemy.future import select
 from sqlalchemy.orm.exc import NoResultFound
+
+from shared.database.connection import DatabaseManager  # Import class instead of global instance
+from shared.database.models import Base, Brand, BrandPattern  # Import Base for schema creation
 
 # This dictionary is copied from the old validators.py
 BRAND_PATTERNS = {

@@ -3,15 +3,15 @@
 Pricing CLI - Command-line interface for pricing operations
 Production-ready tool for price calculations and updates
 """
-import asyncio
 import argparse
+import asyncio
 import json
+import logging
 import sys
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Dict, Any, List
-import logging
+from typing import Any, Dict, List, Optional
 
 # Setup logging
 logging.basicConfig(
@@ -22,12 +22,13 @@ logger = logging.getLogger(__name__)
 # Add project root to path
 sys.path.insert(0, ".")
 
-from shared.database.connection import get_db_session
-from domains.pricing.services.pricing_engine import PricingEngine, PricingContext, PricingStrategy
-from domains.pricing.repositories.pricing_repository import PricingRepository
-from shared.database.models import Product, Brand, InventoryItem
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
+from domains.pricing.repositories.pricing_repository import PricingRepository
+from domains.pricing.services.pricing_engine import PricingContext, PricingEngine, PricingStrategy
+from shared.database.connection import get_db_session
+from shared.database.models import Brand, InventoryItem, Product
 
 
 class PricingCLI:

@@ -2,13 +2,17 @@
 Authentication models.
 """
 
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Boolean, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
 from pydantic import BaseModel, Field
+from sqlalchemy import Boolean, Column, DateTime
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+
 from shared.database.models import Base
 
 

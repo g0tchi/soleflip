@@ -3,17 +3,18 @@ Centralized API Dependencies
 Production-ready dependency injection system for consistent API patterns
 """
 
-from typing import Optional, Dict, Any, Annotated
-from fastapi import Depends, HTTPException, Query, Path, Header
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Annotated, Any, Dict, Optional
 from uuid import UUID
-import structlog
 
+import structlog
+from fastapi import Depends, Header, HTTPException, Path, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from domains.integration.services.stockx_service import StockXService
+from domains.inventory.services.inventory_service import InventoryService
+from domains.products.services.brand_service import BrandExtractorService
 from shared.database.connection import get_db_session
 from shared.database.session_manager import SessionManager
-from domains.inventory.services.inventory_service import InventoryService
-from domains.integration.services.stockx_service import StockXService
-from domains.products.services.brand_service import BrandExtractorService
 
 logger = structlog.get_logger(__name__)
 

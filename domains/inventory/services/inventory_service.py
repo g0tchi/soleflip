@@ -3,22 +3,24 @@ Inventory Domain Service
 Business logic layer for inventory management
 """
 
-from typing import List, Dict, Any, Optional
-from uuid import UUID
-from decimal import Decimal
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from ..repositories.product_repository import ProductRepository
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.repositories import BaseRepository
+
 from ..repositories.inventory_repository import (
     InventoryRepository,
-    InventoryStats as RepoInventoryStats,
 )
-from shared.repositories import BaseRepository
-from shared.database.models import Product, InventoryItem, Brand, Category, Size
+from ..repositories.inventory_repository import InventoryStats as RepoInventoryStats
+from ..repositories.product_repository import ProductRepository
 
 logger = structlog.get_logger(__name__)
 

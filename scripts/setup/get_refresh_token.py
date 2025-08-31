@@ -1,12 +1,13 @@
-import requests
-import getpass
-import urllib.parse
 import asyncio
+import getpass
 import os
 
 # This script needs to import from the application's shared modules.
 # We add the project root to the Python path to make this possible.
 import sys
+import urllib.parse
+
+import requests
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 

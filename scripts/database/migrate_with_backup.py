@@ -6,8 +6,8 @@ Used in CI/CD pipeline for automated deployments.
 
 import asyncio
 import os
-import sys
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 

@@ -1,8 +1,9 @@
+import re
+from typing import List, Optional
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List, Optional
-import re
 
 from shared.database.models import Brand, BrandPattern
 

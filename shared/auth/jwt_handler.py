@@ -2,13 +2,15 @@
 JWT token handling utilities.
 """
 
-import jwt
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 from uuid import UUID
+
+import jwt
 import structlog
 
 from shared.config.settings import get_settings
+
 from .models import TokenPayload, UserRole
 
 logger = structlog.get_logger(__name__)

@@ -4,14 +4,15 @@ Handles data normalization, cleaning, and transformation from various
 source formats into standardized database-ready structures.
 """
 
-from typing import List, Dict, Any, Optional, Callable, Union
-from datetime import datetime, timezone
 import re
-from decimal import Decimal, InvalidOperation
-from dataclasses import dataclass
-from enum import Enum
-import structlog
 import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Union
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 

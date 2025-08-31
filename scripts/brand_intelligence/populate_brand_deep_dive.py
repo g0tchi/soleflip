@@ -1,6 +1,7 @@
 import asyncio
-import asyncpg
 from datetime import date
+
+import asyncpg
 
 
 async def populate_brand_deep_dive():

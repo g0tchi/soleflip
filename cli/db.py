@@ -4,19 +4,20 @@ Database Management for Retro CLI
 SQLAlchemy models and database operations with security focus
 """
 
-import os
 import csv
 import json
 import logging
-from typing import List, Dict, Any, Optional, Generator
-from datetime import datetime
-from sqlalchemy import create_engine, text, inspect
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import SQLAlchemyError
+import os
 from contextlib import contextmanager
+from datetime import datetime
+from typing import Any, Dict, Generator, List, Optional
+
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
+from utils import clear_screen, colored_text, progress_bar
 
 from config import Config
-from utils import colored_text, progress_bar, clear_screen
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

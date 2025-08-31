@@ -3,10 +3,11 @@ OpenAPI/Swagger Documentation Generator
 Generates comprehensive API documentation with examples and schemas
 """
 
-from typing import Dict, Any, List
 import json
-import sys
 import os
+import sys
+from typing import Any, Dict, List
+
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 

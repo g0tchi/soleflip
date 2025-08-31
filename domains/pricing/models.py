@@ -3,18 +3,19 @@ Pricing Domain SQLAlchemy Models
 Advanced pricing and forecasting data models
 """
 
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, ForeignKey, Date, DateTime, JSON
+import uuid
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any, Dict, Optional
+
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
-from typing import Optional, Dict, Any
-from datetime import date, datetime
-from decimal import Decimal
 
-from shared.database.utils import get_schema_ref, IS_POSTGRES
 from shared.database.models import Base, TimestampMixin
+from shared.database.utils import IS_POSTGRES, get_schema_ref
 
 # =====================================================
 # PRICING SCHEMA MODELS

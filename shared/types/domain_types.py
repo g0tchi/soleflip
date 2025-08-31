@@ -2,12 +2,14 @@
 Domain-specific type definitions
 """
 
-from typing import Dict, List, Optional, Union, Literal
-from typing_extensions import TypedDict, NotRequired
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from .base_types import EntityId, Price, Quantity, Timestamp, JSONDict
+from typing import Dict, List, Literal, Optional, Union
+
+from typing_extensions import NotRequired, TypedDict
+
+from .base_types import EntityId, JSONDict, Price, Quantity, Timestamp
 
 
 # Product Domain Types

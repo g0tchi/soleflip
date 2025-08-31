@@ -1,8 +1,9 @@
-import pytest
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from domains.integration.services.stockx_service import StockXService, StockXCredentials
+import pytest
+
+from domains.integration.services.stockx_service import StockXCredentials, StockXService
 from shared.database.models import SystemConfig
 
 # Mark all tests in this file as asyncio

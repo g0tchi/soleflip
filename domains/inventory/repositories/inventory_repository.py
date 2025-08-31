@@ -3,17 +3,18 @@ Inventory Repository
 Typed repository for inventory operations with domain-specific methods.
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from decimal import Decimal
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, case
-from sqlalchemy.orm import selectinload
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
+from sqlalchemy import and_, case, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
 from shared.repositories import BaseRepository
-from shared.database.models import InventoryItem, Product, Brand, Category, Size
 
 
 @dataclass
