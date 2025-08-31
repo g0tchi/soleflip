@@ -226,11 +226,13 @@ class SafeMigrationManager:
         try:
             # Check if we can connect and query basic tables
             await self.connect()
-            
+
             # Simple verification - just check that we can query alembic_version
             result = await self.connection.fetch("SELECT version_num FROM alembic_version")
             if result:
-                logger.info("Migration verification passed", current_version=result[0]["version_num"])
+                logger.info(
+                    "Migration verification passed", current_version=result[0]["version_num"]
+                )
                 return True
             else:
                 logger.error("Migration verification failed - no version found")

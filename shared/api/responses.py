@@ -354,7 +354,9 @@ RESPONSE_EXAMPLES = {
 
 
 # Convenience functions for backward compatibility
-def create_success_response(message: str, data: Any = None, request_id: Optional[str] = None) -> SuccessResponse:
+def create_success_response(
+    message: str, data: Any = None, request_id: Optional[str] = None
+) -> SuccessResponse:
     """Create a success response"""
     return ResponseBuilder.success(message, data, request_id)
 

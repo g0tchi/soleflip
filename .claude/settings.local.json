@@ -9,7 +9,17 @@
       "Bash(git push:*)",
       "Bash(find:*)",
       "Bash(pip install:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(scriptscivalidate_pipeline.bat)",
+      "Bash(cmd /c:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh secret set:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh workflow:*)",
+      "Bash(git commit:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run watch:*)"
     ],
     "deny": [],
     "ask": []

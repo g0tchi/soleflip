@@ -3,6 +3,7 @@ Password hashing utilities using bcrypt.
 """
 
 import bcrypt
+
 # from typing import str as StrType
 
 
