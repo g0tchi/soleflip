@@ -58,7 +58,7 @@ const Layout = ({ children }: LayoutProps) => {
               className="text-sm" 
               style={{color: '#94a1b2', fontWeight: 400}}
             >
-              AI-Powered Trading
+              AI-powered flipping
             </p>
           </div>
           

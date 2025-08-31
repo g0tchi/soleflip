@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Package, 
-  DollarSign, 
+  Banknote, 
   Activity,
   ArrowUpRight,
   ArrowDownRight,
@@ -14,23 +14,43 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface DashboardMetrics {
-  total_products: number;
   total_inventory_value: number;
-  transactions_today: number;
-  revenue_today: number;
+  monthly_sales: number;
+  profit_margin: number;
   active_listings: number;
-  pending_orders: number;
+  pending_imports: number;
+  recent_transactions: any[];
 }
 
 const ModernDashboard = () => {
   const { theme } = useTheme();
+
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minutes ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hours ago`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
   const [metrics, setMetrics] = useState<DashboardMetrics>({
-    total_products: 0,
     total_inventory_value: 0,
-    transactions_today: 0,
-    revenue_today: 0,
+    monthly_sales: 0,
+    profit_margin: 0,
     active_listings: 0,
-    pending_orders: 0
+    pending_imports: 0,
+    recent_transactions: []
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -61,12 +81,12 @@ const ModernDashboard = () => {
       console.error('Failed to fetch dashboard metrics:', error);
       // Keep metrics at zero if API fails - no fake data
       setMetrics({
-        total_products: 0,
         total_inventory_value: 0,
-        transactions_today: 0,
-        revenue_today: 0,
+        monthly_sales: 0,
+        profit_margin: 0,
         active_listings: 0,
-        pending_orders: 0
+        pending_imports: 0,
+        recent_transactions: []
       });
     } finally {
       setIsLoading(false);
@@ -83,23 +103,23 @@ const ModernDashboard = () => {
   const statCards = [
     {
       title: 'Total Revenue',
-      value: `$${metrics.total_inventory_value.toLocaleString()}`,
+      value: `€${metrics.total_inventory_value.toLocaleString()}`,
       change: '+12.3%',
       trend: 'up',
-      icon: DollarSign,
+      icon: Banknote,
       color: '#2cb67d'
     },
     {
-      title: 'Active Products',
-      value: metrics.total_products.toLocaleString(),
+      title: 'Monthly Sales',
+      value: `€${metrics.monthly_sales.toLocaleString()}`,
       change: '+8.2%',
       trend: 'up',
       icon: Package,
       color: '#7f5af0'
     },
     {
-      title: "Today's Sales",
-      value: metrics.transactions_today.toString(),
+      title: "Profit Margin",
+      value: `${metrics.profit_margin.toFixed(1)}%`,
       change: '+24.1%',
       trend: 'up',
       icon: ShoppingCart,
@@ -115,12 +135,16 @@ const ModernDashboard = () => {
     }
   ];
 
-  const recentActivity = [
-    { id: 1, type: 'sale', item: 'Air Jordan 1 Retro High', amount: 180, time: '2 minutes ago' },
-    { id: 2, type: 'listing', item: 'Nike Dunk Low', amount: 120, time: '15 minutes ago' },
-    { id: 3, type: 'sale', item: 'Adidas Yeezy Boost 350', amount: 220, time: '32 minutes ago' },
-    { id: 4, type: 'pricing', item: 'Travis Scott x Jordan', amount: 1200, time: '1 hour ago' },
-  ];
+  // Use real recent transactions from backend
+  const recentActivity = metrics.recent_transactions.map((transaction: any, index: number) => ({
+    id: index + 1,
+    type: 'sale',
+    item: transaction.product_name || 'Unknown Product',
+    brand: transaction.brand_name || 'Unknown Brand',
+    amount: transaction.sale_price || 0,
+    profit: transaction.net_profit || 0,
+    time: transaction.date ? formatTimeAgo(transaction.date) : 'Unknown time'
+  }));
 
   if (isLoading) {
     return (
@@ -140,15 +164,7 @@ const ModernDashboard = () => {
   return (
     <div className={containerClasses}>
       {/* Header */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className={`${headingClasses} text-4xl mb-2`}>
-            Good morning! 👋
-          </h1>
-          <p className={`${subheadingClasses} text-xl`}>
-            Here's what's happening with your business today.
-          </p>
-        </div>
+      <div className="flex justify-end items-start mb-8">
         <button
           onClick={fetchMetrics}
           disabled={isLoading}
@@ -215,7 +231,7 @@ const ModernDashboard = () => {
                     activity.type === 'listing' ? 'bg-purple-500/20' : 'bg-red-400/20'
                   }`}>
                     {activity.type === 'sale' ? (
-                      <DollarSign className="w-5 h-5 text-green-400" />
+                      <Banknote className="w-5 h-5 text-green-400" />
                     ) : activity.type === 'listing' ? (
                       <PlusCircle className="w-5 h-5 text-purple-500" />
                     ) : (
@@ -224,12 +240,16 @@ const ModernDashboard = () => {
                   </div>
                   <div>
                     <div className={`${headingClasses} text-sm mb-1`}>{activity.item}</div>
-                    <div className={`${subheadingClasses} text-xs`}>{activity.time}</div>
+                    <div className={`${subheadingClasses} text-xs`}>
+                      {activity.brand} • {activity.time}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`${headingClasses} text-sm mb-1`}>${activity.amount}</div>
-                  <div className={`${subheadingClasses} text-xs capitalize`}>{activity.type}</div>
+                  <div className={`${headingClasses} text-sm mb-1`}>€{activity.amount}</div>
+                  <div className={`${subheadingClasses} text-xs`}>
+                    Profit: €{activity.profit.toFixed(2)}
+                  </div>
                 </div>
               </div>
             ))}
