@@ -13,6 +13,19 @@ pub struct SystemStatus {
     pub environment: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StockXListingRequest {
+    pub item_id: String,
+    pub listing_type: String, // 'immediate' or 'presale'
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StockXListingResponse {
+    pub success: bool,
+    pub listing_id: Option<String>,
+    pub message: String,
+}
+
 #[tauri::command]
 pub async fn health_check() -> Result<HealthStatus, String> {
     let client = ApiClient::new("http://localhost:8000".to_string());
@@ -235,3 +248,45 @@ pub async fn get_predictive_insights() -> Result<PredictiveInsights, String> {
         Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
     }
 }
+
+#[tauri::command]
+pub async fn create_stockx_listing(item_id: String, listing_type: String) -> Result<StockXListingResponse, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    let request = StockXListingRequest { item_id, listing_type };
+    
+    match client.create_stockx_listing(request).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to create StockX listing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_stockx_listings(status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_stockx_listings(status, limit).await {
+        Ok(listings) => Ok(listings),
+        Err(e) => Err(format!("Failed to get StockX listings: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_alias_listings(status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_alias_listings(status, limit).await {
+        Ok(listings) => Ok(listings),
+        Err(e) => Err(format!("Failed to get Alias listings: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn sync_inventory_from_stockx() -> Result<HashMap<String, Value>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.sync_inventory_from_stockx().await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to sync inventory from StockX: {}", e)),
+    }
+}
+

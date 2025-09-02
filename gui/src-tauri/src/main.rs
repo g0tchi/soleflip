@@ -28,7 +28,11 @@ async fn main() {
             commands::generate_sales_forecast,
             commands::get_market_trends,
             commands::get_forecast_models,
-            commands::get_predictive_insights
+            commands::get_predictive_insights,
+            commands::create_stockx_listing,
+            commands::get_stockx_listings,
+            commands::get_alias_listings,
+            commands::sync_inventory_from_stockx
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

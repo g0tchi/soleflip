@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use crate::commands::{StockXListingRequest, StockXListingResponse};
 
 #[derive(Debug, Clone)]
 pub struct ApiClient {
@@ -487,5 +488,106 @@ impl ApiClient {
         let response = self.client.get(&url).send().await?;
         let insights: PredictiveInsights = response.json().await?;
         Ok(insights)
+    }
+
+    pub async fn get_stockx_listings(&self, status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/inventory/stockx-listings", self.base_url);
+        let mut params = Vec::new();
+        
+        if let Some(s) = status {
+            params.push(format!("status={}", s));
+        }
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        
+        if !params.is_empty() {
+            url.push_str("?");
+            url.push_str(&params.join("&"));
+        }
+
+        let response = self.client.get(&url).send().await?;
+        let data: Value = response.json().await?;
+        
+        if let Some(listings) = data["data"]["listings"].as_array() {
+            Ok(listings.iter().map(|v| {
+                let mut map = HashMap::new();
+                if let Some(obj) = v.as_object() {
+                    for (key, value) in obj {
+                        map.insert(key.clone(), value.clone());
+                    }
+                }
+                map
+            }).collect())
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    pub async fn create_stockx_listing(&self, request: StockXListingRequest) -> Result<StockXListingResponse, reqwest::Error> {
+        let url = format!("{}/api/v1/inventory/items/{}/stockx-listing", self.base_url, request.item_id);
+        let response = self.client.post(&url)
+            .json(&serde_json::json!({
+                "listing_type": request.listing_type
+            }))
+            .send()
+            .await?;
+        let listing_response: StockXListingResponse = response.json().await?;
+        Ok(listing_response)
+    }
+
+    pub async fn get_alias_listings(&self, status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/inventory/alias-listings", self.base_url);
+        let mut params = Vec::new();
+        
+        if let Some(s) = status {
+            params.push(format!("status={}", s));
+        }
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        
+        if !params.is_empty() {
+            url.push_str("?");
+            url.push_str(&params.join("&"));
+        }
+
+        let response = self.client.get(&url).send().await?;
+        let data: Value = response.json().await?;
+        
+        if let Some(listings) = data["data"]["listings"].as_array() {
+            Ok(listings.iter().map(|v| {
+                let mut map = HashMap::new();
+                if let Some(obj) = v.as_object() {
+                    for (key, value) in obj {
+                        map.insert(key.clone(), value.clone());
+                    }
+                }
+                map
+            }).collect())
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    pub async fn sync_inventory_from_stockx(&self) -> Result<HashMap<String, Value>, reqwest::Error> {
+        let url = format!("{}/api/v1/inventory/sync-from-stockx", self.base_url);
+        let response = self.client.post(&url).send().await?;
+        let data: Value = response.json().await?;
+        
+        let mut result = HashMap::new();
+        if let Some(obj) = data.as_object() {
+            for (key, value) in obj {
+                result.insert(key.clone(), value.clone());
+            }
+        }
+        Ok(result)
+    }
+
+    pub async fn get_system_status(&self) -> Result<crate::commands::SystemStatus, reqwest::Error> {
+        let url = format!("{}/api/v1/system/status", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let status: crate::commands::SystemStatus = response.json().await?;
+        Ok(status)
     }
 }
