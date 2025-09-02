@@ -80,6 +80,15 @@ class InventoryService:
         """Get overall inventory statistics using optimized aggregation query"""
         repo_stats = await self.inventory_repo.get_inventory_stats()
 
+        self.logger.info(
+            "Generated inventory overview",
+            total_items=repo_stats.total_items,
+            in_stock=repo_stats.in_stock,
+            sold=repo_stats.sold,
+            listed=repo_stats.listed,
+            total_value=float(repo_stats.total_value),
+        )
+
         # Convert repository stats to service stats (compatibility)
         return InventoryStats(
             total_items=repo_stats.total_items,
@@ -88,23 +97,6 @@ class InventoryService:
             listed=repo_stats.listed,
             total_value=repo_stats.total_value,
             avg_purchase_price=repo_stats.avg_purchase_price,
-        )
-
-        self.logger.info(
-            "Generated inventory overview",
-            total_items=total_items,
-            in_stock=in_stock,
-            sold=sold,
-            total_value=float(total_value),
-        )
-
-        return InventoryStats(
-            total_items=total_items,
-            in_stock=in_stock,
-            sold=sold,
-            listed=listed,
-            total_value=total_value,
-            avg_purchase_price=avg_purchase_price,
         )
 
     async def create_product_with_inventory(
@@ -200,6 +192,46 @@ class InventoryService:
                 inventory_id=str(inventory_id),
             )
         return success
+
+    async def update_item_status(self, item_id: UUID, status: str) -> bool:
+        """Update inventory item status - alias for update_inventory_status with modern status names"""
+        # Map modern status names to backend database status names
+        status_mapping = {
+            "in_stock": "in_stock",
+            "listed": "listed_stockx", 
+            "sold": "sold",
+            "presale": "in_stock",  # For presale, keep as in_stock until actually listed
+            "preorder": "in_stock",  # For preorder, keep as in_stock until actually listed
+            "listed_alias": "listed_alias",  # Alias listing
+            "multi_platform": "listed_stockx",  # Listed on multiple platforms - default to stockx
+            "reserved": "reserved",
+            "error": "error"
+        }
+        
+        mapped_status = status_mapping.get(status, status)
+        return await self.update_inventory_status(item_id, mapped_status)
+
+    async def get_multi_platform_items(self) -> List[Dict[str, Any]]:
+        """Get items that could potentially be listed on multiple platforms"""
+        try:
+            # For demonstration, return items that are currently listed
+            # In a real implementation, you'd track platform associations more explicitly
+            items = await self.inventory_repo.get_all(filters={'status': 'listed'})
+            
+            # Simulate multi-platform potential by checking if items have high value
+            multi_platform_candidates = []
+            for item in items:
+                item_dict = item.to_dict()
+                if item.purchase_price and item.purchase_price > 200:  # High-value items
+                    item_dict['platforms'] = ['StockX']  # Currently only on StockX
+                    item_dict['potential_platforms'] = ['Alias', 'GOAT']  # Could be listed here
+                    multi_platform_candidates.append(item_dict)
+                    
+            return multi_platform_candidates
+            
+        except Exception as e:
+            self.logger.error("Failed to get multi-platform items", error=str(e))
+            return []
 
     async def get_low_stock_alert(self, threshold: int = 5) -> List[Dict[str, Any]]:
         """Get products with low stock levels"""
@@ -349,15 +381,21 @@ class InventoryService:
                 if item.product:
                     item_dict["product_name"] = item.product.name
                     item_dict["brand_name"] = (
-                        item.product.brand.name if item.product.brand else None
+                        item.product.brand.name if item.product.brand else "Unknown Brand"
                     )
                     item_dict["category_name"] = (
-                        item.product.category.name if item.product.category else None
+                        item.product.category.name if item.product.category else "Unknown Category"
                     )
                 else:
-                    item_dict["product_name"] = "Unknown"
-                    item_dict["brand_name"] = None
-                    item_dict["category_name"] = "Unknown"
+                    item_dict["product_name"] = "Unknown Product"
+                    item_dict["brand_name"] = "Unknown Brand"
+                    item_dict["category_name"] = "Unknown Category"
+                
+                # Add size information
+                if item.size:
+                    item_dict["size_value"] = item.size.value
+                else:
+                    item_dict["size_value"] = "N/A"
                 result_items.append(item_dict)
 
             return result_items, total_count
@@ -396,18 +434,138 @@ class InventoryService:
 
     async def _get_top_brands(self) -> List[Dict[str, Any]]:
         """Get top brands by inventory count"""
-        # Placeholder implementation
-        return []
+        try:
+            from sqlalchemy import text
+            
+            brands_query = text(
+                """
+                SELECT 
+                    b.name as brand_name,
+                    COUNT(i.id) as item_count,
+                    SUM(i.quantity) as total_quantity,
+                    AVG(i.purchase_price) as avg_price,
+                    SUM(i.purchase_price * i.quantity) as total_value
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                LEFT JOIN brands b ON p.brand_id = b.id
+                WHERE i.purchase_price IS NOT NULL
+                GROUP BY b.name
+                ORDER BY item_count DESC
+                LIMIT 5
+                """
+            )
+            
+            result = await self.db_session.execute(brands_query)
+            top_brands = []
+            
+            for row in result.fetchall():
+                brand = {
+                    "name": row.brand_name or "Unknown Brand",
+                    "item_count": int(row.item_count or 0),
+                    "total_quantity": int(row.total_quantity or 0),
+                    "avg_price": float(row.avg_price or 0),
+                    "total_value": float(row.total_value or 0)
+                }
+                top_brands.append(brand)
+            
+            return top_brands
+            
+        except Exception as e:
+            self.logger.error("Failed to get top brands", error=str(e), exc_info=True)
+            # Return empty list instead of mock data to show real state
+            return []
 
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
-        # Placeholder implementation
-        return {"in_stock": 0, "sold": 0, "listed": 0}
+        try:
+            from sqlalchemy import text
+            
+            status_query = text(
+                """
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM inventory
+                GROUP BY status
+                ORDER BY count DESC
+                """
+            )
+            
+            result = await self.db_session.execute(status_query)
+            status_breakdown = {}
+            
+            for row in result.fetchall():
+                status_breakdown[row.status] = int(row.count)
+            
+            return status_breakdown
+            
+        except Exception as e:
+            self.logger.error("Failed to get status breakdown", error=str(e), exc_info=True)
+            # Return empty dict instead of mock data to show real state
+            return {}
 
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
         """Get recent inventory activity"""
-        # Placeholder implementation
-        return []
+        try:
+            # Get recent inventory changes (status updates, additions, etc.)
+            from sqlalchemy import text
+            
+            # Query for recent inventory updates
+            recent_query = text(
+                """
+                SELECT 
+                    i.updated_at,
+                    i.status,
+                    i.quantity,
+                    i.purchase_price,
+                    p.name as product_name,
+                    b.name as brand_name,
+                    s.value as size_value,
+                    'status_change' as activity_type
+                FROM inventory i
+                JOIN products p ON i.product_id = p.id
+                LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN sizes s ON i.size_id = s.id
+                WHERE i.updated_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
+                ORDER BY i.updated_at DESC
+                LIMIT 10
+                """
+            )
+            
+            result = await self.db_session.execute(recent_query)
+            recent_activity = []
+            
+            for row in result.fetchall():
+                activity = {
+                    "date": row.updated_at.isoformat() if row.updated_at else None,
+                    "activity_type": row.activity_type,
+                    "product_name": row.product_name or "Unknown Product",
+                    "brand_name": row.brand_name or "Unknown Brand", 
+                    "size": row.size_value or "N/A",
+                    "status": row.status or "unknown",
+                    "quantity": int(row.quantity or 0),
+                    "purchase_price": float(row.purchase_price or 0),
+                    "description": self._format_activity_description(row)
+                }
+                recent_activity.append(activity)
+            
+            return recent_activity
+            
+        except Exception as e:
+            self.logger.error("Failed to get recent inventory activity", error=str(e), exc_info=True)
+            # Return empty list instead of mock data
+            return []
+    
+    def _format_activity_description(self, row) -> str:
+        """Format activity description based on the row data"""
+        if row.status == "listed":
+            return f"Listed {row.product_name} (Size {row.size_value}) on marketplace"
+        elif row.status == "sold":
+            return f"Sold {row.product_name} (Size {row.size_value})"
+        elif row.status == "in_stock":
+            return f"Added {row.product_name} (Size {row.size_value}) to inventory"
+        else:
+            return f"Status updated to {row.status}"
 
     async def get_item_detailed(self, item_id: UUID) -> Optional[Dict[str, Any]]:
         """

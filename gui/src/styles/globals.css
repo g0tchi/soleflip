@@ -286,6 +286,11 @@ body {
            hover:bg-retro-green hover:text-dark-bg;
   }
   
+  .retro-button-secondary {
+    @apply retro-button border-retro-cyan/50 text-retro-cyan/70
+           hover:border-retro-cyan hover:text-retro-cyan hover:bg-retro-cyan/10;
+  }
+  
   .retro-button-warning {
     @apply retro-button border-retro-yellow text-retro-yellow
            hover:bg-retro-yellow hover:text-dark-bg;
