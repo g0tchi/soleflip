@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 
 from domains.inventory.services.inventory_service import InventoryService
 from shared.api.dependencies import (
@@ -108,6 +108,24 @@ async def get_inventory_item(
     except Exception as e:
         error_context = ErrorContext("fetch", "inventory item")
         raise error_context.create_error_response(e)
+
+
+@router.put("/items/{item_id}")
+async def update_inventory_item(
+    item_id: str,
+    update_data: dict,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """Simple update for inventory item"""
+    try:
+        from uuid import UUID
+        item_uuid = UUID(item_id)
+        success = await inventory_service.update_item_fields(item_uuid, update_data)
+        if not success:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return {"success": True, "message": "Updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post(
@@ -259,13 +277,31 @@ async def create_stockx_listing(
 async def get_stockx_listings(
     status: Optional[str] = None,
     limit: Optional[int] = 50,
+    force_refresh: Optional[bool] = False,
 ):
-    """Get current StockX listings"""
-    logger.info("Fetching current StockX listings", status=status, limit=limit)
+    """Get current StockX listings with caching"""
+    logger.info("Fetching current StockX listings", status=status, limit=limit, force_refresh=force_refresh)
 
     try:
         from domains.integration.services.stockx_service import StockXService
         from shared.database.connection import db_manager
+        from datetime import datetime, timedelta
+        import json
+        
+        # Simple in-memory cache
+        cache_key = f"stockx_listings_{status}_{limit}"
+        cache_timeout = timedelta(hours=8)  # Cache for 8 hours (2-3 times per day)
+        
+        # Check cache first (if not forcing refresh)
+        if not force_refresh and hasattr(get_stockx_listings, '_cache'):
+            cached_data = get_stockx_listings._cache.get(cache_key)
+            if cached_data and datetime.utcnow() - cached_data['timestamp'] < cache_timeout:
+                logger.info(f"Returning cached StockX listings (age: {datetime.utcnow() - cached_data['timestamp']})")
+                # Mark response as cached
+                cached_response = cached_data['response']
+                cached_response.body['data']['cached'] = True
+                cached_response.body['data']['cache_age_seconds'] = int((datetime.utcnow() - cached_data['timestamp']).total_seconds())
+                return cached_response
         
         async with db_manager.get_session() as stockx_session:
             stockx_service = StockXService(stockx_session)
@@ -311,16 +347,28 @@ async def get_stockx_listings(
                     
                     transformed_listings.append(transformed)
                 
-                return ResponseBuilder.success(
+                response = ResponseBuilder.success(
                     message=f"Retrieved {len(transformed_listings)} active StockX listings",
                     data={
                         "listings": transformed_listings,
                         "count": len(transformed_listings),
                         "total_raw_listings": len(raw_listings),
                         "filters": filters,
-                        "filtered_statuses": ["ACTIVE", "PENDING"]
+                        "filtered_statuses": ["ACTIVE", "PENDING"],
+                        "cached": False
                     },
                 )
+                
+                # Cache the response
+                if not hasattr(get_stockx_listings, '_cache'):
+                    get_stockx_listings._cache = {}
+                get_stockx_listings._cache[cache_key] = {
+                    'response': response,
+                    'timestamp': datetime.utcnow()
+                }
+                logger.info(f"Cached StockX listings for {cache_timeout}")
+                
+                return response
             except Exception as stockx_error:
                 logger.warning("StockX API call failed", error=str(stockx_error))
                 # Return empty result if StockX API fails

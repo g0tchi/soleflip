@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, Search, Filter, RefreshCw, ExternalLink, TrendingUp, MoreVertical, PlusCircle, MinusCircle, Zap, AlertTriangle, CheckCircle, Star } from 'lucide-react';
+import { Package, Search, Filter, RefreshCw, TrendingUp, CheckCircle, Star, ExternalLink, Edit, X, Save } from 'lucide-react';
 
 interface InventoryItem {
   id: string;
@@ -31,8 +31,10 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [stats, setStats] = useState<InventoryStats>({ total: 0, in_stock: 0, listed_stockx: 0, listed_alias: 0 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actionLoading, setActionLoading] = useState<{[key: string]: boolean}>({});
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+  const [editForm, setEditForm] = useState<Partial<InventoryItem>>({});
 
   // Tab definitions
   const tabs = [
@@ -63,17 +65,8 @@ const Inventory = () => {
       
       let endpoint = '';
       
-      // Use different endpoints for different tabs
-      if (activeTab === 'stockx') {
-        // Use StockX listings endpoint for StockX tab
-        endpoint = 'http://localhost:8000/api/v1/inventory/stockx-listings?limit=100';
-      } else if (activeTab === 'alias') {
-        // Use Alias listings endpoint for Alias tab
-        endpoint = 'http://localhost:8000/api/v1/inventory/alias-listings?limit=100';
-      } else {
-        // Use inventory items endpoint for "All Products" tab
-        endpoint = 'http://localhost:8000/api/v1/inventory/items?limit=100';
-      }
+      // Use local database for all tabs now - much faster!
+      endpoint = 'http://localhost:8000/api/v1/inventory/items?limit=100';
 
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -132,10 +125,27 @@ const Inventory = () => {
     setStats(newStats);
   };
 
-  const filteredItems = items.filter(item => 
-    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.brand_name && item.brand_name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredItems = items.filter(item => {
+    // Search filter
+    const matchesSearch = item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.brand_name && item.brand_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    
+    // Tab-based filter
+    let matchesTab = true;
+    if (activeTab === 'stockx') {
+      // Show only items with StockX listing IDs
+      matchesTab = item.external_ids?.stockx_listing_id != null;
+    } else if (activeTab === 'alias') {
+      // Show only items with Alias listing IDs (mock for now)
+      matchesTab = item.status === 'listed_alias' || item.external_ids?.alias_listing_id != null;
+    }
+    // For 'all' tab, show everything (matchesTab stays true)
+    
+    return matchesSearch && matchesStatus && matchesTab;
+  });
 
   const getActiveTabCount = () => {
     switch (activeTab) {
@@ -172,86 +182,81 @@ const Inventory = () => {
     }).format(price);
   };
 
-  const handleStockXAction = async (itemId: string, action: 'create' | 'mark-presale' | 'unmark-presale' | 'sync', listingId?: string) => {
+  const handleStatusChange = async (itemId: string, newStatus: string) => {
     setActionLoading(prev => ({ ...prev, [itemId]: true }));
     try {
-      let endpoint = '';
-      let method = 'POST';
+      const response = await fetch(`http://localhost:8000/api/v1/inventory/items/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
       
-      switch (action) {
-        case 'create':
-          endpoint = `http://localhost:8000/api/v1/inventory/items/${itemId}/stockx-listing`;
-          break;
-        case 'mark-presale':
-          endpoint = `http://localhost:8000/api/v1/inventory/stockx-listings/${listingId}/mark-presale`;
-          break;
-        case 'unmark-presale':
-          endpoint = `http://localhost:8000/api/v1/inventory/stockx-listings/${listingId}/unmark-presale`;
-          method = 'DELETE';
-          break;
-        case 'sync':
-          endpoint = `http://localhost:8000/api/v1/inventory/items/${itemId}/sync-from-stockx`;
-          break;
-      }
-
-      const response = await fetch(endpoint, { method });
       if (!response.ok) {
-        throw new Error(`${action} failed: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Status update failed: ${errorText}`);
       }
 
-      // Refresh inventory after action
+      // Refresh inventory after status change
       await fetchInventory();
-      setActionMenuOpen(null);
       
-    } catch (err) {
-      console.error(`StockX ${action} failed:`, err);
-      setError(err instanceof Error ? err.message : `${action} failed`);
+    } catch (error) {
+      console.error(`Status update failed:`, error);
+      setError(`Status update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setActionLoading(prev => ({ ...prev, [itemId]: false }));
     }
   };
 
-  const getStockXActions = (item: InventoryItem) => {
-    const stockxListingId = item.external_ids?.stockx_listing_id;
-    const isListed = item.status === 'listed';
-    const canList = ['in_stock', 'presale'].includes(item.status);
-    
-    const actions = [];
-    
-    if (!isListed && canList) {
-      actions.push({
-        label: 'List on StockX',
-        icon: PlusCircle,
-        action: () => handleStockXAction(item.id, 'create'),
-        color: 'text-green-400'
-      });
-    }
-    
-    if (isListed && stockxListingId) {
-      actions.push(
-        {
-          label: 'Mark as Presale',
-          icon: AlertTriangle,
-          action: () => handleStockXAction(item.id, 'mark-presale', stockxListingId),
-          color: 'text-orange-400'
-        },
-        {
-          label: 'Remove Presale',
-          icon: MinusCircle,
-          action: () => handleStockXAction(item.id, 'unmark-presale', stockxListingId),
-          color: 'text-red-400'
-        }
-      );
-    }
-    
-    actions.push({
-      label: 'Sync from StockX',
-      icon: RefreshCw,
-      action: () => handleStockXAction(item.id, 'sync'),
-      color: 'text-blue-400'
+  const openEditModal = (item: InventoryItem) => {
+    setEditItem(item);
+    setEditForm({
+      product_name: item.product_name,
+      brand_name: item.brand_name,
+      size: item.size,
+      quantity: item.quantity,
+      purchase_price: item.purchase_price,
+      status: item.status
     });
-    
-    return actions;
+  };
+
+  const closeEditModal = () => {
+    setEditItem(null);
+    setEditForm({});
+  };
+
+  const handleEditFormChange = (field: keyof InventoryItem, value: any) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const saveEditChanges = async () => {
+    if (!editItem) return;
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/inventory/items/${editItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editForm),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Update failed: ${response.statusText}`);
+      }
+
+      // Refresh inventory after update
+      await fetchInventory();
+      closeEditModal();
+      
+    } catch (error) {
+      console.error('Edit failed:', error);
+      setError(`Edit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   useEffect(() => {
@@ -356,35 +361,40 @@ const Inventory = () => {
         </div>
       </div>
 
-      {/* Tab Navigation & Search */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-        <div className="flex space-x-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            const count = getActiveTabCount();
-            
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 text-sm ${
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="font-medium">{tab.label}</span>
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 bg-gray-800/50 rounded-lg p-1 mb-6">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          const count = getActiveTabCount();
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
+                isActive
+                  ? 'bg-purple-500/20 text-purple-400 shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <Icon className="w-5 h-5" />
+                <span>{tab.label}</span>
                 {isActive && (
-                  <span className="bg-white text-blue-600 px-2 py-1 rounded-full text-xs font-bold">
+                  <span className="bg-purple-400 text-purple-900 px-2 py-1 rounded-full text-xs font-bold">
                     {count}
                   </span>
                 )}
-              </button>
-            );
-          })}
-        </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search & Filter */}
+      <div className="flex justify-between items-center mb-6">
+        <div></div>
         <div className="flex items-center space-x-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -396,6 +406,19 @@ const Inventory = () => {
               className="modern-input pl-10 w-64"
             />
           </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="modern-input w-48"
+          >
+            <option value="all">All Status</option>
+            <option value="in_stock">In Stock</option>
+            <option value="sold">Sold</option>
+            <option value="listed">Listed</option>
+            <option value="presale">Presale</option>
+            <option value="preorder">Preorder</option>
+            <option value="canceled">Canceled</option>
+          </select>
           <div className="flex items-center space-x-2 text-sm text-gray-400">
             <Filter className="w-4 h-4" />
             <span>{filteredItems.length} of {items.length}</span>
@@ -424,13 +447,14 @@ const Inventory = () => {
                 <th className="text-left py-3 px-4 text-gray-300 text-sm font-medium">PRICE</th>
                 <th className="text-left py-3 px-4 text-gray-300 text-sm font-medium">STATUS</th>
                 <th className="text-left py-3 px-4 text-gray-300 text-sm font-medium">QUANTITY</th>
+                <th className="text-left py-3 px-4 text-gray-300 text-sm font-medium">CHANGE STATUS</th>
                 <th className="text-left py-3 px-4 text-gray-300 text-sm font-medium">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8">
+                  <td colSpan={8} className="text-center py-8">
                     <div className="text-gray-400">
                       {searchTerm ? 'No items found for search term' : 'No items found'}
                     </div>
@@ -472,36 +496,32 @@ const Inventory = () => {
                         {item.quantity}
                       </div>
                     </td>
-                    <td className="py-3 px-4 relative">
-                      <button
-                        onClick={() => setActionMenuOpen(actionMenuOpen === item.id ? null : item.id)}
+                    <td className="py-3 px-4">
+                      <select
+                        value={item.status}
+                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
                         disabled={actionLoading[item.id]}
-                        className="p-2 hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+                        className="modern-input text-sm w-32 disabled:opacity-50"
                       >
-                        {actionLoading[item.id] ? (
-                          <RefreshCw className="w-4 h-4 text-gray-300 animate-spin" />
-                        ) : (
-                          <MoreVertical className="w-4 h-4 text-gray-300" />
-                        )}
-                      </button>
-                      
-                      {actionMenuOpen === item.id && (
-                        <div className="absolute right-0 top-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-10 min-w-48">
-                          {getStockXActions(item).map((action, index) => {
-                            const Icon = action.icon;
-                            return (
-                              <button
-                                key={index}
-                                onClick={action.action}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-600 transition-colors flex items-center space-x-2 ${action.color}`}
-                              >
-                                <Icon className="w-4 h-4" />
-                                <span>{action.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <option value="in_stock">In Stock</option>
+                        <option value="sold">Sold</option>
+                        <option value="listed">Listed</option>
+                        <option value="presale">Presale</option>
+                        <option value="preorder">Preorder</option>
+                        <option value="canceled">Canceled</option>
+                      </select>
+                      {actionLoading[item.id] && (
+                        <RefreshCw className="w-4 h-4 text-blue-400 animate-spin ml-2 inline" />
                       )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <button
+                        onClick={() => openEditModal(item)}
+                        className="flex items-center space-x-1 px-2 py-1 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors"
+                      >
+                        <Edit className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -518,6 +538,122 @@ const Inventory = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 border border-gray-600">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Edit Item</h2>
+              <button
+                onClick={closeEditModal}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.product_name || ''}
+                  onChange={(e) => handleEditFormChange('product_name', e.target.value)}
+                  className="modern-input w-full"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Brand
+                </label>
+                <input
+                  type="text"
+                  value={editForm.brand_name || ''}
+                  onChange={(e) => handleEditFormChange('brand_name', e.target.value)}
+                  className="modern-input w-full"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Size
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.size || ''}
+                    onChange={(e) => handleEditFormChange('size', e.target.value)}
+                    className="modern-input w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.quantity || ''}
+                    onChange={(e) => handleEditFormChange('quantity', parseInt(e.target.value))}
+                    className="modern-input w-full"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Purchase Price (EUR)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.purchase_price || ''}
+                  onChange={(e) => handleEditFormChange('purchase_price', parseFloat(e.target.value))}
+                  className="modern-input w-full"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Status
+                </label>
+                <select
+                  value={editForm.status || ''}
+                  onChange={(e) => handleEditFormChange('status', e.target.value)}
+                  className="modern-input w-full"
+                >
+                  <option value="in_stock">In Stock</option>
+                  <option value="sold">Sold</option>
+                  <option value="listed">Listed</option>
+                  <option value="presale">Presale</option>
+                  <option value="preorder">Preorder</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={closeEditModal}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEditChanges}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors flex items-center justify-center space-x-1"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

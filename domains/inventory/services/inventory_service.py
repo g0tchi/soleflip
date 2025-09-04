@@ -424,6 +424,48 @@ class InventoryService:
         mapped_status = status_mapping.get(status, status)
         return await self.update_inventory_status(item_id, mapped_status)
 
+    async def update_item_fields(self, item_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update multiple fields of an inventory item"""
+        try:
+            # Handle status field with mapping if present
+            if 'status' in update_data:
+                status = update_data['status']
+                status_mapping = {
+                    "in_stock": "in_stock",
+                    "listed": "listed_stockx", 
+                    "sold": "sold",
+                    "presale": "presale",
+                    "preorder": "preorder",
+                    "canceled": "canceled",
+                    "listed_alias": "listed_alias",
+                }
+                update_data['status'] = status_mapping.get(status, status)
+            
+            # Update the item using the inventory repository
+            success = await self.inventory_repo.update(item_id, **update_data)
+            
+            if success:
+                self.logger.info(
+                    "Updated inventory item fields",
+                    item_id=str(item_id),
+                    fields=list(update_data.keys())
+                )
+            else:
+                self.logger.error(
+                    "Failed to update inventory item fields",
+                    item_id=str(item_id)
+                )
+                
+            return success
+            
+        except Exception as e:
+            self.logger.error(
+                "Error updating inventory item fields",
+                item_id=str(item_id),
+                error=str(e)
+            )
+            return False
+
     async def get_multi_platform_items(self) -> List[Dict[str, Any]]:
         """Get items that could potentially be listed on multiple platforms"""
         try:
