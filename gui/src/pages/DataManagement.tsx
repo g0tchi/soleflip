@@ -38,7 +38,7 @@ interface ImportStatus {
   completed_at?: string;
 }
 
-const ModernDataManagement = () => {
+const DataManagement = () => {
   
   // Database Query State
   const [query, setQuery] = useState('SELECT * FROM inventory_items LIMIT 10;');
@@ -156,42 +156,124 @@ const ModernDataManagement = () => {
   ];
 
   return (
-    <div className="min-h-screen p-6 space-y-6">
+    <div className="min-h-screen p-8 space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="modern-heading text-3xl lg:text-4xl mb-2">
+          <h1 className="text-4xl font-bold modern-heading mb-2">
             Data Management
           </h1>
-          <p className="modern-subheading text-base lg:text-lg">
+          <p className="text-xl modern-subheading">
             Database queries and data import tools
           </p>
+        </div>
+        <div className="flex space-x-4">
+          {activeTab === 'database' && (
+            <button className="modern-button-outline flex items-center space-x-2">
+              <FileText className="w-4 h-4" />
+              <span>Save Query</span>
+            </button>
+          )}
+          {activeTab === 'import' && (
+            <button className="modern-button flex items-center space-x-2">
+              <Upload className="w-4 h-4" />
+              <span>New Import</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="modern-card px-6 py-3">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 rounded-xl bg-blue-500/10">
+              <DatabaseIcon className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <div className="text-xl font-bold modern-heading">
+                {results.length}
+              </div>
+              <div className="text-xs modern-subheading">
+                Query Results
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modern-card px-6 py-3">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 rounded-xl bg-purple-500/10">
+              <Server className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-xl font-bold modern-heading">
+                {executionTime ? `${executionTime}ms` : '--'}
+              </div>
+              <div className="text-xs modern-subheading">
+                Execution Time
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modern-card px-6 py-3">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 rounded-xl bg-green-500/10">
+              <Activity className="w-5 h-5 text-green-400" />
+            </div>
+            <div>
+              <div className="text-xl font-bold modern-heading">
+                {importStatus?.records_processed || 0}
+              </div>
+              <div className="text-xs modern-subheading">
+                Records Imported
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modern-card px-6 py-3">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 rounded-xl bg-orange-500/10">
+              <Zap className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <div className="text-xl font-bold modern-heading">
+                {importStatus?.status || 'Ready'}
+              </div>
+              <div className="text-xs modern-subheading">
+                Import Status
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg w-fit">
+      <div className="flex space-x-1 bg-gray-800/50 rounded-lg p-1">
         <button
           onClick={() => setActiveTab('database')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
             activeTab === 'database'
-              ? 'bg-purple-600 text-white shadow-md'
-              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              ? 'bg-purple-500/20 text-purple-400 shadow-lg'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
           }`}
         >
-          <DatabaseIcon className="w-4 h-4" />
-          Database Query
+          <div className="flex items-center justify-center space-x-2">
+            <DatabaseIcon className="w-5 h-5" />
+            <span>Database Query</span>
+          </div>
         </button>
         <button
           onClick={() => setActiveTab('import')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
             activeTab === 'import'
-              ? 'bg-purple-600 text-white shadow-md'
-              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              ? 'bg-purple-500/20 text-purple-400 shadow-lg'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
           }`}
         >
-          <Upload className="w-4 h-4" />
-          Data Import
+          <div className="flex items-center justify-center space-x-2">
+            <Upload className="w-5 h-5" />
+            <span>Data Import</span>
+          </div>
         </button>
       </div>
 
@@ -203,15 +285,15 @@ const ModernDataManagement = () => {
             <div className="lg:col-span-8 space-y-4">
               <div className="modern-card">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="modern-heading text-xl flex items-center gap-2">
+                  <h2 className="modern-heading text-xl flex items-center space-x-2">
                     <Terminal className="w-5 h-5" />
                     SQL Query
                   </h2>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center space-x-2">
                     <button
                       onClick={executeQuery}
                       disabled={isExecuting}
-                      className={`modern-button flex items-center gap-2 ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`modern-button flex items-center space-x-2 ${isExecuting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {isExecuting ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -223,7 +305,7 @@ const ModernDataManagement = () => {
                     {results.length > 0 && (
                       <button
                         onClick={exportResults}
-                        className="modern-button-outline flex items-center gap-2"
+                        className="modern-button-outline flex items-center space-x-2"
                       >
                         <Download className="w-4 h-4" />
                         Export CSV
@@ -251,7 +333,7 @@ const ModernDataManagement = () => {
                 )}
                 
                 {executionTime !== null && (
-                  <div className="mt-4 p-3 bg-green-900/20 border border-green-500/30 rounded-lg flex items-center gap-2">
+                  <div className="mt-4 p-3 bg-green-900/20 border border-green-500/30 rounded-lg flex items-center space-x-2">
                     <CheckCircle className="w-5 h-5 text-green-400" />
                     <p className="text-green-400 text-sm">
                       Query executed successfully in {executionTime}ms
@@ -264,13 +346,13 @@ const ModernDataManagement = () => {
               {/* Results Table */}
               {results.length > 0 && (
                 <div className="modern-card">
-                  <h3 className="modern-heading text-lg mb-4 flex items-center gap-2">
+                  <h3 className="modern-heading text-lg mb-4 flex items-center space-x-2">
                     <FileText className="w-5 h-5" />
                     Query Results ({results.length} rows)
                   </h3>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-[calc(100vh-32rem)] overflow-y-auto border border-gray-800/50 rounded-lg">
                     <table className="modern-table">
-                      <thead>
+                      <thead className="sticky top-0 bg-gray-900/95 backdrop-blur-sm z-10">
                         <tr>
                           {Object.keys(results[0]).map((key) => (
                             <th key={key} className="text-left px-3 py-2 text-sm font-medium">
@@ -308,7 +390,7 @@ const ModernDataManagement = () => {
             {/* Quick Queries - Right */}
             <div className="lg:col-span-4">
               <div className="modern-card">
-                <h3 className="modern-heading text-lg mb-4 flex items-center gap-2">
+                <h3 className="modern-heading text-lg mb-4 flex items-center space-x-2">
                   <Zap className="w-5 h-5" />
                   Quick Queries
                 </h3>
@@ -326,7 +408,7 @@ const ModernDataManagement = () => {
               </div>
 
               <div className="modern-card mt-6">
-                <h3 className="modern-heading text-lg mb-4 flex items-center gap-2">
+                <h3 className="modern-heading text-lg mb-4 flex items-center space-x-2">
                   <Server className="w-5 h-5" />
                   Database Info
                 </h3>
@@ -358,7 +440,7 @@ const ModernDataManagement = () => {
             {/* Import Controls - Left */}
             <div className="lg:col-span-8">
               <div className="modern-card">
-                <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center space-x-2 mb-6">
                   <Upload className="w-6 h-6 text-blue-400" />
                   <h2 className="modern-heading text-xl">StockX Data Import</h2>
                 </div>
@@ -398,7 +480,7 @@ const ModernDataManagement = () => {
                 <button
                   onClick={handleStockXImport}
                   disabled={isImporting || !fromDate || !toDate}
-                  className={`modern-button w-full flex items-center justify-center gap-2 py-3 ${
+                  className={`modern-button w-full flex items-center justify-center space-x-2 py-3 ${
                     (isImporting || !fromDate || !toDate) ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
@@ -423,7 +505,7 @@ const ModernDataManagement = () => {
                 {importStatus && (
                   <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center space-x-2">
                         <Clock className="w-4 h-4 text-blue-400" />
                         <span className="text-blue-400 font-medium">Import Status</span>
                       </div>
@@ -499,4 +581,4 @@ const ModernDataManagement = () => {
   );
 };
 
-export default ModernDataManagement;
+export default DataManagement;

@@ -297,7 +297,7 @@ const ModernSettings = () => {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className={`modern-button flex items-center space-x-3 w-full sm:w-auto ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+          className={`modern-button flex items-center space-x-2 w-full sm:w-auto ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {isSaving ? (
             <RefreshCw className="w-5 h-5 animate-spin" />

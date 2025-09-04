@@ -13,7 +13,6 @@ import {
   CheckCircle,
   Star
 } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 
 // TypeScript interfaces
 interface PricingInsights {
@@ -86,7 +85,6 @@ interface ForecastAnalysis {
 }
 
 const PricingForecast = () => {
-  const { theme } = useTheme();
   const [pricingInsights, setPricingInsights] = useState<PricingInsights | null>(null);
   const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsights | null>(null);
   const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
@@ -99,40 +97,53 @@ const PricingForecast = () => {
   const [confidenceLevel] = useState(0.95);
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
 
-  // Theme-aware styles
-  const isModernTheme = theme === 'happy-hues-modern';
-  const containerClasses = isModernTheme 
-    ? 'min-h-screen p-6 space-y-6' 
-    : 'h-full w-full p-8 bg-dark-bg text-retro-cyan font-mono';
-    
-  const cardClasses = isModernTheme
-    ? 'modern-card'
-    : 'retro-card';
-    
-  const headingClasses = isModernTheme
-    ? 'modern-heading'
-    : 'text-retro-cyan font-mono';
-    
-  const subheadingClasses = isModernTheme
-    ? 'modern-subheading' 
-    : 'text-retro-cyan/70 font-mono';
+  // Modern theme styles
+  const containerClasses = 'min-h-screen p-6 space-y-6';
+  const cardClasses = 'modern-card';
+  const headingClasses = 'modern-heading';
+  const subheadingClasses = 'modern-subheading';
 
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const [pricing, predictive, trends] = await Promise.all([
-        invoke<PricingInsights>('get_pricing_insights'),
-        invoke<PredictiveInsights>('get_predictive_insights'),
-        invoke<MarketTrend[]>('get_market_trends', { daysBack: 90 })
-      ]);
+      // Check if we're in Tauri or web environment
+      const isTauri = window.__TAURI__ !== undefined;
       
-      setPricingInsights(pricing);
-      setPredictiveInsights(predictive);
-      setMarketTrends(trends);
+      if (isTauri) {
+        // Use Tauri invoke for desktop app
+        const [pricing, predictive, trends] = await Promise.all([
+          invoke<PricingInsights>('get_pricing_insights'),
+          invoke<PredictiveInsights>('get_predictive_insights'),
+          invoke<MarketTrend[]>('get_market_trends', { daysBack: 90 })
+        ]);
+        
+        setPricingInsights(pricing);
+        setPredictiveInsights(predictive);
+        setMarketTrends(trends);
+      } else {
+        // Use HTTP fetch for web app
+        const [pricingResponse, predictiveResponse, trendsResponse] = await Promise.all([
+          fetch('http://localhost:8000/api/v1/pricing/insights'),
+          fetch('http://localhost:8000/api/v1/analytics/insights/predictive'),
+          fetch('http://localhost:8000/api/v1/analytics/trends/market?days_back=90')
+        ]);
+        
+        if (!pricingResponse.ok || !predictiveResponse.ok || !trendsResponse.ok) {
+          throw new Error('Failed to fetch data from API');
+        }
+        
+        const pricing = await pricingResponse.json();
+        const predictive = await predictiveResponse.json();
+        const trends = await trendsResponse.json();
+        
+        setPricingInsights(pricing);
+        setPredictiveInsights(predictive);
+        setMarketTrends(trends);
+      }
     } catch (err) {
-      setError(err as string);
+      setError(err instanceof Error ? err.message : String(err));
       console.error('Failed to fetch pricing/forecast data:', err);
     } finally {
       setIsLoading(false);
@@ -149,11 +160,33 @@ const PricingForecast = () => {
         model: 'ensemble'
       };
       
-      const forecast = await invoke<ForecastAnalysis>('generate_sales_forecast', { request });
-      setForecastResult(forecast);
+      // Check if we're in Tauri or web environment
+      const isTauri = window.__TAURI__ !== undefined;
+      
+      if (isTauri) {
+        // Use Tauri invoke for desktop app
+        const forecast = await invoke<ForecastAnalysis>('generate_sales_forecast', { request });
+        setForecastResult(forecast);
+      } else {
+        // Use HTTP fetch for web app
+        const response = await fetch('http://localhost:8000/api/v1/analytics/forecast/sales', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate forecast');
+        }
+        
+        const forecast = await response.json();
+        setForecastResult(forecast);
+      }
     } catch (err) {
       console.error('Failed to generate forecast:', err);
-      setError(err as string);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsGeneratingForecast(false);
     }
@@ -192,11 +225,11 @@ const PricingForecast = () => {
   const getTrendIcon = (trend: string) => {
     switch (trend.toLowerCase()) {
       case 'increasing':
-        return <TrendingUp className={`w-4 h-4 ${isModernTheme ? 'text-green-400' : 'text-retro-green'}`} />;
+        return <TrendingUp className="w-4 h-4 text-green-400" />;
       case 'decreasing':
-        return <TrendingUp className={`w-4 h-4 rotate-180 ${isModernTheme ? 'text-red-400' : 'text-retro-magenta'}`} />;
+        return <TrendingUp className="w-4 h-4 rotate-180 text-red-400" />;
       default:
-        return <Activity className={`w-4 h-4 ${isModernTheme ? 'text-yellow-400' : 'text-retro-yellow'}`} />;
+        return <Activity className="w-4 h-4 text-yellow-400" />;
     }
   };
 
@@ -214,8 +247,8 @@ const PricingForecast = () => {
         key={index}
         className={`w-3 h-3 ${
           index < starCount 
-            ? (isModernTheme ? 'text-yellow-400 fill-yellow-400' : 'text-retro-yellow fill-retro-yellow')
-            : (isModernTheme ? 'text-gray-600' : 'text-retro-cyan/20')
+            ? 'text-yellow-400 fill-yellow-400'
+            : 'text-gray-600'
         }`}
       />
     ));
@@ -225,11 +258,9 @@ const PricingForecast = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Brain className={`w-16 h-16 animate-pulse mx-auto mb-4 ${
-            isModernTheme ? 'text-purple-500' : 'text-retro-cyan'
-          }`} />
+          <Brain className="w-16 h-16 animate-pulse mx-auto mb-4 text-purple-500" />
           <p className={`${headingClasses} text-xl`}>
-            {isModernTheme ? 'Loading AI Insights...' : 'LOADING AI INSIGHTS...'}
+            Loading AI Insights...
           </p>
         </div>
       </div>
@@ -242,7 +273,7 @@ const PricingForecast = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className={`${headingClasses} text-3xl lg:text-4xl mb-2`}>
-            {isModernTheme ? 'AI Pricing & Forecasting' : 'PRICING & FORECAST'}
+            AI Pricing & Forecasting
           </h1>
           <p className={`${subheadingClasses} text-base lg:text-lg`}>
             AI-powered pricing optimization and sales forecasting
@@ -251,84 +282,90 @@ const PricingForecast = () => {
         <button 
           onClick={fetchData}
           disabled={isLoading}
-          className={`${isModernTheme ? 'modern-button-outline' : 'retro-button'} flex items-center gap-2 text-sm px-4 py-2`}
+          className="modern-button-outline flex items-center space-x-2 text-sm px-4 py-2"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>{isModernTheme ? 'Refresh' : 'REFRESH'}</span>
+          <span>Refresh</span>
         </button>
       </div>
 
       {error ? (
         <div className={`${cardClasses} text-center`}>
-          <AlertTriangle className={`w-12 h-12 mx-auto mb-4 ${
-            isModernTheme ? 'text-red-400' : 'text-retro-magenta'
-          }`} />
-          <p className={`${isModernTheme ? 'text-red-400' : 'text-retro-magenta font-mono'} text-lg mb-4`}>{error}</p>
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+          <p className="text-red-400 text-lg mb-4">{error}</p>
           <button 
             onClick={fetchData} 
-            className={`${isModernTheme ? 'modern-button' : 'retro-button'}`}
+            className="modern-button"
           >
-            {isModernTheme ? 'Retry' : 'RETRY'}
+            Retry
           </button>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={`${cardClasses} text-center p-6`}>
-              <Banknote className={`w-12 h-12 mx-auto mb-4 ${
-                isModernTheme ? 'text-green-400' : 'text-retro-green'
-              }`} />
-              <p className={`text-sm ${isModernTheme ? 'text-gray-400' : 'font-mono uppercase tracking-wider'} opacity-70 mb-2`}>
-                {isModernTheme ? 'Average Price' : 'AVG PRICE'}
-              </p>
-              <p className={`text-2xl lg:text-3xl font-bold ${
-                isModernTheme ? 'text-green-400' : 'font-retro text-retro-green'
-              }`}>
-                €{(pricingInsights?.summary.average_price || 0).toLocaleString()}
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="modern-card px-6 py-3">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 rounded-xl bg-green-500/10">
+                  <Banknote className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold modern-heading">
+                    €{(pricingInsights?.summary.average_price || 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs modern-subheading">
+                    Average Price
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <div className={`${cardClasses} text-center p-6`}>
-              <Target className={`w-12 h-12 mx-auto mb-4 ${
-                isModernTheme ? 'text-blue-400' : 'text-retro-cyan'
-              }`} />
-              <p className={`text-sm ${isModernTheme ? 'text-gray-400' : 'font-mono uppercase tracking-wider'} opacity-70 mb-2`}>
-                {isModernTheme ? 'Average Margin' : 'AVG MARGIN'}
-              </p>
-              <p className={`text-2xl lg:text-3xl font-bold ${
-                isModernTheme ? 'text-blue-400' : 'font-retro text-retro-cyan'
-              }`}>
-                {(pricingInsights?.summary.average_margin_percent || 0).toFixed(1)}%
-              </p>
+            <div className="modern-card px-6 py-3">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 rounded-xl bg-blue-500/10">
+                  <Target className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold modern-heading">
+                    {(pricingInsights?.summary.average_margin_percent || 0).toFixed(1)}%
+                  </div>
+                  <div className="text-xs modern-subheading">
+                    Average Margin
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <div className={`${cardClasses} text-center p-6`}>
-              <Activity className={`w-12 h-12 mx-auto mb-4 ${
-                isModernTheme ? 'text-yellow-400' : 'text-retro-yellow'
-              }`} />
-              <p className={`text-sm ${isModernTheme ? 'text-gray-400' : 'font-mono uppercase tracking-wider'} opacity-70 mb-2`}>
-                {isModernTheme ? '90d Revenue' : '90D REVENUE'}
-              </p>
-              <p className={`text-2xl lg:text-3xl font-bold ${
-                isModernTheme ? 'text-yellow-400' : 'font-retro text-retro-yellow'
-              }`}>
-                €{(predictiveInsights?.business_metrics.revenue_90d || 0).toLocaleString()}
-              </p>
+            <div className="modern-card px-6 py-3">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 rounded-xl bg-orange-500/10">
+                  <Activity className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold modern-heading">
+                    €{(predictiveInsights?.business_metrics.revenue_90d || 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs modern-subheading">
+                    90d Revenue
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <div className={`${cardClasses} text-center p-6`}>
-              <BarChart3 className={`w-12 h-12 mx-auto mb-4 ${
-                isModernTheme ? 'text-purple-400' : 'text-retro-magenta'
-              }`} />
-              <p className={`text-sm ${isModernTheme ? 'text-gray-400' : 'font-mono uppercase tracking-wider'} opacity-70 mb-2`}>
-                {isModernTheme ? 'Active Products' : 'ACTIVE PRODUCTS'}
-              </p>
-              <p className={`text-2xl lg:text-3xl font-bold ${
-                isModernTheme ? 'text-purple-400' : 'font-retro text-retro-magenta'
-              }`}>
-                {predictiveInsights?.business_metrics.active_products || 0}
-              </p>
+            <div className="modern-card px-6 py-3">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 rounded-xl bg-purple-500/10">
+                  <BarChart3 className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold modern-heading">
+                    {predictiveInsights?.business_metrics.active_products || 0}
+                  </div>
+                  <div className="text-xs modern-subheading">
+                    Active Products
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -339,19 +376,19 @@ const PricingForecast = () => {
             <div className={`${cardClasses} lg:col-span-4`}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className={`${headingClasses} text-xl`}>
-                  {isModernTheme ? 'AI Sales Forecast' : 'AI SALES FORECAST'}
+                  AI Sales Forecast
                 </h2>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className={`text-sm font-medium ${isModernTheme ? 'text-gray-300' : 'font-mono text-retro-cyan'}`}>
+                  <label className="text-sm font-medium text-gray-300">
                     Forecast Days:
                   </label>
                   <select 
                     value={forecastDays}
                     onChange={(e) => setForecastDays(Number(e.target.value))}
-                    className={`${isModernTheme ? 'modern-select' : 'retro-input'} w-24`}
+                    className="modern-select w-24"
                   >
                     <option value={7}>7</option>
                     <option value={14}>14</option>
@@ -364,20 +401,17 @@ const PricingForecast = () => {
                 <button 
                   onClick={generateForecast}
                   disabled={isGeneratingForecast}
-                  className={`${isModernTheme ? 'modern-button' : 'retro-button'} w-full flex items-center justify-center gap-2 py-3 ${isGeneratingForecast ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`modern-button w-full flex items-center justify-center space-x-2 py-3 ${isGeneratingForecast ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <Brain className={`w-4 h-4 ${isGeneratingForecast ? 'animate-spin' : ''}`} />
-                  <span>{isGeneratingForecast 
-                    ? (isModernTheme ? 'Generating...' : 'GENERATING...') 
-                    : (isModernTheme ? 'Generate Forecast' : 'GENERATE FORECAST')
-                  }</span>
+                  <span>{isGeneratingForecast ? 'Generating...' : 'Generate Forecast'}</span>
                 </button>
               </div>
 
               {forecastResult && (
                 <div className="mt-6 space-y-4">
-                  <div className={`p-4 rounded-lg ${isModernTheme ? 'bg-gray-800 border border-green-400/30' : 'bg-dark-surface border border-retro-green/30'}`}>
-                    <h4 className={`text-lg font-medium mb-4 ${isModernTheme ? 'text-green-400' : 'font-mono text-retro-green'}`}>
+                  <div className="p-4 rounded-lg bg-gray-800 border border-green-400/30">
+                    <h4 className="text-lg font-medium mb-4 text-green-400">
                       Forecast Results
                     </h4>
                     <div className="space-y-3">
@@ -386,22 +420,22 @@ const PricingForecast = () => {
                         return (
                           <>
                             <div className="flex justify-between items-center">
-                              <span className={`text-sm ${isModernTheme ? 'text-gray-300' : 'font-mono'}`}>Predicted Sales:</span>
-                              <span className={`font-semibold ${isModernTheme ? 'text-green-400' : 'font-retro text-retro-green'}`}>
+                              <span className="text-sm text-gray-300">Predicted Sales:</span>
+                              <span className="font-semibold text-green-400">
                                 {Math.round(forecast.predicted_sales)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className={`text-sm ${isModernTheme ? 'text-gray-300' : 'font-mono'}`}>Predicted Revenue:</span>
-                              <span className={`font-semibold ${isModernTheme ? 'text-green-400' : 'font-retro text-retro-green'}`}>
+                              <span className="text-sm text-gray-300">Predicted Revenue:</span>
+                              <span className="font-semibold text-green-400">
                                 {formatCurrency(forecast.predicted_revenue)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className={`text-sm ${isModernTheme ? 'text-gray-300' : 'font-mono'}`}>Trend:</span>
-                              <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-300">Trend:</span>
+                              <div className="flex items-center space-x-2">
                                 {getTrendIcon(forecast.trend)}
-                                <span className={`text-sm capitalize ${isModernTheme ? 'text-gray-300' : 'font-mono'}`}>
+                                <span className="text-sm capitalize text-gray-300">
                                   {forecast.trend}
                                 </span>
                               </div>
@@ -418,47 +452,47 @@ const PricingForecast = () => {
             {/* Market Trends - Middle Column */}
             <div className={`${cardClasses} lg:col-span-4`}>
               <h2 className={`${headingClasses} text-xl mb-4`}>
-                {isModernTheme ? 'Market Trends' : 'MARKET TRENDS'}
+                Market Trends
               </h2>
               <div className="space-y-3">
                 {marketTrends && marketTrends.length > 0 ? (
                   marketTrends.slice(0, 4).map((trend, index) => (
-                    <div key={index} className={`p-3 rounded-lg ${isModernTheme ? 'bg-gray-800 border border-purple-400/30' : 'bg-dark-surface border border-retro-cyan/30'}`}>
+                    <div key={index} className="p-3 rounded-lg bg-gray-800 border border-purple-400/30">
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium ${isModernTheme ? 'text-purple-400' : 'font-mono text-retro-cyan'}`}>
+                        <span className="text-xs font-medium text-purple-400">
                           {trend.period}
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center space-x-2">
                           {getTrendIcon(trend.trend_direction)}
                           <div className="flex gap-0.5">
                             {getImpactStars(trend.forecast_impact, trend.strength)}
                           </div>
                         </div>
                       </div>
-                      <div className={`text-sm font-semibold mb-1 ${isModernTheme ? 'text-white' : 'font-retro text-retro-yellow'}`}>
+                      <div className="text-sm font-semibold mb-1 text-white">
                         {trend.trend_direction.charAt(0).toUpperCase() + trend.trend_direction.slice(1)}
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className={`text-xs ${isModernTheme ? 'text-gray-400' : 'text-retro-cyan/70'}`}>
+                        <span className="text-xs text-gray-400">
                           Strength: {Math.round(trend.strength * 100)}%
                         </span>
-                        <span className={`text-xs ${isModernTheme ? 'text-gray-500' : 'text-retro-cyan/50 font-mono'}`}>
+                        <span className="text-xs text-gray-500">
                           {trend.forecast_impact}
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className={`text-center py-8 ${isModernTheme ? 'text-gray-500' : 'text-retro-cyan/50'}`}>
+                  <div className="text-center py-8 text-gray-500">
                     <TrendingUp className="w-10 h-10 mx-auto mb-3" />
-                    <p className={`text-sm ${isModernTheme ? '' : 'font-mono'}`}>No trend data available</p>
+                    <p className="text-sm">No trend data available</p>
                   </div>
                 )}
                 
                 {/* Show count if more trends available */}
                 {marketTrends && marketTrends.length > 4 && (
-                  <div className={`text-center pt-2 border-t ${isModernTheme ? 'border-gray-700 text-gray-400' : 'border-retro-cyan/20 text-retro-cyan/60'}`}>
-                    <span className={`text-xs ${isModernTheme ? '' : 'font-mono'}`}>
+                  <div className="text-center pt-2 border-t border-gray-700 text-gray-400">
+                    <span className="text-xs">
                       +{marketTrends.length - 4} more trends
                     </span>
                   </div>
@@ -469,43 +503,37 @@ const PricingForecast = () => {
             {/* AI Insights & Confidence - Right Column */}
             <div className={`${cardClasses} lg:col-span-4`}>
               <h3 className={`${headingClasses} text-xl mb-6`}>
-                {isModernTheme ? 'AI Insights' : 'AI INSIGHTS'}
+                AI Insights
               </h3>
               
               {/* Confidence Score */}
               <div className="text-center mb-8">
                 <div className="relative w-24 h-24 mx-auto mb-4">
-                  <div className={`absolute inset-0 rounded-full opacity-20 ${
-                    isModernTheme 
-                      ? 'bg-gradient-to-r from-purple-500 via-yellow-400 to-green-400' 
-                      : 'bg-gradient-to-r from-retro-magenta via-retro-yellow to-retro-green'
-                  }`}></div>
-                  <div className={`absolute inset-2 rounded-full flex items-center justify-center ${
-                    isModernTheme ? 'bg-gray-800' : 'bg-dark-card'
-                  }`}>
+                  <div className="absolute inset-0 rounded-full opacity-20 bg-gradient-to-r from-purple-500 via-yellow-400 to-green-400"></div>
+                  <div className="absolute inset-2 rounded-full flex items-center justify-center bg-gray-800">
                     <div className="text-center">
-                      <div className={`text-xl font-bold ${isModernTheme ? 'text-purple-400' : 'font-retro text-retro-cyan'}`}>
+                      <div className="text-xl font-bold text-purple-400">
                         {Math.round((predictiveInsights?.confidence_score || 0.7) * 100)}%
                       </div>
                     </div>
                   </div>
                 </div>
-                <p className={`text-sm ${isModernTheme ? 'text-gray-400' : 'font-mono text-retro-cyan/70'}`}>
-                  {isModernTheme ? 'AI Confidence' : 'AI CONFIDENCE'}
+                <p className="text-sm text-gray-400">
+                  AI Confidence
                 </p>
               </div>
               
               {/* Insights Lists */}
               <div className="space-y-6">
                 <div>
-                  <h4 className={`text-lg font-semibold mb-3 ${isModernTheme ? 'text-green-400' : 'text-retro-green font-mono'}`}>
+                  <h4 className="text-lg font-semibold mb-3 text-green-400">
                     Growth Opportunities
                   </h4>
                   <div className="space-y-2">
                     {predictiveInsights?.growth_opportunities.slice(0, 3).map((opportunity, index) => (
                       <div key={index} className="flex items-start gap-3">
-                        <Zap className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isModernTheme ? 'text-green-400' : 'text-retro-green'}`} />
-                        <span className={`text-sm ${isModernTheme ? 'text-gray-300' : 'text-retro-green/80 font-mono'}`}>
+                        <Zap className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-400" />
+                        <span className="text-sm text-gray-300">
                           {opportunity}
                         </span>
                       </div>
@@ -514,14 +542,14 @@ const PricingForecast = () => {
                 </div>
                 
                 <div>
-                  <h4 className={`text-lg font-semibold mb-3 ${isModernTheme ? 'text-yellow-400' : 'text-retro-yellow font-mono'}`}>
+                  <h4 className="text-lg font-semibold mb-3 text-yellow-400">
                     Recommendations
                   </h4>
                   <div className="space-y-2">
                     {predictiveInsights?.recommendations.slice(0, 3).map((rec, index) => (
                       <div key={index} className="flex items-start gap-3">
-                        <CheckCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isModernTheme ? 'text-yellow-400' : 'text-retro-yellow'}`} />
-                        <span className={`text-sm ${isModernTheme ? 'text-gray-300' : 'text-retro-yellow/80 font-mono'}`}>
+                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-yellow-400" />
+                        <span className="text-sm text-gray-300">
                           {rec}
                         </span>
                       </div>

@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Package, 
-  DollarSign, 
+  Banknote, 
   Activity,
-  RefreshCw,
-  AlertTriangle 
+  ShoppingCart,
+  PlusCircle,
+  RefreshCw
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/tauri';
 
 interface DashboardMetrics {
   total_inventory_value: number;
@@ -16,57 +17,86 @@ interface DashboardMetrics {
   active_listings: number;
   pending_imports: number;
   recent_transactions: any[];
-}
-
-interface MetricCardProps {
-  title: string;
-  value: string;
-  icon: React.ComponentType<any>;
-  color: 'cyan' | 'green' | 'yellow' | 'magenta';
-  subtitle?: string;
-}
-
-const MetricCard = ({ title, value, icon: Icon, color, subtitle }: MetricCardProps) => {
-  const colorClasses = {
-    cyan: 'text-retro-cyan border-retro-cyan shadow-[0_0_20px_rgba(0,255,255,0.2)]',
-    green: 'text-retro-green border-retro-green shadow-[0_0_20px_rgba(0,255,0,0.2)]',
-    yellow: 'text-retro-yellow border-retro-yellow shadow-[0_0_20px_rgba(255,255,0,0.2)]',
-    magenta: 'text-retro-magenta border-retro-magenta shadow-[0_0_20px_rgba(255,0,255,0.2)]',
+  weekly_stats: {
+    sales_count: number;
+    revenue: number;
+    new_listings: number;
   };
-
-  return (
-    <div className={`retro-card ${colorClasses[color]} hover:scale-105 transform transition-all duration-300`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-mono uppercase tracking-wider opacity-70">{title}</p>
-          <p className="text-2xl font-retro font-bold mt-2 animate-glow">{value}</p>
-          {subtitle && (
-            <p className="text-xs opacity-50 mt-1">{subtitle}</p>
-          )}
-        </div>
-        <Icon className="w-12 h-12 opacity-60" />
-      </div>
-    </div>
-  );
-};
+}
 
 const Dashboard = () => {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minutes ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hours ago`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    total_inventory_value: 0,
+    monthly_sales: 0,
+    profit_margin: 0,
+    active_listings: 0,
+    pending_imports: 0,
+    recent_transactions: [],
+    weekly_stats: {
+      sales_count: 0,
+      revenue: 0,
+      new_listings: 0
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Modern theme styles
+  const containerClasses = 'min-h-screen p-8 space-y-8';
+  const cardClasses = 'modern-card';
+  const headingClasses = 'modern-heading';
+  const subheadingClasses = 'modern-subheading';
 
   const fetchMetrics = async () => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      const data = await invoke<DashboardMetrics>('get_dashboard_metrics');
-      setMetrics(data);
-      setLastRefresh(new Date());
-    } catch (err) {
-      setError(err as string);
-      console.error('Failed to fetch dashboard metrics:', err);
+      setIsLoading(true);
+      const response = await invoke<any>('get_dashboard_metrics');
+      
+      // Ensure weekly_stats exists, provide defaults if missing
+      const metricsWithDefaults = {
+        ...response,
+        weekly_stats: response.weekly_stats || {
+          sales_count: 0,
+          revenue: 0,
+          new_listings: 0
+        }
+      };
+      
+      setMetrics(metricsWithDefaults);
+    } catch (error) {
+      console.error('Failed to fetch dashboard metrics:', error);
+      // Keep metrics at zero if API fails - no fake data
+      setMetrics({
+        total_inventory_value: 0,
+        monthly_sales: 0,
+        profit_margin: 0,
+        active_listings: 0,
+        pending_imports: 0,
+        recent_transactions: [],
+        weekly_stats: {
+          sales_count: 0,
+          revenue: 0,
+          new_listings: 0
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -74,156 +104,217 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value);
-  };
+
+  const statCards = [
+    {
+      title: 'Total Revenue',
+      value: `€${metrics.total_inventory_value.toLocaleString()}`,
+      icon: Banknote,
+      color: 'green'
+    },
+    {
+      title: 'Monthly Sales',
+      value: `€${metrics.monthly_sales.toLocaleString()}`,
+      icon: Package,
+      color: 'blue'
+    },
+    {
+      title: "Profit Margin",
+      value: `${metrics.profit_margin.toFixed(1)}%`,
+      icon: ShoppingCart,
+      color: 'purple'
+    },
+    {
+      title: 'Active Listings',
+      value: metrics.active_listings.toLocaleString(),
+      icon: Activity,
+      color: 'orange'
+    }
+  ];
+
+  // Use real recent transactions from backend
+  const recentActivity = metrics.recent_transactions.map((transaction: any, index: number) => ({
+    id: index + 1,
+    type: 'sale',
+    item: transaction.product_name || 'Unknown Product',
+    brand: transaction.brand_name || 'Unknown Brand',
+    amount: transaction.sale_price || 0,
+    profit: transaction.net_profit || 0,
+    time: transaction.date ? formatTimeAgo(transaction.date) : 'Unknown time'
+  }));
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-16 h-16 text-retro-cyan animate-spin mx-auto mb-4" />
-          <p className="text-retro-cyan font-mono">LOADING DASHBOARD...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center retro-card max-w-md">
-          <AlertTriangle className="w-16 h-16 text-retro-magenta mx-auto mb-4" />
-          <h2 className="text-xl font-retro text-retro-magenta mb-2">CONNECTION ERROR</h2>
-          <p className="text-sm text-retro-cyan/70 mb-4">{error}</p>
-          <button 
-            onClick={fetchMetrics}
-            className="retro-button"
-          >
-            RETRY CONNECTION
-          </button>
+          <RefreshCw className="w-16 h-16 animate-spin mx-auto mb-4 text-purple-500" />
+          <p className={`${headingClasses} text-xl`}>Loading Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={containerClasses}>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-retro font-bold text-retro-cyan animate-glow">
-            DASHBOARD
-          </h1>
-          <p className="text-retro-cyan/70 font-mono mt-1">
-            Real-time system overview and metrics
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <span className="text-xs text-retro-cyan/50 font-mono">
-            Last updated: {lastRefresh.toLocaleTimeString()}
-          </span>
-          <button 
-            onClick={fetchMetrics}
-            disabled={isLoading}
-            className="retro-button-success flex items-center space-x-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>REFRESH</span>
-          </button>
-        </div>
+      <div className="flex justify-end items-start mb-8">
+        <button
+          onClick={fetchMetrics}
+          disabled={isLoading}
+          className="modern-button-outline flex items-center space-x-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
+        </button>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Total Inventory Value"
-          value={formatCurrency(metrics?.total_inventory_value || 0)}
-          icon={DollarSign}
-          color="green"
-          subtitle="Current market value"
-        />
-        <MetricCard
-          title="Monthly Sales"
-          value={formatCurrency(metrics?.monthly_sales || 0)}
-          icon={TrendingUp}
-          color="cyan"
-          subtitle="This month"
-        />
-        <MetricCard
-          title="Active Listings"
-          value={metrics?.active_listings.toString() || '0'}
-          icon={Package}
-          color="yellow"
-          subtitle="Items for sale"
-        />
-        <MetricCard
-          title="Profit Margin"
-          value={`${(metrics?.profit_margin || 0).toFixed(1)}%`}
-          icon={Activity}
-          color="magenta"
-          subtitle="Average margin"
-        />
-      </div>
-
-      {/* Recent Activity */}
-      <div className="retro-card">
-        <h2 className="text-xl font-retro text-retro-cyan mb-4">RECENT ACTIVITY</h2>
-        {metrics?.recent_transactions && metrics.recent_transactions.length > 0 ? (
-          <div className="space-y-2">
-            {metrics.recent_transactions.slice(0, 5).map((transaction, index) => (
-              <div 
-                key={index}
-                className="flex justify-between items-center p-3 bg-dark-card border border-dark-border hover:border-retro-cyan/30 transition-colors"
-              >
-                <div className="font-mono text-sm">
-                  <span className="text-retro-cyan">{transaction.product_name}</span>
-                  <span className="text-retro-cyan/50 ml-2">#{transaction.id}</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {statCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.title} className="modern-card px-6 py-3">
+              <div className="flex items-center space-x-4">
+                <div className={`p-2 rounded-xl bg-${card.color}-500/10`}>
+                  <Icon className={`w-5 h-5 text-${card.color}-400`} />
                 </div>
-                <div className="text-right font-mono text-sm">
-                  <div className="text-retro-green">{formatCurrency(transaction.amount)}</div>
-                  <div className="text-retro-cyan/50 text-xs">
-                    {new Date(transaction.date).toLocaleDateString()}
+                <div>
+                  <div className="text-xl font-bold modern-heading">
+                    {card.value}
+                  </div>
+                  <div className="text-xs modern-subheading">
+                    {card.title}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-retro-cyan/50">
-            <Activity className="w-12 h-12 mx-auto mb-2" />
-            <p className="font-mono">No recent transactions</p>
-          </div>
-        )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* System Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="retro-card">
-          <h3 className="text-lg font-retro text-retro-cyan mb-3">IMPORT STATUS</h3>
-          <div className="flex items-center justify-between">
-            <span className="font-mono">Pending Imports:</span>
-            <span className="text-retro-yellow font-bold">
-              {metrics?.pending_imports || 0}
-            </span>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* Recent Activity */}
+        <div className={`${cardClasses} lg:col-span-2`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`${headingClasses} text-xl`}>Recent Activity</h2>
+            <button className="text-sm cursor-pointer bg-none border-none text-gray-400 hover:text-white">
+              View all
+            </button>
+          </div>
+          
+          <div className="flex flex-col gap-4">
+            {recentActivity.length > 0 ? recentActivity.map((activity) => (
+              <div key={activity.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-800">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    activity.type === 'sale' ? 'bg-green-400/20' :
+                    activity.type === 'listing' ? 'bg-purple-500/20' : 'bg-red-400/20'
+                  }`}>
+                    {activity.type === 'sale' ? (
+                      <Banknote className="w-5 h-5 text-green-400" />
+                    ) : activity.type === 'listing' ? (
+                      <PlusCircle className="w-5 h-5 text-purple-500" />
+                    ) : (
+                      <TrendingUp className="w-5 h-5 text-red-400" />
+                    )}
+                  </div>
+                  <div>
+                    <div className={`${headingClasses} text-sm mb-1`}>{activity.item}</div>
+                    <div className={`${subheadingClasses} text-xs`}>
+                      {activity.brand} • {activity.time}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`${headingClasses} text-sm mb-1`}>€{activity.amount}</div>
+                  <div className={`${subheadingClasses} text-xs`}>
+                    Profit: €{activity.profit.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-8">
+                <Activity className="w-12 h-12 mx-auto mb-4 text-gray-500" />
+                <p className={`${headingClasses} text-lg mb-2`}>No Recent Activity</p>
+                <p className={`${subheadingClasses} text-sm`}>
+                  Transaction data will appear here once sales are recorded in the system.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-        
-        <div className="retro-card">
-          <h3 className="text-lg font-retro text-retro-cyan mb-3">SYSTEM HEALTH</h3>
-          <div className="space-y-2 font-mono text-sm">
-            <div className="flex justify-between">
-              <span>API Status:</span>
-              <span className="status-healthy">ONLINE</span>
+
+        {/* Quick Actions & Performance Summary */}
+        <div className="flex flex-col gap-6">
+          <div className={cardClasses}>
+            <h2 className={`${headingClasses} text-xl mb-6`}>Quick Actions</h2>
+            
+            <div className="flex flex-col gap-4">
+              <button className="modern-button w-full flex items-center justify-center space-x-2">
+                <PlusCircle className="w-4 h-4" />
+                <span>Add Product</span>
+              </button>
+              
+              <button className="modern-button-secondary w-full flex items-center justify-center space-x-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>Update Prices</span>
+              </button>
+              
+              <button className="modern-button-outline w-full flex items-center justify-center space-x-2">
+                <Activity className="w-4 h-4" />
+                <span>View Analytics</span>
+              </button>
             </div>
-            <div className="flex justify-between">
-              <span>Database:</span>
-              <span className="status-healthy">CONNECTED</span>
+          </div>
+
+          {/* Performance Summary */}
+          <div className={cardClasses}>
+            <h2 className={`${headingClasses} text-xl mb-6`}>This Week</h2>
+            
+            <div className="flex flex-col gap-4">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className={subheadingClasses}>Sales</span>
+                  <span className={headingClasses}>{metrics.weekly_stats.sales_count}</span>
+                </div>
+                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
+                  <div 
+                    className="h-full bg-purple-500 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.sales_count / 50) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className={subheadingClasses}>Revenue</span>
+                  <span className={headingClasses}>€{metrics.weekly_stats.revenue.toLocaleString()}</span>
+                </div>
+                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
+                  <div 
+                    className="h-full bg-green-400 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.revenue / 5000) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className={subheadingClasses}>New Listings</span>
+                  <span className={headingClasses}>{metrics.weekly_stats.new_listings}</span>
+                </div>
+                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
+                  <div 
+                    className="h-full bg-red-400 rounded transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (metrics.weekly_stats.new_listings / 20) * 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
