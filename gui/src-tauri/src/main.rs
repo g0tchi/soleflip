@@ -32,7 +32,8 @@ async fn main() {
             commands::create_stockx_listing,
             commands::get_stockx_listings,
             commands::get_alias_listings,
-            commands::sync_inventory_from_stockx
+            commands::sync_inventory_from_stockx,
+            commands::http_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

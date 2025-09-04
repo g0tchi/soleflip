@@ -51,10 +51,12 @@ class DatabaseManager:
         if "sqlite" not in self.database_url:
             engine_args.update(
                 {
-                    "pool_size": 20,
-                    "max_overflow": 30,
+                    "pool_size": 5,
+                    "max_overflow": 10,
                     "pool_timeout": 30,
-                    "pool_recycle": 3600,
+                    "pool_recycle": 1800,
+                    "pool_pre_ping": True,
+                    "pool_reset_on_return": "commit",
                 }
             )
 

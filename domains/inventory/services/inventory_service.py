@@ -99,6 +99,219 @@ class InventoryService:
             avg_purchase_price=repo_stats.avg_purchase_price,
         )
 
+    async def mark_stockx_item_as_presale(self, stockx_listing_id: str) -> bool:
+        """Mark a StockX listed item as presale - finds the inventory item automatically"""
+        try:
+            # Find inventory item by StockX listing ID
+            from sqlalchemy import select
+            from shared.database.models import InventoryItem
+            
+            stmt = select(InventoryItem).where(
+                InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+            )
+            result = await self.db_session.execute(stmt)
+            item = result.scalar_one_or_none()
+            
+            if not item:
+                self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
+                return False
+
+            # Simply update the status to presale
+            await self.inventory_repo.update(
+                item.id,
+                {"status": "presale"}
+            )
+
+            self.logger.info(f"Marked StockX listing {stockx_listing_id} as presale")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to mark StockX item as presale: {e}")
+            return False
+
+    async def unmark_stockx_presale(self, stockx_listing_id: str) -> bool:
+        """Remove presale marking from a StockX item"""
+        try:
+            # Find inventory item by StockX listing ID
+            from sqlalchemy import select
+            from shared.database.models import InventoryItem
+            
+            stmt = select(InventoryItem).where(
+                InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+            )
+            result = await self.db_session.execute(stmt)
+            item = result.scalar_one_or_none()
+            
+            if not item:
+                self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
+                return False
+
+            # Reset status back to listed_stockx
+            await self.inventory_repo.update(
+                item.id,
+                {"status": "listed_stockx"}
+            )
+
+            self.logger.info(f"Removed presale marking from StockX listing {stockx_listing_id}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to remove presale marking: {e}")
+            return False
+    
+    async def get_stockx_presale_markings(self) -> dict:
+        """Get all StockX presale markings as a dict"""
+        try:
+            from shared.database.models import StockXPresaleMarking
+            from sqlalchemy import select
+            
+            stmt = select(StockXPresaleMarking).where(
+                StockXPresaleMarking.is_presale == True
+            )
+            result = await self.db_session.execute(stmt)
+            markings = result.scalars().all()
+            
+            # Return as dict with stockx_listing_id as key
+            return {marking.stockx_listing_id: {
+                'is_presale': marking.is_presale,
+                'marked_at': marking.marked_at.isoformat() if marking.marked_at else None,
+                'product_name': marking.product_name,
+                'size': marking.size
+            } for marking in markings}
+            
+        except Exception as e:
+            self.logger.error("Failed to get StockX presale markings", error=str(e))
+            return {}
+    
+    async def sync_all_stockx_listings_to_inventory(self) -> Dict[str, int]:
+        """
+        Sync all current StockX listings to inventory items
+        Creates inventory items for listings that don't have matching items
+        """
+        self.logger.info("Starting sync of all StockX listings to inventory")
+        stats = {"created": 0, "updated": 0, "skipped": 0, "matched": 0}
+        
+        try:
+            # Get StockX service
+            stockx_service = self.stockx_service
+            if not stockx_service:
+                from domains.integration.services.stockx_service import StockXService
+                stockx_service = StockXService(self.db_session)
+            
+            # Get all current StockX listings
+            listings = await stockx_service.get_all_listings()
+            self.logger.info(f"Found {len(listings)} StockX listings to sync")
+            
+            for listing in listings:
+                listing_id = listing.get("listingId")
+                if not listing_id:
+                    stats["skipped"] += 1
+                    continue
+                
+                # Extract product info
+                product_info = listing.get("product", {})
+                variant_info = listing.get("variant", {})
+                product_name = product_info.get("productName", "Unknown Product")
+                size = variant_info.get("variantValue", "Unknown Size")
+                
+                # Check if we already have an inventory item for this listing
+                from sqlalchemy import select
+                from shared.database.models import InventoryItem
+                
+                stmt = select(InventoryItem).where(
+                    InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
+                )
+                result = await self.db_session.execute(stmt)
+                existing_item = result.scalar_one_or_none()
+                
+                if existing_item:
+                    stats["matched"] += 1
+                    continue
+                
+                # Create new inventory item for this StockX listing
+                try:
+                    # Create a basic product first if needed (simplified)
+                    from shared.database.models import Product, Category, Brand, Size
+                    
+                    # Find or create brand
+                    brand_name = listing.get("brand", "Unknown")
+                    brand = await self.brand_repo.find_one_by({"name": brand_name})
+                    if not brand:
+                        from shared.database.models import Brand
+                        brand = Brand(name=brand_name, slug=brand_name.lower().replace(" ", "-"))
+                        self.db_session.add(brand)
+                        await self.db_session.flush()
+                    
+                    # Find or create category (default to sneakers)
+                    category = await self.category_repo.find_one_by({"name": "Sneakers"})
+                    if not category:
+                        from shared.database.models import Category
+                        category = Category(name="Sneakers", slug="sneakers")
+                        self.db_session.add(category)
+                        await self.db_session.flush()
+                    
+                    # Find or create product
+                    product_sku = f"stockx-{listing_id}"
+                    product = await self.product_repo.find_one_by({"sku": product_sku})
+                    if not product:
+                        from shared.database.models import Product
+                        product = Product(
+                            sku=product_sku,
+                            name=product_name,
+                            brand_id=brand.id,
+                            category_id=category.id
+                        )
+                        self.db_session.add(product)
+                        await self.db_session.flush()
+                    
+                    # Find or create size
+                    size_obj = await self.size_repo.find_one_by({
+                        "value": size,
+                        "category_id": category.id,
+                        "region": "US"
+                    })
+                    if not size_obj:
+                        from shared.database.models import Size
+                        size_obj = Size(
+                            value=size,
+                            category_id=category.id,
+                            region="US"
+                        )
+                        self.db_session.add(size_obj)
+                        await self.db_session.flush()
+                    
+                    # Create inventory item
+                    new_item = InventoryItem(
+                        product_id=product.id,
+                        size_id=size_obj.id,
+                        quantity=1,
+                        status="listed_stockx",
+                        external_ids={
+                            "stockx_listing_id": listing_id,
+                            "created_from_sync": True
+                        }
+                    )
+                    
+                    self.db_session.add(new_item)
+                    stats["created"] += 1
+                    
+                    self.logger.info(f"Created inventory item for StockX listing {listing_id}")
+                    
+                except Exception as item_error:
+                    self.logger.error(f"Failed to create inventory item for listing {listing_id}: {item_error}")
+                    stats["skipped"] += 1
+            
+            # Commit all changes
+            await self.db_session.commit()
+            
+            self.logger.info("Completed StockX listings sync", stats=stats)
+            return stats
+            
+        except Exception as e:
+            await self.db_session.rollback()
+            self.logger.error("Failed to sync StockX listings to inventory", error=str(e))
+            return {"error": str(e)}
+
     async def create_product_with_inventory(
         self,
         product_request: ProductCreationRequest,

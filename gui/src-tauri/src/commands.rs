@@ -38,11 +38,57 @@ pub async fn health_check() -> Result<HealthStatus, String> {
 
 #[tauri::command]
 pub async fn get_inventory_items(limit: Option<i32>) -> Result<Vec<InventoryItem>, String> {
+    eprintln!("🔍 Tauri command get_inventory_items called with limit: {:?}", limit);
     let client = ApiClient::new("http://localhost:8000".to_string());
     
     match client.get_inventory_items(limit).await {
-        Ok(items) => Ok(items),
-        Err(e) => Err(format!("Failed to fetch inventory: {}", e)),
+        Ok(items) => {
+            eprintln!("✅ Successfully loaded {} inventory items", items.len());
+            Ok(items)
+        },
+        Err(e) => {
+            eprintln!("❌ Failed to fetch inventory: {}", e);
+            Err(format!("Failed to fetch inventory: {}", e))
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HttpRequest {
+    pub method: String,
+    pub url: String,
+    pub body: Option<Value>,
+}
+
+#[tauri::command]
+pub async fn http_request(method: String, url: String, body: Option<Value>) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let full_url = if url.starts_with("http") {
+        url
+    } else {
+        format!("http://localhost:8000{}", url)
+    };
+    
+    let mut request = match method.to_uppercase().as_str() {
+        "GET" => client.get(&full_url),
+        "POST" => client.post(&full_url),
+        "PUT" => client.put(&full_url),
+        "DELETE" => client.delete(&full_url),
+        _ => return Err("Unsupported HTTP method".to_string()),
+    };
+    
+    if let Some(body_data) = body {
+        request = request.json(&body_data);
+    }
+    
+    match request.send().await {
+        Ok(response) => {
+            match response.json::<Value>().await {
+                Ok(json) => Ok(json),
+                Err(e) => Err(format!("Failed to parse response: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Request failed: {}", e)),
     }
 }
 

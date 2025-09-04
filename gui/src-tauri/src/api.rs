@@ -1,10 +1,11 @@
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use crate::commands::{StockXListingRequest, StockXListingResponse};
+
 
 #[derive(Debug, Clone)]
 pub struct ApiClient {
@@ -33,32 +34,21 @@ pub struct HealthStatus {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryItem {
     pub id: Uuid,
-    #[serde(default = "default_sku")]
-    pub sku: String,
-    #[serde(rename = "product_name")]
-    pub name: String,
-    #[serde(rename = "brand_name")]
-    pub brand: String,
+    pub product_id: Option<Uuid>,
+    pub product_name: String,
+    pub brand_name: Option<String>,
+    pub category_name: Option<String>,
     pub size: String,
-    #[serde(default = "default_condition")]
-    pub condition: String,
+    pub quantity: i32,
     pub purchase_price: Option<f64>,
-    #[serde(default = "default_current_value")]
-    pub current_value: f64,
+    pub purchase_date: Option<String>,
+    pub supplier: String,
     pub status: String,
+    pub notes: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
-fn default_sku() -> String {
-    "N/A".to_string()
-}
-
-fn default_condition() -> String {
-    "Unknown".to_string()
-}
-
-fn default_current_value() -> f64 {
-    0.0
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProductStats {
@@ -330,13 +320,25 @@ impl ApiClient {
         if let Some(items_value) = response_json.get("items") {
             match serde_json::from_value::<Vec<InventoryItem>>(items_value.clone()) {
                 Ok(items) => Ok(items),
-                Err(_) => Ok(vec![]), // Return empty vec if parsing fails
+                Err(e) => {
+                    eprintln!("Failed to deserialize inventory items: {:?}", e);
+                    eprintln!("Sample item data: {:?}", 
+                        items_value.as_array()
+                            .and_then(|arr| arr.get(0))
+                            .map(|item| serde_json::to_string_pretty(item).unwrap_or_default())
+                            .unwrap_or_default()
+                    );
+                    Ok(vec![]) // Return empty for now, but we'll see the error
+                }
             }
         } else {
             // Fallback: try to parse the entire response as an array (for compatibility)
             match serde_json::from_value::<Vec<InventoryItem>>(response_json) {
                 Ok(items) => Ok(items),
-                Err(_) => Ok(vec![]), // Return empty vec if parsing fails
+                Err(e) => {
+                    eprintln!("Failed to deserialize entire response as inventory items: {:?}", e);
+                    Ok(vec![]) // Return empty for now, but we'll see the error
+                }
             }
         }
     }
