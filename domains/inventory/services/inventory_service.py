@@ -667,7 +667,8 @@ class InventoryService:
             # Get basic stats
             stats = await self.get_inventory_overview()
 
-            # Get additional summary data
+            # Get additional summary data with error isolation
+            # Each method uses isolated sessions and handles its own errors
             top_brands = await self._get_top_brands()
             status_breakdown = await self._get_status_breakdown()
             recent_activity = await self._get_recent_activity()
@@ -685,131 +686,150 @@ class InventoryService:
             }
         except Exception as e:
             self.logger.error("Failed to get inventory summary", error=str(e))
-            raise
+            # Return partial data instead of raising to ensure dashboard still loads
+            return {
+                "total_items": 0,
+                "items_in_stock": 0,
+                "items_sold": 0,
+                "items_listed": 0,
+                "total_inventory_value": 0.0,
+                "average_purchase_price": 0.0,
+                "top_brands": [],
+                "status_breakdown": {},
+                "recent_activity": [],
+            }
 
     async def _get_top_brands(self) -> List[Dict[str, Any]]:
         """Get top brands by inventory count"""
-        try:
-            from sqlalchemy import text
-            
-            brands_query = text(
-                """
-                SELECT 
-                    b.name as brand_name,
-                    COUNT(i.id) as item_count,
-                    SUM(i.quantity) as total_quantity,
-                    AVG(i.purchase_price) as avg_price,
-                    SUM(i.purchase_price * i.quantity) as total_value
-                FROM inventory i
-                JOIN products p ON i.product_id = p.id
-                LEFT JOIN brands b ON p.brand_id = b.id
-                WHERE i.purchase_price IS NOT NULL
-                GROUP BY b.name
-                ORDER BY item_count DESC
-                LIMIT 5
-                """
-            )
-            
-            result = await self.db_session.execute(brands_query)
-            top_brands = []
-            
-            for row in result.fetchall():
-                brand = {
-                    "name": row.brand_name or "Unknown Brand",
-                    "item_count": int(row.item_count or 0),
-                    "total_quantity": int(row.total_quantity or 0),
-                    "avg_price": float(row.avg_price or 0),
-                    "total_value": float(row.total_value or 0)
-                }
-                top_brands.append(brand)
-            
-            return top_brands
-            
-        except Exception as e:
-            self.logger.error("Failed to get top brands", error=str(e), exc_info=True)
-            # Return empty list instead of mock data to show real state
-            return []
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                brands_query = text(
+                    """
+                    SELECT 
+                        b.name as brand_name,
+                        COUNT(i.id) as item_count,
+                        SUM(i.quantity) as total_quantity,
+                        AVG(i.purchase_price) as avg_price,
+                        SUM(i.purchase_price * i.quantity) as total_value
+                    FROM products.inventory i
+                    JOIN products.products p ON i.product_id = p.id
+                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    WHERE i.purchase_price IS NOT NULL
+                    GROUP BY b.name
+                    ORDER BY item_count DESC
+                    LIMIT 5
+                    """
+                )
+                
+                result = await isolated_session.execute(brands_query)
+                top_brands = []
+                
+                for row in result.fetchall():
+                    brand = {
+                        "name": row.brand_name or "Unknown Brand",
+                        "item_count": int(row.item_count or 0),
+                        "total_quantity": int(row.total_quantity or 0),
+                        "avg_price": float(row.avg_price or 0),
+                        "total_value": float(row.total_value or 0)
+                    }
+                    top_brands.append(brand)
+                
+                return top_brands
+                
+            except Exception as e:
+                self.logger.error("Failed to get top brands", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return []
 
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
-        try:
-            from sqlalchemy import text
-            
-            status_query = text(
-                """
-                SELECT 
-                    status,
-                    COUNT(*) as count
-                FROM inventory
-                GROUP BY status
-                ORDER BY count DESC
-                """
-            )
-            
-            result = await self.db_session.execute(status_query)
-            status_breakdown = {}
-            
-            for row in result.fetchall():
-                status_breakdown[row.status] = int(row.count)
-            
-            return status_breakdown
-            
-        except Exception as e:
-            self.logger.error("Failed to get status breakdown", error=str(e), exc_info=True)
-            # Return empty dict instead of mock data to show real state
-            return {}
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                status_query = text(
+                    """
+                    SELECT 
+                        status,
+                        COUNT(*) as count
+                    FROM products.inventory
+                    GROUP BY status
+                    ORDER BY count DESC
+                    """
+                )
+                
+                result = await isolated_session.execute(status_query)
+                status_breakdown = {}
+                
+                for row in result.fetchall():
+                    status_breakdown[row.status] = int(row.count)
+                
+                return status_breakdown
+                
+            except Exception as e:
+                self.logger.error("Failed to get status breakdown", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return {}
 
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
         """Get recent inventory activity"""
-        try:
-            # Get recent inventory changes (status updates, additions, etc.)
-            from sqlalchemy import text
-            
-            # Query for recent inventory updates
-            recent_query = text(
-                """
-                SELECT 
-                    i.updated_at,
-                    i.status,
-                    i.quantity,
-                    i.purchase_price,
-                    p.name as product_name,
-                    b.name as brand_name,
-                    s.value as size_value,
-                    'status_change' as activity_type
-                FROM inventory i
-                JOIN products p ON i.product_id = p.id
-                LEFT JOIN brands b ON p.brand_id = b.id
-                LEFT JOIN sizes s ON i.size_id = s.id
-                WHERE i.updated_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
-                ORDER BY i.updated_at DESC
-                LIMIT 10
-                """
-            )
-            
-            result = await self.db_session.execute(recent_query)
-            recent_activity = []
-            
-            for row in result.fetchall():
-                activity = {
-                    "date": row.updated_at.isoformat() if row.updated_at else None,
-                    "activity_type": row.activity_type,
-                    "product_name": row.product_name or "Unknown Product",
-                    "brand_name": row.brand_name or "Unknown Brand", 
-                    "size": row.size_value or "N/A",
-                    "status": row.status or "unknown",
-                    "quantity": int(row.quantity or 0),
-                    "purchase_price": float(row.purchase_price or 0),
-                    "description": self._format_activity_description(row)
-                }
-                recent_activity.append(activity)
-            
-            return recent_activity
-            
-        except Exception as e:
-            self.logger.error("Failed to get recent inventory activity", error=str(e), exc_info=True)
-            # Return empty list instead of mock data
-            return []
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                # Query for recent inventory updates
+                recent_query = text(
+                    """
+                    SELECT 
+                        i.updated_at,
+                        i.status,
+                        i.quantity,
+                        i.purchase_price,
+                        p.name as product_name,
+                        b.name as brand_name,
+                        s.value as size_value,
+                        'status_change' as activity_type
+                    FROM products.inventory i
+                    JOIN products.products p ON i.product_id = p.id
+                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    LEFT JOIN core.sizes s ON i.size_id = s.id
+                    WHERE i.updated_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
+                    ORDER BY i.updated_at DESC
+                    LIMIT 10
+                    """
+                )
+                
+                result = await isolated_session.execute(recent_query)
+                recent_activity = []
+                
+                for row in result.fetchall():
+                    activity = {
+                        "date": row.updated_at.isoformat() if row.updated_at else None,
+                        "activity_type": row.activity_type,
+                        "product_name": row.product_name or "Unknown Product",
+                        "brand_name": row.brand_name or "Unknown Brand", 
+                        "size": row.size_value or "N/A",
+                        "status": row.status or "unknown",
+                        "quantity": int(row.quantity or 0),
+                        "purchase_price": float(row.purchase_price or 0),
+                        "description": self._format_activity_description(row)
+                    }
+                    recent_activity.append(activity)
+                
+                return recent_activity
+                
+            except Exception as e:
+                self.logger.error("Failed to get recent inventory activity", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return []
     
     def _format_activity_description(self, row) -> str:
         """Format activity description based on the row data"""

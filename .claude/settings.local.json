@@ -33,7 +33,9 @@
       "WebFetch(domain:github.com)",
       "Bash(gh api:*)",
       "Bash(git fetch:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(pkill:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []
