@@ -19,6 +19,9 @@ from shared.api.dependencies import (
     get_inventory_service,
     validate_inventory_item_id,
 )
+from shared.database.connection import get_db_session
+from shared.streaming.response import stream_inventory_export
+from sqlalchemy.ext.asyncio import AsyncSession
 from shared.api.responses import (
     InventoryItemResponse,
     InventorySummaryResponse,
@@ -749,3 +752,48 @@ async def get_inventory_summary(
     except Exception as e:
         error_context = ErrorContext("fetch", "inventory summary")
         raise error_context.create_error_response(e)
+
+
+@router.get(
+    "/export",
+    summary="Stream Inventory Export",
+    description="Stream large inventory dataset as JSON or CSV for efficient download",
+)
+async def export_inventory_stream(
+    format: str = "json",
+    chunk_size: int = 100,
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Stream inventory data for efficient large dataset exports"""
+    logger.info("Starting inventory streaming export", format=format, chunk_size=chunk_size)
+    
+    try:
+        # Validate format parameter
+        if format.lower() not in ["json", "csv"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Format must be 'json' or 'csv'"
+            )
+        
+        # Validate chunk size (prevent memory issues)
+        if chunk_size < 10 or chunk_size > 1000:
+            raise HTTPException(
+                status_code=400, 
+                detail="Chunk size must be between 10 and 1000"
+            )
+        
+        # Stream the inventory data
+        return await stream_inventory_export(
+            db_session=db_session,
+            export_format=format,
+            chunk_size=chunk_size
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Inventory streaming export failed", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Export failed: {str(e)}"
+        )

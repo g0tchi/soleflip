@@ -101,6 +101,23 @@ from shared.security.middleware import add_security_middleware
 
 add_security_middleware(app, settings)
 
+# Add compression middleware for better bandwidth efficiency
+from shared.middleware.compression import setup_compression_middleware
+from shared.middleware.etag import setup_etag_middleware
+
+# First add compression middleware, then ETag middleware
+# This ensures ETags are calculated from compressed responses
+setup_compression_middleware(app, {
+    "minimum_size": 1000,  # Compress responses >= 1KB
+    "compression_level": 6,  # Balanced speed vs compression
+    "exclude_paths": ["/health", "/metrics", "/docs", "/openapi.json", "/health/ready", "/health/live"]
+})
+
+setup_etag_middleware(app, {
+    "weak_etags": True,  # Better performance
+    "exclude_paths": ["/health", "/metrics", "/docs", "/openapi.json", "/health/ready", "/health/live"]
+})
+
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
