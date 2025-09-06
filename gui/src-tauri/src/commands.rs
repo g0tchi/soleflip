@@ -1,4 +1,4 @@
-use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights};
+use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights, SmartPricingOptimization, AutoRepricingStatus, MarketTrendData, PredictiveInsight, InventoryForecast, RestockRecommendation, PredictiveInsightsSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,6 +13,19 @@ pub struct SystemStatus {
     pub environment: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StockXListingRequest {
+    pub item_id: String,
+    pub listing_type: String, // 'immediate' or 'presale'
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StockXListingResponse {
+    pub success: bool,
+    pub listing_id: Option<String>,
+    pub message: String,
+}
+
 #[tauri::command]
 pub async fn health_check() -> Result<HealthStatus, String> {
     let client = ApiClient::new("http://localhost:8000".to_string());
@@ -25,11 +38,57 @@ pub async fn health_check() -> Result<HealthStatus, String> {
 
 #[tauri::command]
 pub async fn get_inventory_items(limit: Option<i32>) -> Result<Vec<InventoryItem>, String> {
+    eprintln!("🔍 Tauri command get_inventory_items called with limit: {:?}", limit);
     let client = ApiClient::new("http://localhost:8000".to_string());
     
     match client.get_inventory_items(limit).await {
-        Ok(items) => Ok(items),
-        Err(e) => Err(format!("Failed to fetch inventory: {}", e)),
+        Ok(items) => {
+            eprintln!("✅ Successfully loaded {} inventory items", items.len());
+            Ok(items)
+        },
+        Err(e) => {
+            eprintln!("❌ Failed to fetch inventory: {}", e);
+            Err(format!("Failed to fetch inventory: {}", e))
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HttpRequest {
+    pub method: String,
+    pub url: String,
+    pub body: Option<Value>,
+}
+
+#[tauri::command]
+pub async fn http_request(method: String, url: String, body: Option<Value>) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let full_url = if url.starts_with("http") {
+        url
+    } else {
+        format!("http://localhost:8000{}", url)
+    };
+    
+    let mut request = match method.to_uppercase().as_str() {
+        "GET" => client.get(&full_url),
+        "POST" => client.post(&full_url),
+        "PUT" => client.put(&full_url),
+        "DELETE" => client.delete(&full_url),
+        _ => return Err("Unsupported HTTP method".to_string()),
+    };
+    
+    if let Some(body_data) = body {
+        request = request.json(&body_data);
+    }
+    
+    match request.send().await {
+        Ok(response) => {
+            match response.json::<Value>().await {
+                Ok(json) => Ok(json),
+                Err(e) => Err(format!("Failed to parse response: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Request failed: {}", e)),
     }
 }
 
@@ -235,3 +294,206 @@ pub async fn get_predictive_insights() -> Result<PredictiveInsights, String> {
         Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
     }
 }
+
+#[tauri::command]
+pub async fn create_stockx_listing(item_id: String, listing_type: String) -> Result<StockXListingResponse, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    let request = StockXListingRequest { item_id, listing_type };
+    
+    match client.create_stockx_listing(request).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to create StockX listing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_stockx_listings(status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_stockx_listings(status, limit).await {
+        Ok(listings) => Ok(listings),
+        Err(e) => Err(format!("Failed to get StockX listings: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_alias_listings(status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_alias_listings(status, limit).await {
+        Ok(listings) => Ok(listings),
+        Err(e) => Err(format!("Failed to get Alias listings: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn sync_inventory_from_stockx() -> Result<HashMap<String, Value>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.sync_inventory_from_stockx().await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to sync inventory from StockX: {}", e)),
+    }
+}
+
+// Smart Pricing Commands
+#[tauri::command]
+pub async fn optimize_inventory_pricing(strategy: String, limit: i32) -> Result<SmartPricingOptimization, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.optimize_inventory_pricing(strategy, limit).await {
+        Ok(optimization) => Ok(optimization),
+        Err(e) => Err(format!("Failed to optimize inventory pricing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_auto_repricing_status() -> Result<AutoRepricingStatus, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_auto_repricing_status().await {
+        Ok(status) => Ok(status),
+        Err(e) => Err(format!("Failed to get auto-repricing status: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn toggle_auto_repricing(enabled: bool) -> Result<HashMap<String, Value>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.toggle_auto_repricing(enabled).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(format!("Failed to toggle auto-repricing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_smart_market_trends() -> Result<MarketTrendData, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    
+    match client.get_smart_market_trends().await {
+        Ok(trends) => Ok(trends),
+        Err(e) => Err(format!("Failed to get smart market trends: {}", e)),
+    }
+}
+
+// Auto-Listing Commands
+#[tauri::command]
+pub async fn get_auto_listing_status() -> Result<crate::api::AutoListingStatus, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_auto_listing_status().await {
+        Ok(status) => Ok(status),
+        Err(e) => Err(format!("Failed to get auto-listing status: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn execute_auto_listing(max_items: i32, dry_run: bool) -> Result<crate::api::AutoListingExecution, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.execute_auto_listing(max_items, dry_run).await {
+        Ok(execution) => Ok(execution),
+        Err(e) => Err(format!("Failed to execute auto-listing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn simulate_auto_listing(rule_name: Option<String>, max_items: i32) -> Result<crate::api::AutoListingSimulation, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.simulate_auto_listing(rule_name, max_items).await {
+        Ok(simulation) => Ok(simulation),
+        Err(e) => Err(format!("Failed to simulate auto-listing: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn toggle_listing_rule(rule_name: String, active: bool) -> Result<crate::api::RuleToggleResponse, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.toggle_listing_rule(rule_name, active).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Failed to toggle listing rule: {}", e)),
+    }
+}
+
+// Dead Stock Commands
+#[tauri::command]
+pub async fn get_dead_stock_summary() -> Result<crate::api::DeadStockSummary, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_dead_stock_summary().await {
+        Ok(summary) => Ok(summary),
+        Err(e) => Err(format!("Failed to get dead stock summary: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn analyze_dead_stock(brand_filter: Option<String>, category_filter: Option<String>, min_risk_score: f64) -> Result<crate::api::DeadStockAnalysis, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.analyze_dead_stock(brand_filter, category_filter, min_risk_score).await {
+        Ok(analysis) => Ok(analysis),
+        Err(e) => Err(format!("Failed to analyze dead stock: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn execute_clearance(risk_levels: Vec<String>, max_items: i32, dry_run: bool) -> Result<crate::api::ClearanceExecution, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.execute_clearance(risk_levels, max_items, dry_run).await {
+        Ok(execution) => Ok(execution),
+        Err(e) => Err(format!("Failed to execute clearance: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_risk_level_definitions() -> Result<crate::api::RiskLevelDefinitions, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_risk_level_definitions().await {
+        Ok(definitions) => Ok(definitions),
+        Err(e) => Err(format!("Failed to get risk level definitions: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_dead_stock_trends() -> Result<crate::api::DeadStockTrends, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_dead_stock_trends().await {
+        Ok(trends) => Ok(trends),
+        Err(e) => Err(format!("Failed to get dead stock trends: {}", e)),
+    }
+}
+
+// Predictive Insights Commands
+#[tauri::command]
+pub async fn get_predictive_insights(insight_types: Option<String>, days_ahead: i32, limit: i32) -> Result<Vec<PredictiveInsight>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_predictive_insights(insight_types, days_ahead, limit).await {
+        Ok(insights) => Ok(insights),
+        Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_inventory_forecasts(product_ids: Option<String>, horizon_days: i32) -> Result<Vec<InventoryForecast>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_inventory_forecasts(product_ids, horizon_days).await {
+        Ok(forecasts) => Ok(forecasts),
+        Err(e) => Err(format!("Failed to get inventory forecasts: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_restock_recommendations(investment_budget: Option<f64>, min_roi: f64, max_products: i32) -> Result<Vec<RestockRecommendation>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_restock_recommendations(investment_budget, min_roi, max_products).await {
+        Ok(recommendations) => Ok(recommendations),
+        Err(e) => Err(format!("Failed to get restock recommendations: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_predictive_insights_summary() -> Result<PredictiveInsightsSummary, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_predictive_insights_summary().await {
+        Ok(summary) => Ok(summary),
+        Err(e) => Err(format!("Failed to get predictive insights summary: {}", e)),
+    }
+}
+

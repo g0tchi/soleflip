@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from domains.inventory.services.inventory_service import InventoryService
 from shared.api.dependencies import (
@@ -19,9 +19,6 @@ from shared.api.dependencies import (
     get_inventory_service,
     validate_inventory_item_id,
 )
-from shared.database.connection import get_db_session
-from shared.streaming.response import stream_inventory_export
-from sqlalchemy.ext.asyncio import AsyncSession
 from shared.api.responses import (
     InventoryItemResponse,
     InventorySummaryResponse,
@@ -111,24 +108,6 @@ async def get_inventory_item(
     except Exception as e:
         error_context = ErrorContext("fetch", "inventory item")
         raise error_context.create_error_response(e)
-
-
-@router.put("/items/{item_id}")
-async def update_inventory_item(
-    item_id: str,
-    update_data: dict,
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Simple update for inventory item"""
-    try:
-        from uuid import UUID
-        item_uuid = UUID(item_id)
-        success = await inventory_service.update_item_fields(item_uuid, update_data)
-        if not success:
-            raise HTTPException(status_code=404, detail="Item not found")
-        return {"success": True, "message": "Updated successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post(
@@ -280,31 +259,13 @@ async def create_stockx_listing(
 async def get_stockx_listings(
     status: Optional[str] = None,
     limit: Optional[int] = 50,
-    force_refresh: Optional[bool] = False,
 ):
-    """Get current StockX listings with caching"""
-    logger.info("Fetching current StockX listings", status=status, limit=limit, force_refresh=force_refresh)
+    """Get current StockX listings"""
+    logger.info("Fetching current StockX listings", status=status, limit=limit)
 
     try:
         from domains.integration.services.stockx_service import StockXService
         from shared.database.connection import db_manager
-        from datetime import datetime, timedelta
-        import json
-        
-        # Simple in-memory cache
-        cache_key = f"stockx_listings_{status}_{limit}"
-        cache_timeout = timedelta(hours=8)  # Cache for 8 hours (2-3 times per day)
-        
-        # Check cache first (if not forcing refresh)
-        if not force_refresh and hasattr(get_stockx_listings, '_cache'):
-            cached_data = get_stockx_listings._cache.get(cache_key)
-            if cached_data and datetime.utcnow() - cached_data['timestamp'] < cache_timeout:
-                logger.info(f"Returning cached StockX listings (age: {datetime.utcnow() - cached_data['timestamp']})")
-                # Mark response as cached
-                cached_response = cached_data['response']
-                cached_response.body['data']['cached'] = True
-                cached_response.body['data']['cache_age_seconds'] = int((datetime.utcnow() - cached_data['timestamp']).total_seconds())
-                return cached_response
         
         async with db_manager.get_session() as stockx_session:
             stockx_service = StockXService(stockx_session)
@@ -317,61 +278,16 @@ async def get_stockx_listings(
                 filters["limit"] = limit
             
             try:
-                # Get raw listings from StockX API
-                raw_listings = await stockx_service.get_all_listings(**filters)
-                logger.info(f"Retrieved {len(raw_listings)} raw listings from StockX API")
+                listings = await stockx_service.get_all_listings(**filters)
                 
-                # Filter for active listings only and transform to match frontend expectations
-                transformed_listings = []
-                for listing in raw_listings:
-                    # Only include ACTIVE listings, skip COMPLETED, CANCELLED, etc.
-                    listing_status = listing.get("status", "").upper()
-                    if listing_status not in ["ACTIVE", "PENDING"]:
-                        continue  # Skip non-active listings
-                    
-                    # Extract product and variant info
-                    product_info = listing.get("product", {})
-                    variant_info = listing.get("variant", {})
-                    
-                    # Create transformed listing
-                    transformed = listing.copy()  # Start with original
-                    
-                    # Add fields that frontend expects
-                    transformed["productName"] = product_info.get("productName", "Unknown Product")
-                    if "product" not in transformed:
-                        transformed["product"] = {}
-                    transformed["product"]["name"] = product_info.get("productName", "Unknown Product")
-                    
-                    # Ensure size is accessible
-                    transformed["size"] = variant_info.get("variantValue", "N/A")
-                    
-                    # Ensure ask price is accessible
-                    transformed["askPrice"] = listing.get("amount", "0")
-                    
-                    transformed_listings.append(transformed)
-                
-                response = ResponseBuilder.success(
-                    message=f"Retrieved {len(transformed_listings)} active StockX listings",
+                return ResponseBuilder.success(
+                    message=f"Retrieved {len(listings)} StockX listings",
                     data={
-                        "listings": transformed_listings,
-                        "count": len(transformed_listings),
-                        "total_raw_listings": len(raw_listings),
-                        "filters": filters,
-                        "filtered_statuses": ["ACTIVE", "PENDING"],
-                        "cached": False
+                        "listings": listings,
+                        "count": len(listings),
+                        "filters": filters
                     },
                 )
-                
-                # Cache the response
-                if not hasattr(get_stockx_listings, '_cache'):
-                    get_stockx_listings._cache = {}
-                get_stockx_listings._cache[cache_key] = {
-                    'response': response,
-                    'timestamp': datetime.utcnow()
-                }
-                logger.info(f"Cached StockX listings for {cache_timeout}")
-                
-                return response
             except Exception as stockx_error:
                 logger.warning("StockX API call failed", error=str(stockx_error))
                 # Return empty result if StockX API fails
@@ -387,171 +303,6 @@ async def get_stockx_listings(
                 
     except Exception as e:
         error_context = ErrorContext("fetch", "StockX listings")
-        raise error_context.create_error_response(e)
-
-
-@router.post(
-    "/stockx-listings/{listing_id}/mark-presale",
-    response_model=SuccessResponse,
-    summary="Mark StockX Listing as Presale",
-    description="Mark a StockX listing as presale in our local database",
-)
-async def mark_stockx_listing_as_presale(
-    listing_id: str,
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Mark a StockX listing as presale in our database"""
-    logger.info("Marking StockX listing as presale", listing_id=listing_id)
-
-    try:
-        success = await inventory_service.mark_stockx_item_as_presale(stockx_listing_id=listing_id)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="Inventory item not found or update failed")
-        
-        return ResponseBuilder.success(
-            message="StockX listing marked as presale successfully",
-            data={
-                "stockx_listing_id": listing_id,
-                "status": "presale"
-            },
-        )
-    except Exception as e:
-        error_context = ErrorContext("update", "StockX presale marking")
-        raise error_context.create_error_response(e)
-
-
-@router.delete(
-    "/stockx-listings/{listing_id}/unmark-presale",
-    response_model=SuccessResponse,
-    summary="Remove Presale Marking from StockX Listing",
-    description="Remove presale marking from a StockX listing in our database",
-)
-async def unmark_stockx_listing_presale(
-    listing_id: str,
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Remove presale marking from a StockX listing"""
-    logger.info("Removing presale marking from StockX listing", listing_id=listing_id)
-
-    try:
-        success = await inventory_service.unmark_stockx_presale(stockx_listing_id=listing_id)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="Inventory item not found or update failed")
-        
-        return ResponseBuilder.success(
-            message="Presale marking removed from StockX listing successfully",
-            data={
-                "stockx_listing_id": listing_id,
-                "status": "listed_stockx"
-            },
-        )
-    except Exception as e:
-        error_context = ErrorContext("update", "StockX presale unmarking")
-        raise error_context.create_error_response(e)
-
-
-@router.get("/test-presale")
-async def test_presale_endpoint():
-    """Simple test endpoint to check if presale routes work"""
-    return {"message": "Presale test endpoint working"}
-
-
-@router.post(
-    "/sync-stockx-listings",
-    response_model=SuccessResponse,
-    summary="Sync All StockX Listings to Inventory",
-    description="Create inventory items for all current StockX listings",
-)
-async def sync_stockx_listings_to_inventory(
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Sync all StockX listings to inventory items"""
-    logger.info("Starting sync of StockX listings to inventory")
-
-    try:
-        stats = await inventory_service.sync_all_stockx_listings_to_inventory()
-        
-        return ResponseBuilder.success(
-            message=f"Successfully synced StockX listings. Created: {stats.get('created', 0)}, Matched: {stats.get('matched', 0)}",
-            data=stats,
-        )
-    except Exception as e:
-        error_context = ErrorContext("sync", "StockX listings")
-        raise error_context.create_error_response(e)
-
-
-@router.get(
-    "/alias-listings",
-    response_model=SuccessResponse,
-    summary="Get Current Alias Listings",
-    description="Retrieve all current Alias listings for the user",
-)
-async def get_alias_listings(
-    status: Optional[str] = None,
-    limit: Optional[int] = 50,
-):
-    """Get current Alias listings"""
-    logger.info("Fetching current Alias listings", status=status, limit=limit)
-
-    try:
-        # For now, return mock data since Alias integration doesn't exist yet
-        mock_listings = [
-            {
-                "listingId": "alias-12345678",
-                "productName": "Air Jordan 1 High OG 'Chicago'",
-                "product": {"name": "Air Jordan 1 High OG 'Chicago'"},
-                "size": "10",
-                "askPrice": "420.00",
-                "status": "ACTIVE",
-                "createdAt": "2025-09-01T10:00:00Z",
-                "platform": "Alias",
-                "currency": "EUR"
-            },
-            {
-                "listingId": "alias-87654321", 
-                "productName": "Yeezy 350 V2 'Bred'",
-                "product": {"name": "Yeezy 350 V2 'Bred'"},
-                "size": "9.5",
-                "askPrice": "320.00", 
-                "status": "PENDING",
-                "createdAt": "2025-08-30T15:30:00Z",
-                "platform": "Alias",
-                "currency": "EUR"
-            },
-            {
-                "listingId": "alias-33333333", 
-                "productName": "Travis Scott x Air Jordan 1 Low",
-                "product": {"name": "Travis Scott x Air Jordan 1 Low"},
-                "size": "11",
-                "askPrice": "890.00", 
-                "status": "ACTIVE",
-                "createdAt": "2025-08-28T12:15:00Z",
-                "platform": "Alias",
-                "currency": "EUR"
-            }
-        ]
-        
-        # Apply filters
-        filtered_listings = mock_listings
-        if status:
-            filtered_listings = [l for l in filtered_listings if l["status"] == status]
-        if limit:
-            filtered_listings = filtered_listings[:limit]
-        
-        return ResponseBuilder.success(
-            message=f"Retrieved {len(filtered_listings)} Alias listings",
-            data={
-                "listings": filtered_listings,
-                "count": len(filtered_listings),
-                "filters": {"status": status, "limit": limit},
-                "note": "Mock data - Alias integration not implemented yet"
-            },
-        )
-                
-    except Exception as e:
-        error_context = ErrorContext("fetch", "Alias listings")
         raise error_context.create_error_response(e)
 
 
@@ -730,70 +481,116 @@ def extract_brand_from_product_name(product_name: str) -> str:
     
     # Default fallback
     return "StockX Import"
-
-
-@router.get(
-    "/summary",
-    summary="Get Inventory Summary",
-    description="Get detailed inventory summary with recent activity, top brands, and status breakdown",
-)
-async def get_inventory_summary(
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Get inventory summary statistics with detailed insights"""
-    logger.info("Fetching detailed inventory summary")
-
-    try:
-        summary = await inventory_service.get_detailed_summary()
-        return ResponseBuilder.success(
-            message="Inventory summary retrieved successfully",
-            data=summary
-        )
+                        
+                        # First, check if product already exists by name
+                        existing_product = await product_repo.find_one(name=product_name)
+                        
+                        if not existing_product:
+                            # Extract brand name from product name
+                            brand_name = extract_brand_from_product_name(product_name)
+                            brand = await brand_repo.find_one(name=brand_name)
+                            if not brand:
+                                brand = await brand_repo.create(
+                                    name=brand_name,
+                                    slug=brand_name.lower().replace(" ", "-")
+                                )
+                            
+                            # Create category if it doesn't exist
+                            category_name = "Imported from StockX"
+                            category = await category_repo.find_one(name=category_name)
+                            if not category:
+                                category = await category_repo.create(
+                                    name=category_name,
+                                    slug=category_name.lower().replace(" ", "-"),
+                                    path=category_name.lower()
+                                )
+                            
+                            # Create product
+                            product_sku = f"STOCKX-{stockx_product_id[:8]}" if stockx_product_id else f"STOCKX-{product_name[:8]}"
+                            existing_product = await product_repo.create(
+                                sku=product_sku,
+                                name=product_name,
+                                brand_id=brand.id,
+                                category_id=category.id,
+                                description=f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
+                            )
+                            logger.info(f"Created new product: {product_name}")
+                        
+                        # Find or create size for this variant
+                        size_value = inventory_item_data["size"]
+                        
+                        # Look for existing size
+                        size = await size_repo.find_one(value=size_value, region="US")
+                        if not size:
+                            # Create new size if it doesn't exist
+                            size = await size_repo.create(
+                                value=size_value, 
+                                region="US", 
+                                category_id=existing_product.category_id
+                            )
+                        
+                        # Create the inventory item
+                        new_inventory_item = InventoryItem(
+                            product_id=existing_product.id,  # Now we have a valid product_id
+                            size_id=size.id,
+                            quantity=1,  # Default quantity for synced items
+                            purchase_price=inventory_item_data["purchase_price"],
+                            status="listed",  # These are already listed on StockX
+                            external_ids={"stockx_listing_id": inventory_item_data["stockx_listing_id"]},
+                            supplier="StockX",
+                            notes=f"Auto-synced from StockX listing on {datetime.utcnow().date()}"
+                        )
+                        
+                        stockx_session.add(new_inventory_item)
+                        await stockx_session.commit()
+                        synced_count += 1
+                        
+                    except Exception as listing_error:
+                        logger.error(f"Failed to process listing {listing.get('listingId')}: {listing_error}")
+                        continue
+                
+                return ResponseBuilder.success(
+                    message=f"Successfully synced {synced_count} items, created {products_created} new products with market data",
+                    data={
+                        "synced_count": synced_count,
+                        "products_created": products_created,
+                        "market_data_imported": market_data_imported,
+                        "total_listings": len(listings),
+                        "status": "completed"
+                    },
+                )
+                
+            except Exception as stockx_error:
+                logger.warning("StockX API call failed during sync", error=str(stockx_error))
+                return ResponseBuilder.success(
+                    message="StockX API unavailable for sync",
+                    data={
+                        "synced_count": 0,
+                        "error": str(stockx_error),
+                        "status": "failed"
+                    },
+                )
+                
     except Exception as e:
-        error_context = ErrorContext("fetch", "inventory summary")
+        error_context = ErrorContext("sync", "inventory from StockX")
         raise error_context.create_error_response(e)
 
 
 @router.get(
-    "/export",
-    summary="Stream Inventory Export",
-    description="Stream large inventory dataset as JSON or CSV for efficient download",
+    "/summary",
+    response_model=InventorySummaryResponse,
+    summary="Get Inventory Summary",
+    description="Get high-level inventory statistics and summary",
 )
-async def export_inventory_stream(
-    format: str = "json",
-    chunk_size: int = 100,
-    db_session: AsyncSession = Depends(get_db_session),
+async def get_inventory_summary(
+    inventory_service: InventoryService = Depends(get_inventory_service),
 ):
-    """Stream inventory data for efficient large dataset exports"""
-    logger.info("Starting inventory streaming export", format=format, chunk_size=chunk_size)
-    
+    """Get inventory summary statistics"""
+    logger.info("Fetching inventory summary")
+
     try:
-        # Validate format parameter
-        if format.lower() not in ["json", "csv"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Format must be 'json' or 'csv'"
-            )
-        
-        # Validate chunk size (prevent memory issues)
-        if chunk_size < 10 or chunk_size > 1000:
-            raise HTTPException(
-                status_code=400, 
-                detail="Chunk size must be between 10 and 1000"
-            )
-        
-        # Stream the inventory data
-        return await stream_inventory_export(
-            db_session=db_session,
-            export_format=format,
-            chunk_size=chunk_size
-        )
-        
-    except HTTPException:
-        raise
+        summary = await inventory_service.get_detailed_summary()
+        return summary
     except Exception as e:
-        logger.error("Inventory streaming export failed", error=str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Export failed: {str(e)}"
-        )
+        error_context = ErrorContext("fetch", "inventory summary")
+        raise error_context.create_error_response(e)

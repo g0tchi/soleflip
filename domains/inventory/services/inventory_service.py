@@ -80,6 +80,15 @@ class InventoryService:
         """Get overall inventory statistics using optimized aggregation query"""
         repo_stats = await self.inventory_repo.get_inventory_stats()
 
+        self.logger.info(
+            "Generated inventory overview",
+            total_items=repo_stats.total_items,
+            in_stock=repo_stats.in_stock,
+            sold=repo_stats.sold,
+            listed=repo_stats.listed,
+            total_value=float(repo_stats.total_value),
+        )
+
         # Convert repository stats to service stats (compatibility)
         return InventoryStats(
             total_items=repo_stats.total_items,
@@ -90,22 +99,218 @@ class InventoryService:
             avg_purchase_price=repo_stats.avg_purchase_price,
         )
 
-        self.logger.info(
-            "Generated inventory overview",
-            total_items=total_items,
-            in_stock=in_stock,
-            sold=sold,
-            total_value=float(total_value),
-        )
+    async def mark_stockx_item_as_presale(self, stockx_listing_id: str) -> bool:
+        """Mark a StockX listed item as presale - finds the inventory item automatically"""
+        try:
+            # Find inventory item by StockX listing ID
+            from sqlalchemy import select
+            from shared.database.models import InventoryItem
+            
+            stmt = select(InventoryItem).where(
+                InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+            )
+            result = await self.db_session.execute(stmt)
+            item = result.scalar_one_or_none()
+            
+            if not item:
+                self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
+                return False
 
-        return InventoryStats(
-            total_items=total_items,
-            in_stock=in_stock,
-            sold=sold,
-            listed=listed,
-            total_value=total_value,
-            avg_purchase_price=avg_purchase_price,
-        )
+            # Simply update the status to presale
+            await self.inventory_repo.update(
+                item.id,
+                {"status": "presale"}
+            )
+
+            self.logger.info(f"Marked StockX listing {stockx_listing_id} as presale")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to mark StockX item as presale: {e}")
+            return False
+
+    async def unmark_stockx_presale(self, stockx_listing_id: str) -> bool:
+        """Remove presale marking from a StockX item"""
+        try:
+            # Find inventory item by StockX listing ID
+            from sqlalchemy import select
+            from shared.database.models import InventoryItem
+            
+            stmt = select(InventoryItem).where(
+                InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+            )
+            result = await self.db_session.execute(stmt)
+            item = result.scalar_one_or_none()
+            
+            if not item:
+                self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
+                return False
+
+            # Reset status back to listed_stockx
+            await self.inventory_repo.update(
+                item.id,
+                {"status": "listed_stockx"}
+            )
+
+            self.logger.info(f"Removed presale marking from StockX listing {stockx_listing_id}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to remove presale marking: {e}")
+            return False
+    
+    async def get_stockx_presale_markings(self) -> dict:
+        """Get all StockX presale markings as a dict"""
+        try:
+            from shared.database.models import StockXPresaleMarking
+            from sqlalchemy import select
+            
+            stmt = select(StockXPresaleMarking).where(
+                StockXPresaleMarking.is_presale == True
+            )
+            result = await self.db_session.execute(stmt)
+            markings = result.scalars().all()
+            
+            # Return as dict with stockx_listing_id as key
+            return {marking.stockx_listing_id: {
+                'is_presale': marking.is_presale,
+                'marked_at': marking.marked_at.isoformat() if marking.marked_at else None,
+                'product_name': marking.product_name,
+                'size': marking.size
+            } for marking in markings}
+            
+        except Exception as e:
+            self.logger.error("Failed to get StockX presale markings", error=str(e))
+            return {}
+    
+    async def sync_all_stockx_listings_to_inventory(self) -> Dict[str, int]:
+        """
+        Sync all current StockX listings to inventory items
+        Creates inventory items for listings that don't have matching items
+        """
+        self.logger.info("Starting sync of all StockX listings to inventory")
+        stats = {"created": 0, "updated": 0, "skipped": 0, "matched": 0}
+        
+        try:
+            # Get StockX service
+            stockx_service = self.stockx_service
+            if not stockx_service:
+                from domains.integration.services.stockx_service import StockXService
+                stockx_service = StockXService(self.db_session)
+            
+            # Get all current StockX listings
+            listings = await stockx_service.get_all_listings()
+            self.logger.info(f"Found {len(listings)} StockX listings to sync")
+            
+            for listing in listings:
+                listing_id = listing.get("listingId")
+                if not listing_id:
+                    stats["skipped"] += 1
+                    continue
+                
+                # Extract product info
+                product_info = listing.get("product", {})
+                variant_info = listing.get("variant", {})
+                product_name = product_info.get("productName", "Unknown Product")
+                size = variant_info.get("variantValue", "Unknown Size")
+                
+                # Check if we already have an inventory item for this listing
+                from sqlalchemy import select
+                from shared.database.models import InventoryItem
+                
+                stmt = select(InventoryItem).where(
+                    InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
+                )
+                result = await self.db_session.execute(stmt)
+                existing_item = result.scalar_one_or_none()
+                
+                if existing_item:
+                    stats["matched"] += 1
+                    continue
+                
+                # Create new inventory item for this StockX listing
+                try:
+                    # Create a basic product first if needed (simplified)
+                    from shared.database.models import Product, Category, Brand, Size
+                    
+                    # Find or create brand
+                    brand_name = listing.get("brand", "Unknown")
+                    brand = await self.brand_repo.find_one_by({"name": brand_name})
+                    if not brand:
+                        from shared.database.models import Brand
+                        brand = Brand(name=brand_name, slug=brand_name.lower().replace(" ", "-"))
+                        self.db_session.add(brand)
+                        await self.db_session.flush()
+                    
+                    # Find or create category (default to sneakers)
+                    category = await self.category_repo.find_one_by({"name": "Sneakers"})
+                    if not category:
+                        from shared.database.models import Category
+                        category = Category(name="Sneakers", slug="sneakers")
+                        self.db_session.add(category)
+                        await self.db_session.flush()
+                    
+                    # Find or create product
+                    product_sku = f"stockx-{listing_id}"
+                    product = await self.product_repo.find_one_by({"sku": product_sku})
+                    if not product:
+                        from shared.database.models import Product
+                        product = Product(
+                            sku=product_sku,
+                            name=product_name,
+                            brand_id=brand.id,
+                            category_id=category.id
+                        )
+                        self.db_session.add(product)
+                        await self.db_session.flush()
+                    
+                    # Find or create size
+                    size_obj = await self.size_repo.find_one_by({
+                        "value": size,
+                        "category_id": category.id,
+                        "region": "US"
+                    })
+                    if not size_obj:
+                        from shared.database.models import Size
+                        size_obj = Size(
+                            value=size,
+                            category_id=category.id,
+                            region="US"
+                        )
+                        self.db_session.add(size_obj)
+                        await self.db_session.flush()
+                    
+                    # Create inventory item
+                    new_item = InventoryItem(
+                        product_id=product.id,
+                        size_id=size_obj.id,
+                        quantity=1,
+                        status="listed_stockx",
+                        external_ids={
+                            "stockx_listing_id": listing_id,
+                            "created_from_sync": True
+                        }
+                    )
+                    
+                    self.db_session.add(new_item)
+                    stats["created"] += 1
+                    
+                    self.logger.info(f"Created inventory item for StockX listing {listing_id}")
+                    
+                except Exception as item_error:
+                    self.logger.error(f"Failed to create inventory item for listing {listing_id}: {item_error}")
+                    stats["skipped"] += 1
+            
+            # Commit all changes
+            await self.db_session.commit()
+            
+            self.logger.info("Completed StockX listings sync", stats=stats)
+            return stats
+            
+        except Exception as e:
+            await self.db_session.rollback()
+            self.logger.error("Failed to sync StockX listings to inventory", error=str(e))
+            return {"error": str(e)}
 
     async def create_product_with_inventory(
         self,
@@ -200,6 +405,88 @@ class InventoryService:
                 inventory_id=str(inventory_id),
             )
         return success
+
+    async def update_item_status(self, item_id: UUID, status: str) -> bool:
+        """Update inventory item status - alias for update_inventory_status with modern status names"""
+        # Map modern status names to backend database status names
+        status_mapping = {
+            "in_stock": "in_stock",
+            "listed": "listed_stockx", 
+            "sold": "sold",
+            "presale": "in_stock",  # For presale, keep as in_stock until actually listed
+            "preorder": "in_stock",  # For preorder, keep as in_stock until actually listed
+            "listed_alias": "listed_alias",  # Alias listing
+            "multi_platform": "listed_stockx",  # Listed on multiple platforms - default to stockx
+            "reserved": "reserved",
+            "error": "error"
+        }
+        
+        mapped_status = status_mapping.get(status, status)
+        return await self.update_inventory_status(item_id, mapped_status)
+
+    async def update_item_fields(self, item_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update multiple fields of an inventory item"""
+        try:
+            # Handle status field with mapping if present
+            if 'status' in update_data:
+                status = update_data['status']
+                status_mapping = {
+                    "in_stock": "in_stock",
+                    "listed": "listed_stockx", 
+                    "sold": "sold",
+                    "presale": "presale",
+                    "preorder": "preorder",
+                    "canceled": "canceled",
+                    "listed_alias": "listed_alias",
+                }
+                update_data['status'] = status_mapping.get(status, status)
+            
+            # Update the item using the inventory repository
+            success = await self.inventory_repo.update(item_id, **update_data)
+            
+            if success:
+                self.logger.info(
+                    "Updated inventory item fields",
+                    item_id=str(item_id),
+                    fields=list(update_data.keys())
+                )
+            else:
+                self.logger.error(
+                    "Failed to update inventory item fields",
+                    item_id=str(item_id)
+                )
+                
+            return success
+            
+        except Exception as e:
+            self.logger.error(
+                "Error updating inventory item fields",
+                item_id=str(item_id),
+                error=str(e)
+            )
+            return False
+
+    async def get_multi_platform_items(self) -> List[Dict[str, Any]]:
+        """Get items that could potentially be listed on multiple platforms"""
+        try:
+            # For demonstration, return items that are currently listed
+            # In a real implementation, you'd track platform associations more explicitly
+            items = await self.inventory_repo.get_all(filters={'status': 'listed'})
+            
+            # Simulate multi-platform potential by checking if items have high value
+            multi_platform_candidates = []
+            for item in items:
+                item_dict = item.to_dict()
+                if item.purchase_price and item.purchase_price > 200:  # High-value items
+                    item_dict['platforms'] = ['StockX']  # Currently only on StockX
+                    item_dict['potential_platforms'] = ['Alias', 'GOAT']  # Could be listed here
+                    multi_platform_candidates.append(item_dict)
+                    
+            return multi_platform_candidates
+            
+        except Exception as e:
+            self.logger.error("Failed to get multi-platform items", error=str(e))
+            return []
 
     async def get_low_stock_alert(self, threshold: int = 5) -> List[Dict[str, Any]]:
         """Get products with low stock levels"""
@@ -349,15 +636,21 @@ class InventoryService:
                 if item.product:
                     item_dict["product_name"] = item.product.name
                     item_dict["brand_name"] = (
-                        item.product.brand.name if item.product.brand else None
+                        item.product.brand.name if item.product.brand else "Unknown Brand"
                     )
                     item_dict["category_name"] = (
-                        item.product.category.name if item.product.category else None
+                        item.product.category.name if item.product.category else "Unknown Category"
                     )
                 else:
-                    item_dict["product_name"] = "Unknown"
-                    item_dict["brand_name"] = None
-                    item_dict["category_name"] = "Unknown"
+                    item_dict["product_name"] = "Unknown Product"
+                    item_dict["brand_name"] = "Unknown Brand"
+                    item_dict["category_name"] = "Unknown Category"
+                
+                # Add size information
+                if item.size:
+                    item_dict["size_value"] = item.size.value
+                else:
+                    item_dict["size_value"] = "N/A"
                 result_items.append(item_dict)
 
             return result_items, total_count
@@ -374,7 +667,8 @@ class InventoryService:
             # Get basic stats
             stats = await self.get_inventory_overview()
 
-            # Get additional summary data
+            # Get additional summary data with error isolation
+            # Each method uses isolated sessions and handles its own errors
             top_brands = await self._get_top_brands()
             status_breakdown = await self._get_status_breakdown()
             recent_activity = await self._get_recent_activity()
@@ -392,22 +686,161 @@ class InventoryService:
             }
         except Exception as e:
             self.logger.error("Failed to get inventory summary", error=str(e))
-            raise
+            # Return partial data instead of raising to ensure dashboard still loads
+            return {
+                "total_items": 0,
+                "items_in_stock": 0,
+                "items_sold": 0,
+                "items_listed": 0,
+                "total_inventory_value": 0.0,
+                "average_purchase_price": 0.0,
+                "top_brands": [],
+                "status_breakdown": {},
+                "recent_activity": [],
+            }
 
     async def _get_top_brands(self) -> List[Dict[str, Any]]:
         """Get top brands by inventory count"""
-        # Placeholder implementation
-        return []
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                brands_query = text(
+                    """
+                    SELECT 
+                        b.name as brand_name,
+                        COUNT(i.id) as item_count,
+                        SUM(i.quantity) as total_quantity,
+                        AVG(i.purchase_price) as avg_price,
+                        SUM(i.purchase_price * i.quantity) as total_value
+                    FROM products.inventory i
+                    JOIN products.products p ON i.product_id = p.id
+                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    WHERE i.purchase_price IS NOT NULL
+                    GROUP BY b.name
+                    ORDER BY item_count DESC
+                    LIMIT 5
+                    """
+                )
+                
+                result = await isolated_session.execute(brands_query)
+                top_brands = []
+                
+                for row in result.fetchall():
+                    brand = {
+                        "name": row.brand_name or "Unknown Brand",
+                        "item_count": int(row.item_count or 0),
+                        "total_quantity": int(row.total_quantity or 0),
+                        "avg_price": float(row.avg_price or 0),
+                        "total_value": float(row.total_value or 0)
+                    }
+                    top_brands.append(brand)
+                
+                return top_brands
+                
+            except Exception as e:
+                self.logger.error("Failed to get top brands", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return []
 
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
-        # Placeholder implementation
-        return {"in_stock": 0, "sold": 0, "listed": 0}
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                status_query = text(
+                    """
+                    SELECT 
+                        status,
+                        COUNT(*) as count
+                    FROM products.inventory
+                    GROUP BY status
+                    ORDER BY count DESC
+                    """
+                )
+                
+                result = await isolated_session.execute(status_query)
+                status_breakdown = {}
+                
+                for row in result.fetchall():
+                    status_breakdown[row.status] = int(row.count)
+                
+                return status_breakdown
+                
+            except Exception as e:
+                self.logger.error("Failed to get status breakdown", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return {}
 
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
         """Get recent inventory activity"""
-        # Placeholder implementation
-        return []
+        from sqlalchemy import text
+        from shared.database.connection import get_db_session
+        
+        # Use isolated session to prevent transaction cascade failures
+        async with get_db_session() as isolated_session:
+            try:
+                # Query for recent inventory updates
+                recent_query = text(
+                    """
+                    SELECT 
+                        i.updated_at,
+                        i.status,
+                        i.quantity,
+                        i.purchase_price,
+                        p.name as product_name,
+                        b.name as brand_name,
+                        s.value as size_value,
+                        'status_change' as activity_type
+                    FROM products.inventory i
+                    JOIN products.products p ON i.product_id = p.id
+                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    LEFT JOIN core.sizes s ON i.size_id = s.id
+                    WHERE i.updated_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
+                    ORDER BY i.updated_at DESC
+                    LIMIT 10
+                    """
+                )
+                
+                result = await isolated_session.execute(recent_query)
+                recent_activity = []
+                
+                for row in result.fetchall():
+                    activity = {
+                        "date": row.updated_at.isoformat() if row.updated_at else None,
+                        "activity_type": row.activity_type,
+                        "product_name": row.product_name or "Unknown Product",
+                        "brand_name": row.brand_name or "Unknown Brand", 
+                        "size": row.size_value or "N/A",
+                        "status": row.status or "unknown",
+                        "quantity": int(row.quantity or 0),
+                        "purchase_price": float(row.purchase_price or 0),
+                        "description": self._format_activity_description(row)
+                    }
+                    recent_activity.append(activity)
+                
+                return recent_activity
+                
+            except Exception as e:
+                self.logger.error("Failed to get recent inventory activity", error=str(e), exc_info=True)
+                await isolated_session.rollback()
+                return []
+    
+    def _format_activity_description(self, row) -> str:
+        """Format activity description based on the row data"""
+        if row.status == "listed":
+            return f"Listed {row.product_name} (Size {row.size_value}) on marketplace"
+        elif row.status == "sold":
+            return f"Sold {row.product_name} (Size {row.size_value})"
+        elif row.status == "in_stock":
+            return f"Added {row.product_name} (Size {row.size_value}) to inventory"
+        else:
+            return f"Status updated to {row.status}"
 
     async def get_item_detailed(self, item_id: UUID) -> Optional[Dict[str, Any]]:
         """

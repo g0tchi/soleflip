@@ -20,7 +20,22 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(gh run watch:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git branch:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm run tauri:*)",
+      "Bash(npm run build:*)",
+      "Bash(cargo:*)",
+      "Bash(npm run dev:*)",
+      "WebFetch(domain:developer.stockx.com)",
+      "Bash(taskkill:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(pkill:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

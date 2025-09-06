@@ -79,82 +79,82 @@ const Import = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-retro-green" />;
+        return <CheckCircle className="w-5 h-5 text-green-400" />;
       case 'processing':
-        return <RefreshCw className="w-5 h-5 text-retro-cyan animate-spin" />;
+        return <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />;
       case 'failed':
-        return <AlertTriangle className="w-5 h-5 text-retro-magenta" />;
+        return <AlertTriangle className="w-5 h-5 text-red-400" />;
       default:
-        return <Clock className="w-5 h-5 text-retro-yellow" />;
+        return <Clock className="w-5 h-5 text-yellow-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'text-retro-green';
+        return 'text-green-400';
       case 'processing':
-        return 'text-retro-cyan';
+        return 'text-blue-400';
       case 'failed':
-        return 'text-retro-magenta';
+        return 'text-red-400';
       default:
-        return 'text-retro-yellow';
+        return 'text-yellow-400';
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-retro font-bold text-retro-cyan animate-glow">
-          DATA IMPORT
+        <h1 className="text-3xl font-bold modern-heading">
+          Data Import
         </h1>
-        <p className="text-retro-cyan/70 font-mono mt-1">
+        <p className="modern-subheading mt-1">
           Import data from external sources
         </p>
       </div>
 
       {/* StockX Import */}
-      <div className="retro-card">
+      <div className="modern-card">
         <div className="flex items-center space-x-3 mb-6">
-          <Upload className="w-8 h-8 text-retro-cyan" />
-          <h2 className="text-xl font-retro text-retro-cyan">STOCKX IMPORT</h2>
+          <Upload className="w-8 h-8 text-purple-400" />
+          <h2 className="text-xl modern-heading">StockX Import</h2>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-mono text-retro-cyan/70 mb-2">
-              FROM DATE
+            <label className="block text-sm font-medium modern-subheading mb-2">
+              From Date
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-retro-cyan/50" />
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="retro-input pl-10 w-full"
+                className="modern-input pl-10 w-full"
               />
             </div>
           </div>
           
           <div>
-            <label className="block text-sm font-mono text-retro-cyan/70 mb-2">
-              TO DATE
+            <label className="block text-sm font-medium modern-subheading mb-2">
+              To Date
             </label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-retro-cyan/50" />
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="retro-input pl-10 w-full"
+                className="modern-input pl-10 w-full"
               />
             </div>
           </div>
         </div>
         
         {error && (
-          <div className="mt-4 p-3 border border-retro-magenta bg-retro-magenta/10 text-retro-magenta font-mono text-sm">
+          <div className="mt-4 p-3 border border-red-400 bg-red-400/10 text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -163,26 +163,26 @@ const Import = () => {
           <button
             onClick={handleStockXImport}
             disabled={isImporting || !fromDate || !toDate}
-            className="retro-button-success flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="modern-button flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isImporting ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
               <Upload className="w-4 h-4" />
             )}
-            <span>{isImporting ? 'IMPORTING...' : 'START IMPORT'}</span>
+            <span>{isImporting ? 'Importing...' : 'Start Import'}</span>
           </button>
         </div>
       </div>
 
       {/* Import Status */}
       {importStatus && (
-        <div className="retro-card">
+        <div className="modern-card">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-retro text-retro-cyan">IMPORT STATUS</h3>
+            <h3 className="text-lg modern-heading">Import Status</h3>
             <div className="flex items-center space-x-2">
               {getStatusIcon(importStatus.status)}
-              <span className={`font-mono uppercase ${getStatusColor(importStatus.status)}`}>
+              <span className={`font-medium uppercase ${getStatusColor(importStatus.status)}`}>
                 {importStatus.status}
               </span>
             </div>
@@ -190,24 +190,24 @@ const Import = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Batch ID:</span>
-                <span className="text-retro-cyan">{importStatus.id}</span>
+                <span className="modern-heading">{importStatus.id}</span>
               </div>
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Source:</span>
-                <span className="text-retro-yellow uppercase">{importStatus.source_type}</span>
+                <span className="text-yellow-400 uppercase">{importStatus.source_type}</span>
               </div>
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Started:</span>
-                <span className="text-retro-cyan">
+                <span className="text-blue-400">
                   {new Date(importStatus.created_at).toLocaleString()}
                 </span>
               </div>
               {importStatus.completed_at && (
-                <div className="flex justify-between font-mono text-sm">
+                <div className="flex justify-between font-medium text-sm">
                   <span>Completed:</span>
-                  <span className="text-retro-green">
+                  <span className="text-green-400">
                     {new Date(importStatus.completed_at).toLocaleString()}
                   </span>
                 </div>
@@ -215,17 +215,17 @@ const Import = () => {
             </div>
             
             <div className="space-y-4">
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Records Processed:</span>
-                <span className="text-retro-green">{importStatus.records_processed}</span>
+                <span className="text-green-400">{importStatus.records_processed}</span>
               </div>
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Records Failed:</span>
-                <span className="text-retro-magenta">{importStatus.records_failed}</span>
+                <span className="text-red-400">{importStatus.records_failed}</span>
               </div>
-              <div className="flex justify-between font-mono text-sm">
+              <div className="flex justify-between font-medium text-sm">
                 <span>Success Rate:</span>
-                <span className="text-retro-cyan">
+                <span className="text-blue-400">
                   {importStatus.records_processed > 0
                     ? (((importStatus.records_processed - importStatus.records_failed) / importStatus.records_processed) * 100).toFixed(1)
                     : 0
@@ -237,7 +237,7 @@ const Import = () => {
           
           {/* Progress Bar */}
           <div className="mt-6">
-            <div className="flex justify-between text-sm font-mono mb-2">
+            <div className="flex justify-between text-sm font-medium mb-2">
               <span>Progress</span>
               <span>{importStatus.progress.toFixed(1)}%</span>
             </div>
@@ -252,36 +252,36 @@ const Import = () => {
       )}
 
       {/* Import History */}
-      <div className="retro-card">
-        <h3 className="text-lg font-retro text-retro-cyan mb-4">RECENT IMPORTS</h3>
-        <div className="text-center py-8 text-retro-cyan/50">
+      <div className="modern-card">
+        <h3 className="text-lg modern-heading mb-4">Recent Imports</h3>
+        <div className="text-center py-8 text-gray-500">
           <Clock className="w-12 h-12 mx-auto mb-2" />
-          <p className="font-mono">No recent imports</p>
-          <p className="font-mono text-xs mt-1">Import history will appear here</p>
+          <p className="font-medium">No recent imports</p>
+          <p className="modern-subheading text-xs mt-1">Import history will appear here</p>
         </div>
       </div>
 
       {/* Import Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="retro-card">
-          <h3 className="text-lg font-retro text-retro-cyan mb-4">CSV IMPORT</h3>
-          <p className="text-sm text-retro-cyan/70 mb-4 font-mono">
+        <div className="modern-card">
+          <h3 className="text-lg modern-heading mb-4">CSV Import</h3>
+          <p className="text-sm modern-subheading mb-4">
             Import inventory from CSV files
           </p>
-          <button className="retro-button flex items-center space-x-2">
+          <button className="modern-button flex items-center space-x-2">
             <Upload className="w-4 h-4" />
-            <span>SELECT FILE</span>
+            <span>Select File</span>
           </button>
         </div>
         
-        <div className="retro-card">
-          <h3 className="text-lg font-retro text-retro-cyan mb-4">SHOPIFY SYNC</h3>
-          <p className="text-sm text-retro-cyan/70 mb-4 font-mono">
+        <div className="modern-card">
+          <h3 className="text-lg modern-heading mb-4">Shopify Sync</h3>
+          <p className="text-sm modern-subheading mb-4">
             Synchronize with Shopify store
           </p>
-          <button className="retro-button-warning flex items-center space-x-2">
+          <button className="modern-button-secondary flex items-center space-x-2">
             <RefreshCw className="w-4 h-4" />
-            <span>SYNC NOW</span>
+            <span>Sync Now</span>
           </button>
         </div>
       </div>

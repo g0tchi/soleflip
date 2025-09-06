@@ -287,6 +287,8 @@ class InventoryItem(Base, TimestampMixin):
             "supplier": self.supplier,
             "status": self.status,
             "notes": self.notes,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
 
@@ -431,3 +433,17 @@ class SystemLog(Base):
     source_table = Column(String(100))
     source_id = Column(UUID(as_uuid=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class StockXPresaleMarking(Base, TimestampMixin):
+    """Separate table for StockX presale markings without inventory constraints"""
+    __tablename__ = "stockx_presale_markings"
+    __table_args__ = {"schema": "products"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    stockx_listing_id = Column(String(100), nullable=False, unique=True, index=True)
+    product_name = Column(String(255))
+    size = Column(String(20))
+    is_presale = Column(Boolean, default=True)
+    marked_at = Column(DateTime(timezone=True), default=func.now())
+    unmarked_at = Column(DateTime(timezone=True))

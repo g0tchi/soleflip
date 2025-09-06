@@ -116,6 +116,41 @@ class BaseRepository(Generic[T]):
         result = await self.db.execute(query)
         return result.scalars().all()
 
+    async def get_all_paginated(
+        self, skip: int = 0, limit: int = 100, filters: Optional[Dict[str, Any]] = None
+    ) -> List[T]:
+        """Get paginated list of entities with optional filters"""
+        query = select(self.model_class)
+
+        # Apply filters if provided
+        if filters:
+            for field, value in filters.items():
+                if value is not None:
+                    if hasattr(self.model_class, field):
+                        query = query.where(getattr(self.model_class, field) == value)
+
+        # Apply pagination
+        query = query.offset(skip).limit(limit)
+
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def count_all(self, filters: Optional[Dict[str, Any]] = None) -> int:
+        """Count total entities with optional filters"""
+        from sqlalchemy import func
+        
+        query = select(func.count(self.model_class.id))
+
+        # Apply filters if provided
+        if filters:
+            for field, value in filters.items():
+                if value is not None:
+                    if hasattr(self.model_class, field):
+                        query = query.where(getattr(self.model_class, field) == value)
+
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
     async def update(self, entity_id: UUID, **kwargs) -> Optional[T]:
         """Update entity by ID"""
         self._logger.debug("Updating entity", entity_id=entity_id, fields=list(kwargs.keys()))

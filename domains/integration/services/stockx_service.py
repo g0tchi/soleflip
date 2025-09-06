@@ -231,7 +231,7 @@ class StockXService:
                         break
 
                     page += 1
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
 
                 except httpx.HTTPStatusError as e:
                     logger.error(
@@ -347,6 +347,60 @@ class StockXService:
         except httpx.HTTPStatusError as e:
             # A 404 is not expected for a search, but we'll log it.
             # Other errors will be re-raised by the helper.
+            raise
+
+    async def create_listing(
+        self,
+        variant_id: str,
+        amount: str,
+        currency_code: str = "USD",
+        expires_at: Optional[str] = None,
+        active: bool = True,
+        inventory_type: str = "STANDARD"
+    ) -> Dict[str, Any]:
+        """
+        Creates a new listing (ask) on StockX for the specified variant.
+        
+        Args:
+            variant_id: StockX variant ID to create listing for
+            amount: Price amount as string
+            currency_code: Currency code (default: USD)
+            expires_at: UTC timestamp when listing expires (ISO 8601 format)
+            active: Whether listing should be active (default: True)
+            inventory_type: STANDARD or DIRECT (default: STANDARD)
+        
+        Returns:
+            Dict containing listing creation response
+        """
+        logger.info(
+            "Creating StockX listing", 
+            variant_id=variant_id, 
+            amount=amount, 
+            currency_code=currency_code,
+            inventory_type=inventory_type
+        )
+        
+        endpoint = "/selling/listings"
+        payload = {
+            "variantId": variant_id,
+            "amount": amount,
+            "currencyCode": currency_code,
+            "active": active,
+            "inventoryType": inventory_type
+        }
+        
+        if expires_at:
+            payload["expiresAt"] = expires_at
+        
+        try:
+            response_data = await self._make_post_request(endpoint, json=payload)
+            logger.info("StockX listing created successfully", listing_id=response_data.get("listingId"))
+            return response_data
+        except httpx.HTTPStatusError as e:
+            logger.error("Failed to create StockX listing", 
+                        status_code=e.response.status_code, 
+                        response=e.response.text)
+            raise
             logger.warning(
                 "Received an unexpected HTTP status error during StockX catalog search.",
                 status_code=e.response.status_code,
@@ -415,7 +469,7 @@ class StockXService:
 
                 response.raise_for_status()
                 return response.json()
-
+                
             except httpx.HTTPStatusError as e:
                 logger.error(
                     f"HTTP error on {endpoint}",
@@ -428,6 +482,48 @@ class StockXService:
                 raise
             except asyncio.TimeoutError:
                 logger.error(f"Request timeout on {endpoint}")
+                raise
+
+    async def _make_post_request(
+        self, endpoint: str, json: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        A generic helper to make a POST request to the StockX API.
+        """
+        access_token = await self._get_valid_access_token()
+        api_key = (await self._load_credentials()).api_key
+
+        headers = {
+            "x-api-key": api_key,
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "SoleFlipperApp/1.0",
+        }
+
+        async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
+            try:
+                response = await client.post(endpoint, json=json, headers=headers, timeout=30.0)
+
+                if response.status_code == 401:
+                    logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
+                    access_token = await self._get_valid_access_token()  # Force refresh
+                    headers["Authorization"] = f"Bearer {access_token}"
+                    response = await client.post(
+                        endpoint, json=json, headers=headers, timeout=30.0
+                    )
+
+                response.raise_for_status()
+                return response.json()
+
+            except httpx.HTTPStatusError as e:
+                logger.error(
+                    f"HTTP error during POST request to {endpoint}",
+                    status_code=e.response.status_code,
+                    response_body=e.response.text,
+                )
+                raise
+            except httpx.RequestError as e:
+                logger.error(f"Request error during POST to {endpoint}: {e}")
                 raise
 
     async def get_shipping_document(self, order_number: str, shipping_id: str) -> Optional[bytes]:
