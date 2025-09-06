@@ -46,7 +46,11 @@ async fn main() {
             commands::analyze_dead_stock,
             commands::execute_clearance,
             commands::get_risk_level_definitions,
-            commands::get_dead_stock_trends
+            commands::get_dead_stock_trends,
+            commands::get_predictive_insights,
+            commands::get_inventory_forecasts,
+            commands::get_restock_recommendations,
+            commands::get_predictive_insights_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -553,6 +553,70 @@ pub struct DeadStockInsights {
     pub seasonal_pattern: String,
 }
 
+// Predictive Insights Types
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PredictiveInsight {
+    pub insight_id: String,
+    pub insight_type: String,
+    pub priority: String,
+    pub title: String,
+    pub description: String,
+    pub product_id: Option<String>,
+    pub product_name: Option<String>,
+    pub confidence_score: f64,
+    pub recommended_actions: Vec<serde_json::Value>,
+    pub supporting_data: serde_json::Value,
+    pub expires_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InventoryForecast {
+    pub product_id: String,
+    pub product_name: String,
+    pub current_stock: i32,
+    pub predicted_demand_30d: f64,
+    pub predicted_demand_90d: f64,
+    pub restock_recommendation: String,
+    pub optimal_restock_quantity: i32,
+    pub days_until_stockout: Option<i32>,
+    pub confidence_level: f64,
+    pub seasonal_factors: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RestockRecommendation {
+    pub product_id: String,
+    pub product_name: String,
+    pub current_stock: i32,
+    pub recommended_quantity: i32,
+    pub investment_required: f64,
+    pub projected_revenue: f64,
+    pub projected_profit: f64,
+    pub roi_estimate: f64,
+    pub optimal_timing: String,
+    pub risk_level: String,
+    pub supporting_insights: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PredictiveInsightsSummary {
+    pub timestamp: String,
+    pub insights_generated: i32,
+    pub critical_insights: i32,
+    pub high_priority_insights: i32,
+    pub restock_opportunities: i32,
+    pub profit_optimizations: i32,
+    pub market_shifts_detected: i32,
+    pub seasonal_trends: i32,
+    pub clearance_alerts: i32,
+    pub total_potential_revenue: f64,
+    pub total_potential_profit: f64,
+    pub avg_forecast_confidence: f64,
+    pub categories: serde_json::Value,
+    pub recommendations: Vec<String>,
+    pub next_analysis_at: String,
+}
+
 impl ApiClient {
     pub fn new(base_url: String) -> Self {
         Self {
@@ -964,5 +1028,43 @@ impl ApiClient {
         let response = self.client.get(&url).send().await?;
         let trends: DeadStockTrends = response.json().await?;
         Ok(trends)
+    }
+
+    // Predictive Insights API Methods
+    pub async fn get_predictive_insights(&self, insight_types: Option<String>, days_ahead: i32, limit: i32) -> Result<Vec<PredictiveInsight>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/pricing/predictive/insights?days_ahead={}&limit={}", self.base_url, days_ahead, limit);
+        if let Some(types) = insight_types {
+            url = format!("{}&insight_types={}", url, types);
+        }
+        let response = self.client.get(&url).send().await?;
+        let insights: Vec<PredictiveInsight> = response.json().await?;
+        Ok(insights)
+    }
+
+    pub async fn get_inventory_forecasts(&self, product_ids: Option<String>, horizon_days: i32) -> Result<Vec<InventoryForecast>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/pricing/predictive/forecasts?horizon_days={}", self.base_url, horizon_days);
+        if let Some(ids) = product_ids {
+            url = format!("{}&product_ids={}", url, ids);
+        }
+        let response = self.client.get(&url).send().await?;
+        let forecasts: Vec<InventoryForecast> = response.json().await?;
+        Ok(forecasts)
+    }
+
+    pub async fn get_restock_recommendations(&self, investment_budget: Option<f64>, min_roi: f64, max_products: i32) -> Result<Vec<RestockRecommendation>, reqwest::Error> {
+        let mut url = format!("{}/api/v1/pricing/predictive/restock-recommendations?min_roi={}&max_products={}", self.base_url, min_roi, max_products);
+        if let Some(budget) = investment_budget {
+            url = format!("{}&investment_budget={}", url, budget);
+        }
+        let response = self.client.get(&url).send().await?;
+        let recommendations: Vec<RestockRecommendation> = response.json().await?;
+        Ok(recommendations)
+    }
+
+    pub async fn get_predictive_insights_summary(&self) -> Result<PredictiveInsightsSummary, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/predictive/summary", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let summary: PredictiveInsightsSummary = response.json().await?;
+        Ok(summary)
     }
 }

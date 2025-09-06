@@ -1,4 +1,4 @@
-use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights, SmartPricingOptimization, AutoRepricingStatus, MarketTrendData};
+use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights, SmartPricingOptimization, AutoRepricingStatus, MarketTrendData, PredictiveInsight, InventoryForecast, RestockRecommendation, PredictiveInsightsSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -457,6 +457,43 @@ pub async fn get_dead_stock_trends() -> Result<crate::api::DeadStockTrends, Stri
     match client.get_dead_stock_trends().await {
         Ok(trends) => Ok(trends),
         Err(e) => Err(format!("Failed to get dead stock trends: {}", e)),
+    }
+}
+
+// Predictive Insights Commands
+#[tauri::command]
+pub async fn get_predictive_insights(insight_types: Option<String>, days_ahead: i32, limit: i32) -> Result<Vec<PredictiveInsight>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_predictive_insights(insight_types, days_ahead, limit).await {
+        Ok(insights) => Ok(insights),
+        Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_inventory_forecasts(product_ids: Option<String>, horizon_days: i32) -> Result<Vec<InventoryForecast>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_inventory_forecasts(product_ids, horizon_days).await {
+        Ok(forecasts) => Ok(forecasts),
+        Err(e) => Err(format!("Failed to get inventory forecasts: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_restock_recommendations(investment_budget: Option<f64>, min_roi: f64, max_products: i32) -> Result<Vec<RestockRecommendation>, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_restock_recommendations(investment_budget, min_roi, max_products).await {
+        Ok(recommendations) => Ok(recommendations),
+        Err(e) => Err(format!("Failed to get restock recommendations: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_predictive_insights_summary() -> Result<PredictiveInsightsSummary, String> {
+    let client = ApiClient::new("http://localhost:8000".to_string());
+    match client.get_predictive_insights_summary().await {
+        Ok(summary) => Ok(summary),
+        Err(e) => Err(format!("Failed to get predictive insights summary: {}", e)),
     }
 }
 

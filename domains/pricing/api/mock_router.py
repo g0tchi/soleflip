@@ -86,6 +86,46 @@ class MockAutoRepricingToggleRequest(BaseModel):
     enabled: bool
 
 
+# Predictive Insights Models
+class MockPredictiveInsight(BaseModel):
+    insight_id: str
+    insight_type: str
+    priority: str
+    title: str
+    description: str
+    product_id: str = None
+    product_name: str = None
+    confidence_score: float
+    recommended_actions: List[Dict[str, Any]]
+    supporting_data: Dict[str, Any]
+    expires_at: str
+
+class MockInventoryForecast(BaseModel):
+    product_id: str
+    product_name: str
+    current_stock: int
+    predicted_demand_30d: float
+    predicted_demand_90d: float
+    restock_recommendation: str
+    optimal_restock_quantity: int
+    days_until_stockout: int = None
+    confidence_level: float
+    seasonal_factors: Dict[str, Any]
+
+class MockRestockRecommendation(BaseModel):
+    product_id: str
+    product_name: str
+    current_stock: int
+    recommended_quantity: int
+    investment_required: float
+    projected_revenue: float
+    projected_profit: float
+    roi_estimate: float
+    optimal_timing: str
+    risk_level: str
+    supporting_insights: List[str]
+
+
 @router.post("/smart/optimize-inventory")
 async def optimize_inventory_pricing(strategy: str = "profit_maximization", limit: int = 50):
     """Mock Smart Pricing inventory optimization endpoint"""
@@ -739,4 +779,418 @@ async def get_dead_stock_trends():
             "📅 Seasonal Planning: Q4 Inventory besser steuern",
             "⚡ Automation: Auto-Clearance Rules für wiederkehrende Probleme"
         ]
+    }
+
+
+# =====================================================
+# PREDICTIVE INSIGHTS ENDPOINTS
+# =====================================================
+
+@router.get("/predictive/insights", response_model=List[MockPredictiveInsight])
+async def get_predictive_insights(
+    insight_types: str = "all",
+    days_ahead: int = 30,
+    limit: int = 20
+):
+    """Mock endpoint for predictive inventory insights"""
+    from uuid import uuid4
+    
+    base_insights = [
+        {
+            "insight_id": f"restock_{uuid4().hex[:8]}",
+            "insight_type": "restock_opportunity",
+            "priority": "high",
+            "title": "Restock Opportunity: Nike Air Jordan 1 High OG",
+            "description": "Predicted demand of 47 units in next 30 days exceeds current stock of 12 units",
+            "product_id": "prod_001",
+            "product_name": "Nike Air Jordan 1 High OG 'Chicago'",
+            "confidence_score": 0.85,
+            "recommended_actions": [
+                {
+                    "action": "restock",
+                    "quantity": 45,
+                    "priority": "high",
+                    "timing": "within_7_days"
+                }
+            ],
+            "supporting_data": {
+                "forecast_model": "ensemble",
+                "market_trend": "bullish",
+                "days_until_stockout": 8,
+                "potential_revenue": 4935.00
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
+        },
+        {
+            "insight_id": f"surge_{uuid4().hex[:8]}",
+            "insight_type": "demand_surge",
+            "priority": "critical",
+            "title": "Demand Surge Predicted: Adidas Yeezy Boost 350",
+            "description": "Predicted 73% increase in demand over next 30 days",
+            "product_id": "prod_002", 
+            "product_name": "Adidas Yeezy Boost 350 V2 'Zebra'",
+            "confidence_score": 0.78,
+            "recommended_actions": [
+                {
+                    "action": "restock",
+                    "urgency": "immediate",
+                    "reason": "surge_preparation"
+                },
+                {
+                    "action": "increase_price",
+                    "percentage": 12,
+                    "timing": "before_surge"
+                }
+            ],
+            "supporting_data": {
+                "surge_factor": 1.73,
+                "market_conditions": "volatile_bullish",
+                "predicted_peak_demand": 28
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=3)).isoformat() + "Z"
+        },
+        {
+            "insight_id": f"seasonal_{uuid4().hex[:8]}",
+            "insight_type": "seasonal_trend", 
+            "priority": "medium",
+            "title": "Seasonal Trend: Back to School Season",
+            "description": "Seasonal pattern indicates 40% increase in demand for Nike Dunk Low",
+            "product_id": "prod_003",
+            "product_name": "Nike Dunk Low 'Panda'",
+            "confidence_score": 0.65,
+            "recommended_actions": [
+                {
+                    "action": "restock",
+                    "seasonal_factor": 1.4,
+                    "timing": "before_peak_season"
+                }
+            ],
+            "supporting_data": {
+                "active_seasons": ["back_to_school"],
+                "seasonal_multiplier": 1.4,
+                "product_category": "basketball",
+                "peak_months": [8, 9]
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+        },
+        {
+            "insight_id": f"market_{uuid4().hex[:8]}",
+            "insight_type": "market_shift",
+            "priority": "high",
+            "title": "Market Shift: Nike Air Force 1 Low",
+            "description": "Strong bullish market with increasing volume",
+            "product_id": "prod_004",
+            "product_name": "Nike Air Force 1 Low '07",
+            "confidence_score": 0.80,
+            "recommended_actions": [
+                {
+                    "action": "hold_inventory",
+                    "reason": "price_appreciation"
+                },
+                {
+                    "action": "increase_price",
+                    "percentage": 10
+                }
+            ],
+            "supporting_data": {
+                "price_trend": "bullish",
+                "volume_trend": "increasing",
+                "volatility": "moderate",
+                "current_market_price": 120.00,
+                "52w_high": 145.00,
+                "52w_low": 89.00
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=5)).isoformat() + "Z"
+        },
+        {
+            "insight_id": f"profit_{uuid4().hex[:8]}",
+            "insight_type": "profit_optimization",
+            "priority": "medium",
+            "title": "Profit Optimization: Converse Chuck Taylor All Star",
+            "description": "Price optimization could increase profit by 18% over next 30 days",
+            "product_id": "prod_005",
+            "product_name": "Converse Chuck Taylor All Star High Top",
+            "confidence_score": 0.72,
+            "recommended_actions": [
+                {
+                    "action": "increase_price",
+                    "from_price": 65.00,
+                    "to_price": 75.00,
+                    "expected_profit_increase": 0.18
+                }
+            ],
+            "supporting_data": {
+                "current_price": 65.00,
+                "optimal_price": 75.00,
+                "profit_increase": 0.18,
+                "predicted_sales": 22,
+                "pricing_strategy": "dynamic"
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=14)).isoformat() + "Z"
+        },
+        {
+            "insight_id": f"clearance_{uuid4().hex[:8]}",
+            "insight_type": "clearance_alert",
+            "priority": "medium",
+            "title": "Clearance Alert: New Balance 990v3",
+            "description": "Slow-moving inventory: 156 days to clear at current demand rate",
+            "product_id": "prod_006",
+            "product_name": "New Balance 990v3 'Grey'",
+            "confidence_score": 0.75,
+            "recommended_actions": [
+                {
+                    "action": "decrease_price",
+                    "discount_percentage": 0.25,
+                    "expected_velocity_increase": 3.5,
+                    "timing": "within_30_days"
+                },
+                {
+                    "action": "monitor",
+                    "metric": "sales_velocity",
+                    "frequency": "weekly"
+                }
+            ],
+            "supporting_data": {
+                "days_to_clear": 156,
+                "current_velocity": 0.32,
+                "market_trend": "stable"
+            },
+            "expires_at": (datetime.utcnow() + timedelta(days=21)).isoformat() + "Z"
+        }
+    ]
+    
+    # Filter by insight types if specified
+    if insight_types != "all":
+        requested_types = insight_types.split(",")
+        base_insights = [
+            insight for insight in base_insights
+            if insight["insight_type"] in requested_types
+        ]
+    
+    return base_insights[:limit]
+
+
+@router.get("/predictive/forecasts", response_model=List[MockInventoryForecast])
+async def get_inventory_forecasts(
+    product_ids: str = None,
+    horizon_days: int = 90
+):
+    """Mock endpoint for inventory forecasts"""
+    from uuid import uuid4
+    
+    forecasts = [
+        {
+            "product_id": "prod_001",
+            "product_name": "Nike Air Jordan 1 High OG 'Chicago'",
+            "current_stock": 12,
+            "predicted_demand_30d": 47.3,
+            "predicted_demand_90d": 132.7,
+            "restock_recommendation": "URGENT",
+            "optimal_restock_quantity": 71,
+            "days_until_stockout": 8,
+            "confidence_level": 0.85,
+            "seasonal_factors": {
+                "current_month_factor": 1.2,
+                "next_month_factor": 1.4,
+                "quarter_trend": "increasing"
+            }
+        },
+        {
+            "product_id": "prod_002",
+            "product_name": "Adidas Yeezy Boost 350 V2 'Zebra'",
+            "current_stock": 35,
+            "predicted_demand_30d": 28.9,
+            "predicted_demand_90d": 89.4,
+            "restock_recommendation": "RECOMMENDED",
+            "optimal_restock_quantity": 43,
+            "days_until_stockout": 36,
+            "confidence_level": 0.78,
+            "seasonal_factors": {
+                "current_month_factor": 1.0,
+                "next_month_factor": 1.1,
+                "quarter_trend": "stable"
+            }
+        },
+        {
+            "product_id": "prod_003",
+            "product_name": "Nike Dunk Low 'Panda'",
+            "current_stock": 58,
+            "predicted_demand_30d": 34.2,
+            "predicted_demand_90d": 98.6,
+            "restock_recommendation": "MONITOR",
+            "optimal_restock_quantity": 51,
+            "days_until_stockout": 51,
+            "confidence_level": 0.72,
+            "seasonal_factors": {
+                "current_month_factor": 1.4,
+                "next_month_factor": 1.3,
+                "quarter_trend": "seasonal_peak"
+            }
+        },
+        {
+            "product_id": "prod_004",
+            "product_name": "Nike Air Force 1 Low '07",
+            "current_stock": 42,
+            "predicted_demand_30d": 22.7,
+            "predicted_demand_90d": 71.3,
+            "restock_recommendation": "MONITOR",
+            "optimal_restock_quantity": 34,
+            "days_until_stockout": 56,
+            "confidence_level": 0.80,
+            "seasonal_factors": {
+                "current_month_factor": 0.9,
+                "next_month_factor": 1.0,
+                "quarter_trend": "stable"
+            }
+        }
+    ]
+    
+    # Filter by product_ids if specified
+    if product_ids:
+        requested_ids = product_ids.split(",")
+        forecasts = [f for f in forecasts if f["product_id"] in requested_ids]
+    
+    return forecasts
+
+
+@router.get("/predictive/restock-recommendations", response_model=List[MockRestockRecommendation])
+async def get_restock_recommendations(
+    investment_budget: float = None,
+    min_roi: float = 0.15,
+    max_products: int = 10
+):
+    """Mock endpoint for restock recommendations"""
+    from datetime import date
+    
+    recommendations = [
+        {
+            "product_id": "prod_001",
+            "product_name": "Nike Air Jordan 1 High OG 'Chicago'",
+            "current_stock": 12,
+            "recommended_quantity": 71,
+            "investment_required": 5680.00,
+            "projected_revenue": 8130.00,
+            "projected_profit": 2450.00,
+            "roi_estimate": 0.43,
+            "optimal_timing": (date.today() + timedelta(days=1)).isoformat(),
+            "risk_level": "LOW",
+            "supporting_insights": [
+                "Predicted demand: 47.3 units/month",
+                "Days until stockout: 8",
+                "Forecast confidence: 85.0%",
+                "Market trend: bullish"
+            ]
+        },
+        {
+            "product_id": "prod_002",
+            "product_name": "Adidas Yeezy Boost 350 V2 'Zebra'",
+            "current_stock": 35,
+            "recommended_quantity": 43,
+            "investment_required": 8170.00,
+            "projected_revenue": 11480.00,
+            "projected_profit": 3310.00,
+            "roi_estimate": 0.40,
+            "optimal_timing": (date.today() + timedelta(days=7)).isoformat(),
+            "risk_level": "MEDIUM",
+            "supporting_insights": [
+                "Predicted demand: 28.9 units/month",
+                "Days until stockout: 36",
+                "Forecast confidence: 78.0%",
+                "Market trend: volatile_bullish"
+            ]
+        },
+        {
+            "product_id": "prod_005",
+            "product_name": "Converse Chuck Taylor All Star High Top",
+            "current_stock": 28,
+            "recommended_quantity": 33,
+            "investment_required": 1650.00,
+            "projected_revenue": 2475.00,
+            "projected_profit": 825.00,
+            "roi_estimate": 0.50,
+            "optimal_timing": (date.today() + timedelta(days=14)).isoformat(),
+            "risk_level": "LOW",
+            "supporting_insights": [
+                "Predicted demand: 22.0 units/month",
+                "Days until stockout: 38",
+                "Forecast confidence: 72.0%",
+                "Market trend: stable"
+            ]
+        }
+    ]
+    
+    # Filter by budget if specified
+    if investment_budget:
+        filtered_recommendations = []
+        total_investment = 0.0
+        for rec in recommendations:
+            if total_investment + rec["investment_required"] <= investment_budget:
+                filtered_recommendations.append(rec)
+                total_investment += rec["investment_required"]
+            else:
+                break
+        recommendations = filtered_recommendations
+    
+    # Filter by min ROI
+    recommendations = [r for r in recommendations if r["roi_estimate"] >= min_roi]
+    
+    return recommendations[:max_products]
+
+
+@router.get("/predictive/summary")
+async def get_predictive_insights_summary():
+    """Mock endpoint for predictive insights summary"""
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "insights_generated": 47,
+        "critical_insights": 3,
+        "high_priority_insights": 12,
+        "restock_opportunities": 8,
+        "profit_optimizations": 6,
+        "market_shifts_detected": 4,
+        "seasonal_trends": 5,
+        "clearance_alerts": 9,
+        "total_potential_revenue": 28450.75,
+        "total_potential_profit": 12380.25,
+        "avg_forecast_confidence": 0.76,
+        "categories": {
+            "restock_opportunity": {
+                "count": 8,
+                "avg_confidence": 0.82,
+                "total_potential_revenue": 15230.50
+            },
+            "demand_surge": {
+                "count": 3,
+                "avg_confidence": 0.78,
+                "urgency": "immediate"
+            },
+            "seasonal_trend": {
+                "count": 5,
+                "avg_confidence": 0.65,
+                "peak_season": "Q4"
+            },
+            "market_shift": {
+                "count": 4,
+                "avg_confidence": 0.80,
+                "dominant_trend": "bullish"
+            },
+            "profit_optimization": {
+                "count": 6,
+                "avg_confidence": 0.72,
+                "avg_profit_increase": 0.19
+            },
+            "clearance_alert": {
+                "count": 9,
+                "avg_confidence": 0.75,
+                "total_locked_capital": 8940.25
+            }
+        },
+        "recommendations": [
+            "🚨 3 critical insights require immediate action",
+            "📈 Strong bullish market conditions detected - consider price increases",
+            "🔄 8 restock opportunities with high ROI potential",
+            "⚡ Seasonal trends favor basketball shoes for Q4",
+            "💰 Profit optimization potential: €12,380 additional profit"
+        ],
+        "next_analysis_at": (datetime.utcnow() + timedelta(hours=6)).isoformat() + "Z"
     }
