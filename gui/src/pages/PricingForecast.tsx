@@ -11,7 +11,14 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Star
+  Star,
+  Bot,
+  DollarSign,
+  TrendingDown,
+  Settings,
+  Play,
+  Pause,
+  Eye
 } from 'lucide-react';
 
 // TypeScript interfaces
@@ -84,6 +91,41 @@ interface ForecastAnalysis {
   recommendations?: string[];
 }
 
+interface SmartPricingOptimization {
+  total_items_analyzed: number;
+  items_optimized: number;
+  potential_profit_increase: number;
+  pricing_strategy: string;
+  market_conditions: string;
+  timestamp: string;
+  recommendations: Array<{
+    product_name: string;
+    current_price: number;
+    recommended_price: number;
+    profit_increase: number;
+    confidence: number;
+  }>;
+}
+
+interface AutoRepricingStatus {
+  enabled: boolean;
+  last_run: string | null;
+  items_repriced: number;
+  strategy: string;
+  next_run: string | null;
+  rules_applied: number;
+}
+
+interface MarketTrendData {
+  current_condition: string;
+  trend_strength: number;
+  volatility_level: string;
+  price_momentum: string;
+  recommended_action: string;
+  confidence_score: number;
+  key_insights: string[];
+}
+
 const PricingForecast = () => {
   const [pricingInsights, setPricingInsights] = useState<PricingInsights | null>(null);
   const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsights | null>(null);
@@ -91,6 +133,14 @@ const PricingForecast = () => {
   const [forecastResult, setForecastResult] = useState<ForecastAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Smart Pricing states
+  const [smartPricingResult, setSmartPricingResult] = useState<SmartPricingOptimization | null>(null);
+  const [autoRepricingStatus, setAutoRepricingStatus] = useState<AutoRepricingStatus | null>(null);
+  const [marketTrendData, setMarketTrendData] = useState<MarketTrendData | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState('profit_maximization');
+  const [showSmartPricing, setShowSmartPricing] = useState(true);
   
   // Forecast settings
   const [forecastDays, setForecastDays] = useState(30);
@@ -113,21 +163,27 @@ const PricingForecast = () => {
       
       if (isTauri) {
         // Use Tauri invoke for desktop app
-        const [pricing, predictive, trends] = await Promise.all([
+        const [pricing, predictive, trends, autoStatus, marketData] = await Promise.all([
           invoke<PricingInsights>('get_pricing_insights'),
           invoke<PredictiveInsights>('get_predictive_insights'),
-          invoke<MarketTrend[]>('get_market_trends', { daysBack: 90 })
+          invoke<MarketTrend[]>('get_market_trends', { daysBack: 90 }),
+          invoke<AutoRepricingStatus>('get_auto_repricing_status').catch(() => null),
+          invoke<MarketTrendData>('get_smart_market_trends').catch(() => null)
         ]);
         
         setPricingInsights(pricing);
         setPredictiveInsights(predictive);
         setMarketTrends(trends);
+        setAutoRepricingStatus(autoStatus);
+        setMarketTrendData(marketData);
       } else {
         // Use HTTP fetch for web app
-        const [pricingResponse, predictiveResponse, trendsResponse] = await Promise.all([
+        const [pricingResponse, predictiveResponse, trendsResponse, autoStatusResponse, marketDataResponse] = await Promise.all([
           fetch('http://localhost:8000/api/v1/pricing/insights'),
           fetch('http://localhost:8000/api/v1/analytics/insights/predictive'),
-          fetch('http://localhost:8000/api/v1/analytics/trends/market?days_back=90')
+          fetch('http://localhost:8000/api/v1/analytics/trends/market?days_back=90'),
+          fetch('http://localhost:8000/api/v1/pricing/smart/auto-repricing/status').catch(() => null),
+          fetch('http://localhost:8000/api/v1/pricing/smart/market-trends').catch(() => null)
         ]);
         
         if (!pricingResponse.ok || !predictiveResponse.ok || !trendsResponse.ok) {
@@ -141,6 +197,14 @@ const PricingForecast = () => {
         setPricingInsights(pricing);
         setPredictiveInsights(predictive);
         setMarketTrends(trends);
+        
+        // Smart pricing data (optional)
+        if (autoStatusResponse && autoStatusResponse.ok) {
+          setAutoRepricingStatus(await autoStatusResponse.json());
+        }
+        if (marketDataResponse && marketDataResponse.ok) {
+          setMarketTrendData(await marketDataResponse.json());
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -189,6 +253,93 @@ const PricingForecast = () => {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsGeneratingForecast(false);
+    }
+  };
+
+  const optimizeInventoryPricing = async () => {
+    setIsOptimizing(true);
+    
+    try {
+      // Check if we're in Tauri or web environment
+      const isTauri = window.__TAURI__ !== undefined;
+      
+      if (isTauri) {
+        // Use Tauri invoke for desktop app
+        const optimization = await invoke<SmartPricingOptimization>('optimize_inventory_pricing', { 
+          strategy: selectedStrategy,
+          limit: 50 
+        });
+        setSmartPricingResult(optimization);
+      } else {
+        // Use HTTP fetch for web app
+        const response = await fetch(`http://localhost:8000/api/v1/pricing/smart/optimize-inventory?strategy=${selectedStrategy}&limit=50`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to optimize pricing');
+        }
+        
+        const optimization = await response.json();
+        setSmartPricingResult(optimization);
+      }
+      
+      // Refresh auto-repricing status after optimization
+      await fetchAutoRepricingStatus();
+    } catch (err) {
+      console.error('Failed to optimize pricing:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const toggleAutoRepricing = async () => {
+    try {
+      const isTauri = window.__TAURI__ !== undefined;
+      const newStatus = !autoRepricingStatus?.enabled;
+      
+      if (isTauri) {
+        await invoke('toggle_auto_repricing', { enabled: newStatus });
+      } else {
+        const response = await fetch('http://localhost:8000/api/v1/pricing/smart/auto-repricing/toggle', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ enabled: newStatus })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to toggle auto-repricing');
+        }
+      }
+      
+      await fetchAutoRepricingStatus();
+    } catch (err) {
+      console.error('Failed to toggle auto-repricing:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const fetchAutoRepricingStatus = async () => {
+    try {
+      const isTauri = window.__TAURI__ !== undefined;
+      
+      if (isTauri) {
+        const status = await invoke<AutoRepricingStatus>('get_auto_repricing_status');
+        setAutoRepricingStatus(status);
+      } else {
+        const response = await fetch('http://localhost:8000/api/v1/pricing/smart/auto-repricing/status');
+        if (response.ok) {
+          setAutoRepricingStatus(await response.json());
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch auto-repricing status:', err);
     }
   };
 
@@ -254,6 +405,32 @@ const PricingForecast = () => {
     ));
   };
 
+  const getMarketConditionColor = (condition: string) => {
+    switch (condition.toLowerCase()) {
+      case 'bullish':
+        return 'text-green-400';
+      case 'bearish':
+        return 'text-red-400';
+      case 'volatile':
+        return 'text-orange-400';
+      default:
+        return 'text-blue-400';
+    }
+  };
+
+  const getMarketConditionIcon = (condition: string) => {
+    switch (condition.toLowerCase()) {
+      case 'bullish':
+        return <TrendingUp className="w-4 h-4 text-green-400" />;
+      case 'bearish':
+        return <TrendingDown className="w-4 h-4 text-red-400" />;
+      case 'volatile':
+        return <Activity className="w-4 h-4 text-orange-400" />;
+      default:
+        return <BarChart3 className="w-4 h-4 text-blue-400" />;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -279,14 +456,25 @@ const PricingForecast = () => {
             AI-powered pricing optimization and sales forecasting
           </p>
         </div>
-        <button 
-          onClick={fetchData}
-          disabled={isLoading}
-          className="modern-button-outline flex items-center space-x-2 text-sm px-4 py-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowSmartPricing(!showSmartPricing)}
+            className={`modern-button-outline flex items-center space-x-2 text-sm px-4 py-2 ${
+              showSmartPricing ? 'bg-purple-500/20 border-purple-400' : ''
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            <span>Smart Pricing</span>
+          </button>
+          <button 
+            onClick={fetchData}
+            disabled={isLoading}
+            className="modern-button-outline flex items-center space-x-2 text-sm px-4 py-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -302,6 +490,174 @@ const PricingForecast = () => {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Smart Pricing Section */}
+          {showSmartPricing && (
+            <div className="space-y-6">
+              {/* Smart Pricing Controls */}
+              <div className={`${cardClasses} p-6`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <Bot className="w-6 h-6 text-purple-400" />
+                    <h2 className={`${headingClasses} text-xl`}>
+                      Smart Pricing Engine
+                    </h2>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <select 
+                      value={selectedStrategy}
+                      onChange={(e) => setSelectedStrategy(e.target.value)}
+                      className="modern-select text-sm"
+                    >
+                      <option value="profit_maximization">Profit Maximization</option>
+                      <option value="market_competitive">Market Competitive</option>
+                      <option value="volume_optimization">Volume Optimization</option>
+                      <option value="margin_protection">Margin Protection</option>
+                    </select>
+                    <button 
+                      onClick={optimizeInventoryPricing}
+                      disabled={isOptimizing}
+                      className={`modern-button flex items-center space-x-2 text-sm px-4 py-2 ${
+                        isOptimizing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <Zap className={`w-4 h-4 ${isOptimizing ? 'animate-pulse' : ''}`} />
+                      <span>{isOptimizing ? 'Optimizing...' : 'Optimize Pricing'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Auto-Repricing Status */}
+                {autoRepricingStatus && (
+                  <div className="mb-6 p-4 rounded-lg bg-gray-800 border border-blue-400/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-blue-400">Auto-Repricing Engine</h4>
+                      <button 
+                        onClick={toggleAutoRepricing}
+                        className={`flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          autoRepricingStatus.enabled 
+                            ? 'bg-green-500/20 text-green-400 border border-green-400/30'
+                            : 'bg-gray-600/20 text-gray-400 border border-gray-600/30'
+                        }`}
+                      >
+                        {autoRepricingStatus.enabled ? (
+                          <><Play className="w-3 h-3" /> Enabled</>
+                        ) : (
+                          <><Pause className="w-3 h-3" /> Disabled</>
+                        )}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                      <div>
+                        <span className="text-gray-400">Items Repriced:</span>
+                        <div className="font-semibold text-white mt-1">{autoRepricingStatus.items_repriced}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Strategy:</span>
+                        <div className="font-semibold text-white mt-1 capitalize">{autoRepricingStatus.strategy}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Last Run:</span>
+                        <div className="font-semibold text-white mt-1">
+                          {autoRepricingStatus.last_run ? new Date(autoRepricingStatus.last_run).toLocaleDateString() : 'Never'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Rules Applied:</span>
+                        <div className="font-semibold text-white mt-1">{autoRepricingStatus.rules_applied}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Market Condition Indicator */}
+                {marketTrendData && (
+                  <div className="mb-6 p-4 rounded-lg bg-gray-800 border border-orange-400/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-orange-400">Current Market Conditions</h4>
+                      <div className="flex items-center space-x-2">
+                        {getMarketConditionIcon(marketTrendData.current_condition)}
+                        <span className={`text-sm font-semibold ${getMarketConditionColor(marketTrendData.current_condition)}`}>
+                          {marketTrendData.current_condition.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                      <div>
+                        <span className="text-gray-400">Trend Strength:</span>
+                        <div className="font-semibold text-white mt-1">{Math.round(marketTrendData.trend_strength * 100)}%</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Volatility:</span>
+                        <div className="font-semibold text-white mt-1 capitalize">{marketTrendData.volatility_level}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Momentum:</span>
+                        <div className="font-semibold text-white mt-1 capitalize">{marketTrendData.price_momentum}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Confidence:</span>
+                        <div className="font-semibold text-white mt-1">{Math.round(marketTrendData.confidence_score * 100)}%</div>
+                      </div>
+                    </div>
+                    {marketTrendData.recommended_action && (
+                      <div className="mt-3 p-2 rounded bg-orange-400/10 border border-orange-400/20">
+                        <span className="text-xs text-orange-400 font-medium">Recommended Action: </span>
+                        <span className="text-xs text-white">{marketTrendData.recommended_action}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Optimization Results */}
+                {smartPricingResult && (
+                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-400/30">
+                    <h4 className="text-sm font-medium mb-3 text-green-400">Latest Optimization Results</h4>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-white">{smartPricingResult.total_items_analyzed}</div>
+                        <div className="text-xs text-gray-400">Items Analyzed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-green-400">{smartPricingResult.items_optimized}</div>
+                        <div className="text-xs text-gray-400">Items Optimized</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-green-400">+{formatCurrency(smartPricingResult.potential_profit_increase)}</div>
+                        <div className="text-xs text-gray-400">Potential Profit</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-purple-400 capitalize">{smartPricingResult.market_conditions}</div>
+                        <div className="text-xs text-gray-400">Market Condition</div>
+                      </div>
+                    </div>
+                    
+                    {smartPricingResult.recommendations.length > 0 && (
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 text-green-400">Top Recommendations:</h5>
+                        <div className="space-y-2">
+                          {smartPricingResult.recommendations.slice(0, 3).map((rec, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 rounded bg-gray-800 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-white truncate">{rec.product_name}</div>
+                                <div className="text-gray-400">
+                                  {formatCurrency(rec.current_price)} → {formatCurrency(rec.recommended_price)}
+                                </div>
+                              </div>
+                              <div className="text-right ml-2">
+                                <div className="font-semibold text-green-400">+{formatCurrency(rec.profit_increase)}</div>
+                                <div className="text-gray-400">{Math.round(rec.confidence * 100)}% confidence</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="modern-card px-6 py-3">

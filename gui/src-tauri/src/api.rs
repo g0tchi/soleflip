@@ -290,6 +290,269 @@ pub struct BusinessMetrics {
     pub active_brands: i32,
 }
 
+// Smart Pricing Types
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SmartPricingOptimization {
+    pub total_items_analyzed: i32,
+    pub items_optimized: i32,
+    pub potential_profit_increase: f64,
+    pub pricing_strategy: String,
+    pub market_conditions: String,
+    pub timestamp: String,
+    pub recommendations: Vec<PricingOptimizationRecommendation>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingOptimizationRecommendation {
+    pub product_name: String,
+    pub current_price: f64,
+    pub recommended_price: f64,
+    pub profit_increase: f64,
+    pub confidence: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoRepricingStatus {
+    pub enabled: bool,
+    pub last_run: Option<String>,
+    pub items_repriced: i32,
+    pub strategy: String,
+    pub next_run: Option<String>,
+    pub rules_applied: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MarketTrendData {
+    pub current_condition: String,
+    pub trend_strength: f64,
+    pub volatility_level: String,
+    pub price_momentum: String,
+    pub recommended_action: String,
+    pub confidence_score: f64,
+    pub key_insights: Vec<String>,
+}
+
+// Auto-Listing Types
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoListingStatus {
+    pub enabled: bool,
+    pub total_rules: i32,
+    pub active_rules: i32,
+    pub last_run: Option<String>,
+    pub next_scheduled_run: Option<String>,
+    pub items_processed_today: i32,
+    pub items_listed_today: i32,
+    pub success_rate_percent: f64,
+    pub rules: Vec<ListingRule>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListingRule {
+    pub name: String,
+    pub active: bool,
+    pub priority: i32,
+    pub conditions_count: i32,
+    pub items_matched_today: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoListingExecution {
+    pub execution_id: String,
+    pub started_at: String,
+    pub max_items: i32,
+    pub dry_run: bool,
+    pub items_evaluated: i32,
+    pub items_listed: i32,
+    pub rules_matched: i32,
+    pub errors: i32,
+    pub skipped: i32,
+    pub execution_time: f64,
+    pub listings_created: Vec<ListingCreated>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListingCreated {
+    pub item_id: String,
+    pub product_name: String,
+    pub rule_applied: String,
+    pub price: Option<f64>,
+    pub platform: Option<String>,
+    pub dry_run: Option<bool>,
+    pub would_list: Option<bool>,
+    pub estimated_price: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoListingSimulation {
+    pub simulation_complete: bool,
+    pub rule_tested: String,
+    pub items_evaluated: i32,
+    pub items_that_would_be_listed: i32,
+    pub rules_matched: i32,
+    pub potential_revenue: f64,
+    pub average_markup_percent: f64,
+    pub execution_time: f64,
+    pub matched_items: Vec<SimulatedListingItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SimulatedListingItem {
+    pub item_id: String,
+    pub product_name: String,
+    pub rule_matched: String,
+    pub current_status: String,
+    pub purchase_price: f64,
+    pub estimated_listing_price: f64,
+    pub profit_margin_percent: f64,
+    pub confidence: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RuleToggleResponse {
+    pub success: bool,
+    pub rule_name: String,
+    pub previous_state: bool,
+    pub new_state: bool,
+    pub message: String,
+    pub updated_at: String,
+}
+
+// Dead Stock Types
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockSummary {
+    pub total_items_at_risk: i32,
+    pub risk_breakdown: HashMap<String, i32>,
+    pub financial_impact: DeadStockFinancialImpact,
+    pub top_priorities: Vec<DeadStockItem>,
+    pub last_analysis: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockFinancialImpact {
+    pub locked_capital: f64,
+    pub potential_loss: f64,
+    pub loss_percentage: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockItem {
+    pub item_id: String,
+    pub product_name: String,
+    pub brand_name: String,
+    pub size_value: String,
+    pub purchase_price: f64,
+    pub current_market_price: Option<f64>,
+    pub days_in_inventory: i32,
+    pub risk_score: f64,
+    pub risk_level: String,
+    pub locked_capital: f64,
+    pub potential_loss: f64,
+    pub recommended_actions: Vec<String>,
+    pub market_trend: Option<String>,
+    pub velocity_score: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockAnalysis {
+    pub analysis_id: String,
+    pub started_at: String,
+    pub total_items_analyzed: i32,
+    pub filters_applied: HashMap<String, Value>,
+    pub dead_stock_items: Vec<DeadStockItem>,
+    pub risk_summary: HashMap<String, i32>,
+    pub financial_impact: DeadStockDetailedFinancialImpact,
+    pub recommendations: Vec<String>,
+    pub analysis_timestamp: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockDetailedFinancialImpact {
+    pub total_locked_capital: f64,
+    pub total_potential_loss: f64,
+    pub loss_percentage: f64,
+    pub locked_capital_by_risk: HashMap<String, f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClearanceExecution {
+    pub execution_id: String,
+    pub started_at: String,
+    pub success: bool,
+    pub dry_run: bool,
+    pub risk_levels_targeted: Vec<String>,
+    pub items_processed: i32,
+    pub actions_taken: Vec<ClearanceAction>,
+    pub total_price_reductions: f64,
+    pub estimated_capital_freed: f64,
+    pub projected_outcomes: ClearanceProjection,
+    pub execution_time: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClearanceAction {
+    pub item_id: String,
+    pub product_name: String,
+    pub original_price: Option<f64>,
+    pub new_price: Option<f64>,
+    pub discount_percent: f64,
+    pub action_type: String,
+    pub estimated_sale_probability: Option<f64>,
+    pub would_reduce_from: Option<f64>,
+    pub would_reduce_to: Option<f64>,
+    pub dry_run: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClearanceProjection {
+    pub estimated_sales_within_30d: i32,
+    pub estimated_revenue: f64,
+    pub capital_recovery_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RiskLevelDefinitions {
+    pub risk_levels: HashMap<String, RiskLevelDefinition>,
+    pub calculation_factors: HashMap<String, f64>,
+    pub automation_triggers: HashMap<String, f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RiskLevelDefinition {
+    pub name: String,
+    pub description: String,
+    pub risk_score_range: String,
+    pub age_threshold_days: i32,
+    pub color: String,
+    pub icon: String,
+    pub action_priority: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockTrends {
+    pub trend_period: String,
+    pub trend_data: Vec<DeadStockTrendData>,
+    pub insights: DeadStockInsights,
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockTrendData {
+    pub date: String,
+    pub total_dead_stock_items: i32,
+    pub locked_capital: f64,
+    pub items_liquidated: i32,
+    pub capital_freed: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeadStockInsights {
+    pub trend_direction: String,
+    pub avg_liquidation_success_rate: f64,
+    pub most_problematic_category: String,
+    pub most_problematic_brand: String,
+    pub seasonal_pattern: String,
+}
+
 impl ApiClient {
     pub fn new(base_url: String) -> Self {
         Self {
@@ -591,5 +854,115 @@ impl ApiClient {
         let response = self.client.get(&url).send().await?;
         let status: crate::commands::SystemStatus = response.json().await?;
         Ok(status)
+    }
+
+    // Smart Pricing API Methods
+    pub async fn optimize_inventory_pricing(&self, strategy: String, limit: i32) -> Result<SmartPricingOptimization, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/smart/optimize-inventory?strategy={}&limit={}", self.base_url, strategy, limit);
+        let response = self.client.post(&url).send().await?;
+        let optimization: SmartPricingOptimization = response.json().await?;
+        Ok(optimization)
+    }
+
+    pub async fn get_auto_repricing_status(&self) -> Result<AutoRepricingStatus, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/smart/auto-repricing/status", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let status: AutoRepricingStatus = response.json().await?;
+        Ok(status)
+    }
+
+    pub async fn toggle_auto_repricing(&self, enabled: bool) -> Result<HashMap<String, Value>, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/smart/auto-repricing/toggle", self.base_url);
+        let payload = serde_json::json!({"enabled": enabled});
+        let response = self.client.post(&url).json(&payload).send().await?;
+        let result: HashMap<String, Value> = response.json().await?;
+        Ok(result)
+    }
+
+    pub async fn get_smart_market_trends(&self) -> Result<MarketTrendData, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/smart/market-trends", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let trends: MarketTrendData = response.json().await?;
+        Ok(trends)
+    }
+
+    // Auto-Listing API Methods
+    pub async fn get_auto_listing_status(&self) -> Result<AutoListingStatus, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/auto-listing/status", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let status: AutoListingStatus = response.json().await?;
+        Ok(status)
+    }
+
+    pub async fn execute_auto_listing(&self, max_items: i32, dry_run: bool) -> Result<AutoListingExecution, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/auto-listing/execute", self.base_url);
+        let payload = serde_json::json!({"max_items": max_items, "dry_run": dry_run});
+        let response = self.client.post(&url).json(&payload).send().await?;
+        let execution: AutoListingExecution = response.json().await?;
+        Ok(execution)
+    }
+
+    pub async fn simulate_auto_listing(&self, rule_name: Option<String>, max_items: i32) -> Result<AutoListingSimulation, reqwest::Error> {
+        let mut url = format!("{}/api/v1/pricing/auto-listing/simulate?max_items={}", self.base_url, max_items);
+        if let Some(rule) = rule_name {
+            url = format!("{}&rule_name={}", url, rule);
+        }
+        let response = self.client.post(&url).send().await?;
+        let simulation: AutoListingSimulation = response.json().await?;
+        Ok(simulation)
+    }
+
+    pub async fn toggle_listing_rule(&self, rule_name: String, active: bool) -> Result<RuleToggleResponse, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/auto-listing/toggle-rule", self.base_url);
+        let payload = serde_json::json!({"rule_name": rule_name, "active": active});
+        let response = self.client.post(&url).json(&payload).send().await?;
+        let toggle_response: RuleToggleResponse = response.json().await?;
+        Ok(toggle_response)
+    }
+
+    // Dead Stock API Methods
+    pub async fn get_dead_stock_summary(&self) -> Result<DeadStockSummary, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/dead-stock/summary", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let summary: DeadStockSummary = response.json().await?;
+        Ok(summary)
+    }
+
+    pub async fn analyze_dead_stock(&self, brand_filter: Option<String>, category_filter: Option<String>, min_risk_score: f64) -> Result<DeadStockAnalysis, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/dead-stock/analyze", self.base_url);
+        let payload = serde_json::json!({
+            "brand_filter": brand_filter,
+            "category_filter": category_filter,
+            "min_risk_score": min_risk_score
+        });
+        let response = self.client.post(&url).json(&payload).send().await?;
+        let analysis: DeadStockAnalysis = response.json().await?;
+        Ok(analysis)
+    }
+
+    pub async fn execute_clearance(&self, risk_levels: Vec<String>, max_items: i32, dry_run: bool) -> Result<ClearanceExecution, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/dead-stock/clearance", self.base_url);
+        let payload = serde_json::json!({
+            "risk_levels": risk_levels,
+            "max_items": max_items,
+            "dry_run": dry_run
+        });
+        let response = self.client.post(&url).json(&payload).send().await?;
+        let execution: ClearanceExecution = response.json().await?;
+        Ok(execution)
+    }
+
+    pub async fn get_risk_level_definitions(&self) -> Result<RiskLevelDefinitions, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/dead-stock/risk-levels", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let definitions: RiskLevelDefinitions = response.json().await?;
+        Ok(definitions)
+    }
+
+    pub async fn get_dead_stock_trends(&self) -> Result<DeadStockTrends, reqwest::Error> {
+        let url = format!("{}/api/v1/pricing/dead-stock/trends", self.base_url);
+        let response = self.client.get(&url).send().await?;
+        let trends: DeadStockTrends = response.json().await?;
+        Ok(trends)
     }
 }

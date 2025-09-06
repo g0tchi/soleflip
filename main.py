@@ -146,7 +146,7 @@ from domains.integration.api.webhooks import router as webhook_router
 from domains.inventory.api.router import router as inventory_router
 from domains.orders.api.router import router as orders_router
 
-# Temporarily using mock routers until models are fixed
+# Using mock router temporarily to avoid DB migration issues
 from domains.pricing.api.mock_router import router as pricing_router
 from domains.products.api.router import router as products_router
 

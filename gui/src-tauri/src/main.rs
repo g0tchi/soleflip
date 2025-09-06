@@ -33,7 +33,20 @@ async fn main() {
             commands::get_stockx_listings,
             commands::get_alias_listings,
             commands::sync_inventory_from_stockx,
-            commands::http_request
+            commands::http_request,
+            commands::optimize_inventory_pricing,
+            commands::get_auto_repricing_status,
+            commands::toggle_auto_repricing,
+            commands::get_smart_market_trends,
+            commands::get_auto_listing_status,
+            commands::execute_auto_listing,
+            commands::simulate_auto_listing,
+            commands::toggle_listing_rule,
+            commands::get_dead_stock_summary,
+            commands::analyze_dead_stock,
+            commands::execute_clearance,
+            commands::get_risk_level_definitions,
+            commands::get_dead_stock_trends
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
