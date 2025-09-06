@@ -285,15 +285,6 @@ pub async fn get_forecast_models() -> Result<HashMap<String, Value>, String> {
     }
 }
 
-#[tauri::command]
-pub async fn get_predictive_insights() -> Result<PredictiveInsights, String> {
-    let client = ApiClient::new("http://localhost:8000".to_string());
-    
-    match client.get_predictive_insights().await {
-        Ok(insights) => Ok(insights),
-        Err(e) => Err(format!("Failed to get predictive insights: {}", e)),
-    }
-}
 
 #[tauri::command]
 pub async fn create_stockx_listing(item_id: String, listing_type: String) -> Result<StockXListingResponse, String> {

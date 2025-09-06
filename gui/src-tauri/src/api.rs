@@ -812,12 +812,6 @@ impl ApiClient {
         Ok(models)
     }
 
-    pub async fn get_predictive_insights(&self) -> Result<PredictiveInsights, reqwest::Error> {
-        let url = format!("{}/api/v1/analytics/insights/predictive", self.base_url);
-        let response = self.client.get(&url).send().await?;
-        let insights: PredictiveInsights = response.json().await?;
-        Ok(insights)
-    }
 
     pub async fn get_stockx_listings(&self, status: Option<String>, limit: Option<i32>) -> Result<Vec<HashMap<String, Value>>, reqwest::Error> {
         let mut url = format!("{}/api/v1/inventory/stockx-listings", self.base_url);
