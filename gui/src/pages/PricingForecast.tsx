@@ -178,28 +178,8 @@ const PricingForecast = () => {
         // Use Tauri invoke for desktop app
         const [pricing, predictive, trends, autoStatus, marketData] = await Promise.all([
           invoke<PricingInsights>('get_pricing_insights'),
-          // Temporarily mock predictive insights for compatibility
-          Promise.resolve({
-            timestamp: new Date().toISOString(),
-            business_metrics: {
-              transactions_90d: 1250,
-              revenue_90d: 45000,
-              avg_transaction_value: 36,
-              active_products: 180,
-              conversion_rate: 0.12
-            },
-            confidence_score: 0.85,
-            growth_opportunities: [
-              "Expand into streetwear category",
-              "Optimize pricing for high-demand items",
-              "Improve inventory turnover"
-            ],
-            recommendations: [
-              "Increase stock for trending items",
-              "Adjust pricing strategy",
-              "Focus on high-margin products"
-            ]
-          } as PredictiveInsights),
+          // Use real predictive insights API call
+          invoke<PredictiveInsights>('get_predictive_insights_summary'),
           invoke<MarketTrend[]>('get_market_trends', { daysBack: 90 }),
           invoke<AutoRepricingStatus>('get_auto_repricing_status').catch(() => null),
           invoke<MarketTrendData>('get_smart_market_trends').catch(() => null)

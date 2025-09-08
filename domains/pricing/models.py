@@ -140,7 +140,7 @@ class PriceHistory(Base):
     )
     inventory_item_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("inventory_items.id", "inventory")),
+        ForeignKey(get_schema_ref("inventory.id", "products")),
         nullable=True,
     )
     platform_id = Column(

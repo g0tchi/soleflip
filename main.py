@@ -136,7 +136,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 from domains.admin.api.router import router as admin_router
-from domains.analytics.api.mock_router import router as analytics_router
+from domains.analytics.api.router import router as analytics_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.upload_router import router as upload_router
@@ -146,8 +146,8 @@ from domains.integration.api.webhooks import router as webhook_router
 from domains.inventory.api.router import router as inventory_router
 from domains.orders.api.router import router as orders_router
 
-# Using mock router temporarily to avoid DB migration issues
-from domains.pricing.api.mock_router import router as pricing_router
+# Using real router for production-ready pricing features
+from domains.pricing.api.router import router as pricing_router
 from domains.products.api.router import router as products_router
 
 # Monitoring routers

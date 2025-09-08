@@ -1,4 +1,4 @@
-use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, PredictiveInsights, SmartPricingOptimization, AutoRepricingStatus, MarketTrendData, PredictiveInsight, InventoryForecast, RestockRecommendation, PredictiveInsightsSummary};
+use crate::api::{ApiClient, HealthStatus, InventoryItem, ProductStats, ImportRequest, ImportResponse, ImportStatus, DashboardMetrics, EnrichmentStatusResponse, EnrichmentResponse, PricingRequest, PricingRecommendation, MarketAnalysis, PricingInsights, ForecastRequest, ForecastAnalysis, MarketTrend, SmartPricingOptimization, AutoRepricingStatus, MarketTrendData, PredictiveInsight, InventoryForecast, RestockRecommendation, PredictiveInsightsSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;

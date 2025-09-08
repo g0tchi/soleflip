@@ -82,7 +82,7 @@ def upgrade():
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['product_id'], ['products.products.id'], ),
-        sa.ForeignKeyConstraint(['inventory_item_id'], ['inventory.inventory_items.id'], ),
+        sa.ForeignKeyConstraint(['inventory_item_id'], ['products.inventory.id'], ),
         sa.ForeignKeyConstraint(['platform_id'], ['core.platforms.id'], ),
         schema='pricing'
     )
