@@ -651,3 +651,74 @@ class ForecastEngine:
         await self.repository.create_forecast_batch(run_id, all_forecasts)
 
         self.logger.info(f"Stored {len(all_forecasts)} forecast records for run {run_id}")
+
+    # =====================================================
+    # PREDICTIVE INSIGHTS GENERATION
+    # =====================================================
+
+    async def generate_predictive_insights(
+        self,
+        transaction_count: int,
+        revenue: float,
+        avg_value: float,
+        product_count: int,
+        brand_count: int,
+    ) -> Dict[str, Any]:
+        """Generate predictive insights based on business metrics"""
+        
+        insights = []
+        opportunities = []
+        risk_factors = []
+        
+        # Analyze transaction trends
+        if transaction_count > 1000:
+            insights.append("High transaction volume indicates strong market presence")
+        elif transaction_count < 100:
+            risk_factors.append("Low transaction volume may impact revenue stability")
+        
+        # Revenue analysis
+        if revenue > 100000:
+            insights.append("Strong revenue performance demonstrates market demand")
+            opportunities.append("Consider expanding into adjacent product categories")
+        elif revenue < 10000:
+            risk_factors.append("Revenue below market expectations")
+            opportunities.append("Focus on high-margin premium products")
+        
+        # Average transaction value insights
+        if avg_value > 100:
+            insights.append("Premium pricing strategy showing effectiveness")
+            opportunities.append("Target luxury segment expansion")
+        elif avg_value < 30:
+            opportunities.append("Opportunity to increase average order value through bundling")
+        
+        # Product diversity analysis
+        if product_count > 500:
+            insights.append("Diverse product portfolio reduces market risk")
+        elif product_count < 50:
+            opportunities.append("Expand product catalog to capture more market share")
+        
+        # Brand portfolio analysis
+        if brand_count > 20:
+            insights.append("Multi-brand strategy provides market resilience")
+        elif brand_count < 5:
+            opportunities.append("Partner with additional brands to diversify portfolio")
+        
+        # Calculate confidence score based on data quality
+        confidence_score = min(0.95, max(0.1, (
+            min(transaction_count / 1000, 1.0) * 0.3 +
+            min(revenue / 50000, 1.0) * 0.3 +
+            min(product_count / 200, 1.0) * 0.2 +
+            min(brand_count / 10, 1.0) * 0.2
+        )))
+        
+        return {
+            "predictive_insights": insights,
+            "growth_opportunities": opportunities,
+            "risk_factors": risk_factors,
+            "confidence_score": round(confidence_score, 2),
+            "recommendations": [
+                "Monitor market trends for emerging opportunities",
+                "Focus on high-performing product categories",
+                "Optimize pricing strategies based on demand patterns"
+            ]
+        }

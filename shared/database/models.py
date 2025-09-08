@@ -73,6 +73,8 @@ class Brand(Base, TimestampMixin):
     patterns = relationship(
         "BrandPattern", back_populates="brand", cascade="all, delete-orphan", lazy="selectin"
     )
+    price_rules = relationship("PriceRule", back_populates="brand")
+    brand_multipliers = relationship("BrandMultiplier", back_populates="brand")
 
 
 class BrandPattern(Base, TimestampMixin):
@@ -103,6 +105,7 @@ class Category(Base, TimestampMixin):
     path = Column(String(500))
     parent = relationship("Category", remote_side=[id], back_populates="children")
     children = relationship("Category", back_populates="parent", overlaps="parent")
+    price_rules = relationship("PriceRule", back_populates="category")
     products = relationship("Product", back_populates="category")
 
 
@@ -185,6 +188,7 @@ class Platform(Base, TimestampMixin):
     supports_fees = Column(Boolean, default=True)
     active = Column(Boolean, default=True)
     transactions = relationship("Transaction", back_populates="platform")
+    price_rules = relationship("PriceRule", back_populates="platform")
 
 
 class SystemConfig(Base, TimestampMixin):
@@ -236,6 +240,7 @@ class Product(Base, TimestampMixin):
     brand = relationship("Brand", back_populates="products")
     category = relationship("Category", back_populates="products")
     inventory_items = relationship("InventoryItem", back_populates="product")
+    price_history = relationship("PriceHistory", back_populates="product")
 
     def to_dict(self):
         return {

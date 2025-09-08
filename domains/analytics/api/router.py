@@ -69,8 +69,7 @@ def get_forecast_repository(db: AsyncSession = Depends(get_db_session)) -> Forec
 
 
 def get_forecast_engine(db: AsyncSession = Depends(get_db_session)) -> ForecastEngine:
-    forecast_repo = ForecastRepository(db)
-    return ForecastEngine(forecast_repo, db)
+    return ForecastEngine(db)
 
 
 @router.post(
