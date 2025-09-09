@@ -4,8 +4,6 @@ import {
   BarChart3, 
   Package, 
   Database, 
-  Settings, 
-  Activity,
   Monitor,
   Brain
 } from 'lucide-react';

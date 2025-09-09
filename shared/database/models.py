@@ -75,6 +75,9 @@ class Brand(Base, TimestampMixin):
     )
     price_rules = relationship("PriceRule", back_populates="brand")
     brand_multipliers = relationship("BrandMultiplier", back_populates="brand")
+    sales_forecasts = relationship("SalesForecast", back_populates="brand")
+    demand_patterns = relationship("DemandPattern", back_populates="brand")
+    pricing_kpis = relationship("PricingKPI", back_populates="brand")
 
 
 class BrandPattern(Base, TimestampMixin):
@@ -107,6 +110,9 @@ class Category(Base, TimestampMixin):
     children = relationship("Category", back_populates="parent", overlaps="parent")
     price_rules = relationship("PriceRule", back_populates="category")
     products = relationship("Product", back_populates="category")
+    sales_forecasts = relationship("SalesForecast", back_populates="category")
+    demand_patterns = relationship("DemandPattern", back_populates="category")
+    pricing_kpis = relationship("PricingKPI", back_populates="category")
 
 
 class Size(Base, TimestampMixin):
@@ -189,6 +195,9 @@ class Platform(Base, TimestampMixin):
     active = Column(Boolean, default=True)
     transactions = relationship("Transaction", back_populates="platform")
     price_rules = relationship("PriceRule", back_populates="platform")
+    price_history = relationship("PriceHistory", back_populates="platform")
+    sales_forecasts = relationship("SalesForecast", back_populates="platform")
+    pricing_kpis = relationship("PricingKPI", back_populates="platform")
 
 
 class SystemConfig(Base, TimestampMixin):
@@ -241,6 +250,10 @@ class Product(Base, TimestampMixin):
     category = relationship("Category", back_populates="products")
     inventory_items = relationship("InventoryItem", back_populates="product")
     price_history = relationship("PriceHistory", back_populates="product")
+    market_prices = relationship("MarketPrice", back_populates="product")
+    sales_forecasts = relationship("SalesForecast", back_populates="product")
+    demand_patterns = relationship("DemandPattern", back_populates="product")
+    pricing_kpis = relationship("PricingKPI", back_populates="product")
 
     def to_dict(self):
         return {
@@ -280,6 +293,7 @@ class InventoryItem(Base, TimestampMixin):
     size = relationship("Size", back_populates="inventory_items")
     supplier_obj = relationship("Supplier", back_populates="inventory_items")
     transactions = relationship("Transaction", back_populates="inventory_item")
+    price_history = relationship("PriceHistory", back_populates="inventory_item")
 
     def to_dict(self):
         return {
