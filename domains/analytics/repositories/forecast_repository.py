@@ -11,7 +11,7 @@ from sqlalchemy import and_, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast
+# from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast  # Temporarily disabled
 from shared.database.models import Brand, Category, InventoryItem, Platform, Product, Transaction
 
 

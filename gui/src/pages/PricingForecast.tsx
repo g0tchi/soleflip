@@ -13,12 +13,9 @@ import {
   CheckCircle,
   Star,
   Bot,
-  DollarSign,
   TrendingDown,
-  Settings,
   Play,
-  Pause,
-  Eye
+  Pause
 } from 'lucide-react';
 
 // TypeScript interfaces
@@ -34,18 +31,6 @@ interface PricingInsights {
   recommendations: string[];
 }
 
-interface PredictiveInsight {
-  insight_id: string;
-  insight_type: string;
-  priority: string;
-  title: string;
-  description: string;
-  confidence_score: number;
-  recommended_actions: any[];
-  created_at: string;
-  expires_at: string;
-  metadata: Record<string, any>;
-}
 
 interface PredictiveInsights {
   timestamp: string;

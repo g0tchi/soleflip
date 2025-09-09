@@ -12,7 +12,7 @@ interface InventoryItem {
   purchase_price: number | null;
   status: string;
   created_at: string;
-  external_ids?: { stockx_listing_id?: string };
+  external_ids?: { stockx_listing_id?: string; alias_listing_id?: string };
 }
 
 interface InventoryStats {
@@ -65,47 +65,117 @@ const Inventory = () => {
       
       let endpoint = '';
       
-      // Use local database for all tabs now - much faster!
-      endpoint = 'http://localhost:8000/api/v1/inventory/items?limit=100';
-
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch inventory: ${response.statusText}`);
+      let items: InventoryItem[] = [];
+      let allInventoryItems: InventoryItem[] = [];
+      
+      // Always fetch all inventory items for stats calculation
+      let skip = 0;
+      const limit = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const inventoryResponse = await fetch(`http://localhost:8000/api/v1/inventory/items?limit=${limit}&skip=${skip}`);
+        if (inventoryResponse.ok) {
+          const inventoryData = await inventoryResponse.json();
+          const pageItems = inventoryData.items || [];
+          allInventoryItems.push(...pageItems);
+          
+          hasMore = inventoryData.pagination?.has_more || false;
+          skip += limit;
+          
+          // Safety break to avoid infinite loop
+          if (skip > 10000) break;
+        } else {
+          break;
+        }
       }
       
-      const data = await response.json();
-      let items = [];
-      
-      // Handle different response formats for different endpoints
-      if (activeTab === 'stockx' || activeTab === 'alias') {
-        // StockX and Alias endpoints return data.data.listings
-        items = data.data?.listings || [];
+      if (activeTab === 'all') {
+        // For 'All' tab: use all inventory items and add StockX listings
+        items = [...allInventoryItems];
         
-        // Transform StockX/Alias listings to match InventoryItem interface
-        items = items.map(listing => ({
-          id: listing.listingId || listing.id,
-          product_id: listing.productId || '',
-          product_name: listing.productName || listing.product?.name || 'Unknown Product',
-          brand_name: listing.brand || 'Unknown Brand',
-          category_name: 'StockX/Alias',
-          size: listing.size || listing.variant?.variantValue || 'N/A',
-          quantity: 1,
-          purchase_price: parseFloat(listing.askPrice || listing.amount || '0'),
-          status: activeTab === 'stockx' ? 'listed' : 'listed_alias',
-          created_at: listing.createdAt || listing.stockx_created_at || new Date().toISOString(),
-          external_ids: {
-            stockx_listing_id: activeTab === 'stockx' ? listing.listingId : undefined
+        // Then get StockX listings and add those that are physically in stock
+        try {
+          const stockxResponse = await fetch('http://localhost:8000/api/v1/inventory/stockx-listings?limit=1000');
+          if (stockxResponse.ok) {
+            const stockxData = await stockxResponse.json();
+            const stockxListings = stockxData.data?.listings || [];
+            
+            // Transform and add StockX items that are physically in stock
+            const stockxItems = stockxListings.map((listing: any) => ({
+              id: `stockx-${listing.listingId || listing.id || Math.random()}`,
+              product_id: listing.productId || '',
+              product_name: listing.productName || listing.product?.name || 'Unknown Product',
+              brand_name: listing.brand || 'Unknown Brand',
+              category_name: 'StockX (In Stock)',
+              size: listing.size || listing.variant?.variantValue || 'N/A',
+              quantity: 1,
+              purchase_price: parseFloat(listing.askPrice || listing.amount || '0'),
+              status: 'stockx_listed', // Special status for StockX items in all view
+              created_at: listing.createdAt || listing.stockx_created_at || new Date().toISOString(),
+              external_ids: {
+                stockx_listing_id: listing.listingId
+              }
+            }));
+            
+            // Add StockX items to the combined list
+            items = [...items, ...stockxItems];
           }
-        }));
+        } catch (stockxError) {
+          console.warn('Failed to load StockX listings for All view:', stockxError);
+          // Continue with just local inventory if StockX fails
+        }
+        
+      } else if (activeTab === 'stockx') {
+        endpoint = 'http://localhost:8000/api/v1/inventory/stockx-listings?limit=1000';
+      } else if (activeTab === 'alias') {
+        endpoint = 'http://localhost:8000/api/v1/inventory/alias-listings?limit=1000';
       } else {
-        // Inventory items endpoint returns data.items
-        items = data.items || [];
+        endpoint = 'http://localhost:8000/api/v1/inventory/items?limit=1000';
       }
       
+      // Only fetch if we haven't already loaded items (for 'all' tab)
+      if (activeTab !== 'all') {
+
+        const response = await fetch(endpoint);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch inventory: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Handle different response formats for different endpoints
+        if (activeTab === 'stockx' || activeTab === 'alias') {
+          // StockX and Alias endpoints return data.data.listings
+          items = data.data?.listings || [];
+          
+          // Transform StockX/Alias listings to match InventoryItem interface
+          items = items.map((listing: any) => ({
+            id: listing.listingId || listing.id,
+            product_id: listing.productId || '',
+            product_name: listing.productName || listing.product?.name || 'Unknown Product',
+            brand_name: listing.brand || 'Unknown Brand',
+            category_name: 'StockX/Alias',
+            size: listing.size || listing.variant?.variantValue || 'N/A',
+            quantity: 1,
+            purchase_price: parseFloat(listing.askPrice || listing.amount || '0'),
+            status: activeTab === 'stockx' ? 'listed' : 'listed_alias',
+            created_at: listing.createdAt || listing.stockx_created_at || new Date().toISOString(),
+            external_ids: {
+              stockx_listing_id: activeTab === 'stockx' ? listing.listingId : undefined
+            }
+          }));
+        } else {
+          // Inventory items endpoint returns data.items
+          items = data.items || [];
+        }
+      }
+      
+      // Set items for all tabs
       setItems(items);
       
-      // Calculate stats
-      calculateStats(items);
+      // Calculate stats based on all inventory items
+      await calculateStats(allInventoryItems);
       
     } catch (err) {
       console.error('Error fetching inventory:', err);
@@ -115,12 +185,24 @@ const Inventory = () => {
     }
   };
 
-  const calculateStats = (inventoryItems: InventoryItem[]) => {
+  const calculateStats = async (allInventoryItems: InventoryItem[]) => {
+    // Get StockX listings count
+    let stockxListingsCount = 0;
+    try {
+      const stockxResponse = await fetch('http://localhost:8000/api/v1/inventory/stockx-listings?limit=1000');
+      if (stockxResponse.ok) {
+        const stockxData = await stockxResponse.json();
+        stockxListingsCount = stockxData.data?.listings?.length || 0;
+      }
+    } catch (error) {
+      console.warn('Failed to load StockX listings for stats:', error);
+    }
+    
     const newStats = {
-      total: inventoryItems.length,
-      in_stock: inventoryItems.filter(item => item.status === 'in_stock').length,
-      listed_stockx: inventoryItems.filter(item => item.status === 'listed').length,
-      listed_alias: inventoryItems.filter(item => item.status === 'listed_alias').length,
+      total: allInventoryItems.length,
+      in_stock: allInventoryItems.filter(item => item.status === 'in_stock').length,
+      listed_stockx: stockxListingsCount,
+      listed_alias: allInventoryItems.filter(item => item.status === 'listed_alias').length,
     };
     setStats(newStats);
   };
@@ -160,6 +242,7 @@ const Inventory = () => {
     const statusConfig = {
       'in_stock': { label: 'In Stock', color: 'bg-green-600' },
       'listed': { label: 'StockX', color: 'bg-blue-600' },
+      'stockx_listed': { label: 'StockX (In Stock)', color: 'bg-blue-500' },
       'listed_alias': { label: 'Alias', color: 'bg-purple-600' },
       'sold': { label: 'Sold', color: 'bg-gray-600' },
     };
@@ -262,6 +345,10 @@ const Inventory = () => {
   useEffect(() => {
     fetchInventory();
   }, [activeTab]);
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   if (isLoading) {
     return (

@@ -136,7 +136,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 from domains.admin.api.router import router as admin_router
-from domains.analytics.api.router import router as analytics_router
+# from domains.analytics.api.router import router as analytics_router  # Temporarily disabled
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.upload_router import router as upload_router
@@ -165,7 +165,7 @@ app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventor
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
-app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+# app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])  # Temporarily disabled
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
 

@@ -104,7 +104,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30000);
+    const interval = setInterval(fetchMetrics, 300000); // 5 minutes
     return () => clearInterval(interval);
   }, []);
 

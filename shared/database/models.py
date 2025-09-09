@@ -73,6 +73,7 @@ class Brand(Base, TimestampMixin):
     patterns = relationship(
         "BrandPattern", back_populates="brand", cascade="all, delete-orphan", lazy="selectin"
     )
+    # Pricing relationships
     price_rules = relationship("PriceRule", back_populates="brand")
     brand_multipliers = relationship("BrandMultiplier", back_populates="brand")
     sales_forecasts = relationship("SalesForecast", back_populates="brand")
@@ -108,8 +109,9 @@ class Category(Base, TimestampMixin):
     path = Column(String(500))
     parent = relationship("Category", remote_side=[id], back_populates="children")
     children = relationship("Category", back_populates="parent", overlaps="parent")
-    price_rules = relationship("PriceRule", back_populates="category")
     products = relationship("Product", back_populates="category")
+    # Pricing relationships
+    price_rules = relationship("PriceRule", back_populates="category")
     sales_forecasts = relationship("SalesForecast", back_populates="category")
     demand_patterns = relationship("DemandPattern", back_populates="category")
     pricing_kpis = relationship("PricingKPI", back_populates="category")
@@ -194,10 +196,11 @@ class Platform(Base, TimestampMixin):
     supports_fees = Column(Boolean, default=True)
     active = Column(Boolean, default=True)
     transactions = relationship("Transaction", back_populates="platform")
+    # Pricing relationships
     price_rules = relationship("PriceRule", back_populates="platform")
-    price_history = relationship("PriceHistory", back_populates="platform")
     sales_forecasts = relationship("SalesForecast", back_populates="platform")
     pricing_kpis = relationship("PricingKPI", back_populates="platform")
+    price_history = relationship("PriceHistory", back_populates="platform")
 
 
 class SystemConfig(Base, TimestampMixin):
@@ -249,6 +252,7 @@ class Product(Base, TimestampMixin):
     brand = relationship("Brand", back_populates="products")
     category = relationship("Category", back_populates="products")
     inventory_items = relationship("InventoryItem", back_populates="product")
+    # Pricing relationships
     price_history = relationship("PriceHistory", back_populates="product")
     market_prices = relationship("MarketPrice", back_populates="product")
     sales_forecasts = relationship("SalesForecast", back_populates="product")
@@ -466,3 +470,8 @@ class StockXPresaleMarking(Base, TimestampMixin):
     is_presale = Column(Boolean, default=True)
     marked_at = Column(DateTime(timezone=True), default=func.now())
     unmarked_at = Column(DateTime(timezone=True))
+
+
+# Import pricing models to register them with SQLAlchemy
+# This ensures the relationships defined above are properly linked
+from domains.pricing.models import *  # noqa: F401,F403
