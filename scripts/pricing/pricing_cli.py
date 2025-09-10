@@ -11,7 +11,7 @@ import sys
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 # Setup logging
 logging.basicConfig(
@@ -28,7 +28,7 @@ from sqlalchemy.orm import selectinload
 from domains.pricing.repositories.pricing_repository import PricingRepository
 from domains.pricing.services.pricing_engine import PricingContext, PricingEngine, PricingStrategy
 from shared.database.connection import get_db_session
-from shared.database.models import Brand, InventoryItem, Product
+from shared.database.models import InventoryItem, Product
 
 
 class PricingCLI:
@@ -140,7 +140,7 @@ class PricingCLI:
                     context.platform_id,
                     result,
                 )
-                print(f"💾 Price saved to history")
+                print("💾 Price saved to history")
 
         except Exception as e:
             logger.error(f"Error calculating price: {str(e)}")
@@ -299,7 +299,7 @@ class PricingCLI:
             # Commit all changes
             await self.db_session.commit()
 
-            print(f"✅ Bulk update completed:")
+            print("✅ Bulk update completed:")
             print(f"   Updated: {updated_count}")
             print(f"   Failed: {failed_count}")
 
@@ -397,7 +397,7 @@ class PricingCLI:
             market_avg = competitive_data.get("market_average")
             market_range = competitive_data.get("market_range", {})
 
-            print(f"\n📈 MARKET SUMMARY:")
+            print("\n📈 MARKET SUMMARY:")
             if market_avg:
                 print(f"  Market Average: €{market_avg:.2f}")
             if market_range.get("min") and market_range.get("max"):
@@ -432,16 +432,16 @@ class PricingCLI:
             print(f"Market Position: {result.market_position}")
 
         if result.price_range:
-            print(f"\n📊 COMPETITIVE RANGE:")
+            print("\n📊 COMPETITIVE RANGE:")
             for key, value in result.price_range.items():
                 print(f"  {key.replace('_', ' ').title()}: €{value:.2f}")
 
-        print(f"\n💭 REASONING:")
+        print("\n💭 REASONING:")
         for i, reason in enumerate(result.reasoning, 1):
             print(f"  {i}. {reason}")
 
         if result.adjustments_applied:
-            print(f"\n⚙️ ADJUSTMENTS APPLIED:")
+            print("\n⚙️ ADJUSTMENTS APPLIED:")
             for adjustment in result.adjustments_applied:
                 print(f"  • {adjustment['type']}: {adjustment['adjustment']}")
 

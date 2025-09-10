@@ -3,8 +3,8 @@ Dashboard API Router
 Provides comprehensive dashboard metrics and statistics
 """
 
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException

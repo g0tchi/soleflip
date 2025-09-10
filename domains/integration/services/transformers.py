@@ -8,9 +8,9 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 
@@ -203,7 +203,7 @@ class DataTransformer:
         # Validation pattern check
         if mapping.validation_pattern and isinstance(transformed_value, str):
             if not re.match(mapping.validation_pattern, transformed_value):
-                raise TransformError(f"Value doesn't match validation pattern")
+                raise TransformError("Value doesn't match validation pattern")
 
         return transformed_value
 

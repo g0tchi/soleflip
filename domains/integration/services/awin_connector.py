@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession

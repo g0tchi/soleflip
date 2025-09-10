@@ -1,12 +1,11 @@
 import asyncio
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
 from sqlalchemy import select
 
-from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
 
 logger = structlog.get_logger(__name__)
@@ -344,7 +343,7 @@ class StockXService:
         try:
             response_data = await self._make_get_request(endpoint, params=params)
             return response_data
-        except httpx.HTTPStatusError as e:
+        except httpx.HTTPStatusError:
             # A 404 is not expected for a search, but we'll log it.
             # Other errors will be re-raised by the helper.
             raise

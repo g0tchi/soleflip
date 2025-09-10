@@ -6,11 +6,10 @@ Advanced service for intelligent listing automation based on configurable rules
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import Any, Dict, List, Optional
 
 import structlog
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import InventoryItem, Product
@@ -202,7 +201,7 @@ class AutoListingService:
             Execution summary with statistics
         """
         self.logger.info(
-            f"Starting listing automation", 
+            "Starting listing automation", 
             max_items=max_items, 
             dry_run=dry_run,
             active_rules=len([r for r in self._listing_rules if r.active])
@@ -585,7 +584,7 @@ class AutoListingService:
             }
             
             self.logger.info(
-                f"Created StockX listing",
+                "Created StockX listing",
                 item_id=str(item.id),
                 listing_id=listing_response["listingId"],
                 price=price

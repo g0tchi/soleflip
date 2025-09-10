@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from domains.integration.services.stockx_service import StockXService
-from tests.fixtures import api_helper, async_client, mock_external_services, override_get_db
 
 
 @pytest.mark.api
@@ -81,7 +80,7 @@ async def test_search_stockx_products_success(
 
     # Make the request using helper
     response_data = await api_helper.get_json(
-        f"/api/v1/products/search-stockx",
+        "/api/v1/products/search-stockx",
         params={"query": search_query, "pageNumber": 1, "pageSize": 5},
     )
 

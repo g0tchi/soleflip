@@ -42,7 +42,7 @@ async def create_database_backup():
     backup_path = Path(__file__).parent.parent.parent / "data" / "backups" / backup_filename
     backup_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"Creating database backup...")
+    print("Creating database backup...")
     print(f"Host: {db_config['host']}, DB: {db_config['database']}")
     print(f"Backup file: {backup_path}")
 
@@ -72,12 +72,12 @@ async def create_database_backup():
 
         if result.returncode == 0:
             backup_size = backup_path.stat().st_size / (1024 * 1024)
-            print(f"SUCCESS: Backup created successfully!")
+            print("SUCCESS: Backup created successfully!")
             print(f"Size: {backup_size:.2f} MB")
             print(f"Location: {backup_path}")
             return str(backup_path), db_config
         else:
-            print(f"ERROR: Backup failed!")
+            print("ERROR: Backup failed!")
             print(f"Error: {result.stderr}")
             return None, None
 
@@ -157,7 +157,7 @@ echo "Restore completed."
                 )
 
             restore_script_path.chmod(0o755)
-            print(f"\nTo restore this backup, run the following command:")
+            print("\nTo restore this backup, run the following command:")
             print(f"  {restore_script_path}")
 
         else:

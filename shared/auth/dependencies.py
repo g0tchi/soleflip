@@ -7,14 +7,13 @@ from typing import Optional
 import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 from shared.repositories.base_repository import BaseRepository
 
 from .jwt_handler import JWTHandler
-from .models import TokenPayload, User, UserRole
+from .models import User, UserRole
 
 logger = structlog.get_logger(__name__)
 

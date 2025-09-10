@@ -4,16 +4,16 @@ Pricing Engine - Core pricing calculation and strategy implementation
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Brand, InventoryItem, Product
+from shared.database.models import InventoryItem, Product
 
-from ..models import BrandMultiplier, MarketPrice, PriceHistory, PriceRule
+from ..models import PriceRule
 from ..repositories.pricing_repository import PricingRepository
 
 
@@ -87,7 +87,7 @@ class PricingEngine:
             try:
                 result = await self._calculate_strategy_price(context, strategy, pricing_rules)
                 strategy_results[strategy] = result
-            except Exception as e:
+            except Exception:
                 continue
 
         if not strategy_results:

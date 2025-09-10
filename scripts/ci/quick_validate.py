@@ -4,7 +4,6 @@ Quick CI/CD Pipeline Validation
 Fast validation of key CI/CD components without running time-intensive tests.
 """
 
-import os
 import subprocess
 import sys
 import time

@@ -6,7 +6,7 @@ Provides Prometheus-compatible metrics endpoint.
 from typing import Any, Dict
 
 import structlog
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
 from .metrics import get_metrics_collector
@@ -23,7 +23,7 @@ def format_prometheus_metrics(metrics_data: Dict[str, Any]) -> str:
     # Add metadata
     lines.append("# HELP soleflip_info Application information")
     lines.append("# TYPE soleflip_info gauge")
-    lines.append(f'soleflip_info{{version="1.0.0",environment="production"}} 1')
+    lines.append('soleflip_info{version="1.0.0",environment="production"} 1')
 
     # Add uptime
     uptime = metrics_data.get("metadata", {}).get("uptime_seconds", 0)

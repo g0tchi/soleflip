@@ -6,7 +6,7 @@ Combines real-time market data with intelligent pricing strategies
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import structlog
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +16,8 @@ from domains.inventory.services.inventory_service import InventoryService
 from shared.database.models import InventoryItem, Product
 from shared.caching.dashboard_cache import get_dashboard_cache
 
-from ..models import MarketPrice, PriceHistory, PriceRule
-from ..services.pricing_engine import PricingEngine, PricingContext, PricingStrategy, PricingResult
+from ..models import MarketPrice
+from ..services.pricing_engine import PricingEngine, PricingContext, PricingStrategy
 
 logger = structlog.get_logger(__name__)
 

@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domains.integration.services.stockx_service import StockXService
 from domains.inventory.services.inventory_service import InventoryService
 from shared.database.connection import get_db_session
-from shared.database.models import Product
 
 logger = structlog.get_logger(__name__)
 

@@ -9,7 +9,6 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
@@ -80,7 +79,7 @@ class CSVParser(BaseParser):
 
             # Look for common CSV indicators
             has_commas = "," in sample
-            has_quotes = '"' in sample
+            # has_quotes = '"' in sample  # Not used in current logic
             has_newlines = "\n" in sample
 
             return has_commas and has_newlines
@@ -121,7 +120,7 @@ class CSVParser(BaseParser):
         # Convert to list of dictionaries
         data = df.to_dict("records")
 
-        logger.info(f"CSV parsing completed", rows=len(data), encoding=encoding_used)
+        logger.info("CSV parsing completed", rows=len(data), encoding=encoding_used)
 
         return ParseResult(
             data=data,
@@ -173,7 +172,7 @@ class CSVParser(BaseParser):
                     df.columns = df.columns.str.strip()
 
                     logger.debug(
-                        f"CSV parsing successful with strategy",
+                        "CSV parsing successful with strategy",
                         strategy=strategy,
                         rows=len(df),
                         cols=len(df.columns),
@@ -255,7 +254,7 @@ class JSONParser(BaseParser):
             if kwargs.get("flatten_nested", False):
                 data = self._flatten_objects(data)
 
-            logger.info(f"JSON parsing completed", records=len(data))
+            logger.info("JSON parsing completed", records=len(data))
 
             return ParseResult(data=data, format_detected=FileFormat.JSON)
 
@@ -336,7 +335,7 @@ class ExcelParser(BaseParser):
             # Convert to records
             data = excel_data.to_dict("records")
 
-            logger.info(f"Excel parsing completed", rows=len(data), cols=len(excel_data.columns))
+            logger.info("Excel parsing completed", rows=len(data), cols=len(excel_data.columns))
 
             return ParseResult(data=data, format_detected=FileFormat.EXCEL)
 
@@ -361,7 +360,7 @@ class UniversalParser:
         # Try each parser's detection method
         for format_type, parser in self.parsers.items():
             if parser.can_handle(content, filename):
-                logger.info(f"Format detected", format=format_type.value, filename=filename)
+                logger.info("Format detected", format=format_type.value, filename=filename)
                 return format_type
 
         logger.warning("Could not detect file format", filename=filename)

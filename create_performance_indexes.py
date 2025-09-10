@@ -4,7 +4,6 @@ Create performance indexes for dashboard queries
 """
 
 import asyncio
-import sys
 from sqlalchemy import text
 
 from shared.database.connection import get_db_session

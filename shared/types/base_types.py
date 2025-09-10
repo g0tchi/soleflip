@@ -10,19 +10,15 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
     Awaitable,
     Callable,
-    ClassVar,
     Dict,
     Final,
-    Generator,
     Generic,
     List,
     Literal,
     Optional,
     Protocol,
-    Set,
     Tuple,
     TypeVar,
     Union,
@@ -447,6 +443,4 @@ class Option(Generic[T]):
 
 if TYPE_CHECKING:
     # Additional imports only for type checking
-    from fastapi import Request, Response
-    from pydantic import BaseModel
-    from sqlalchemy.ext.asyncio import AsyncSession
+    pass

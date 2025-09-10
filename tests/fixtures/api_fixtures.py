@@ -6,16 +6,14 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from main import app
-from shared.config.settings import TestingSettings, get_settings
+from shared.config.settings import TestingSettings
 from shared.database.connection import get_db_session
 
-from .database_fixtures import db_session, test_engine
 from .model_factories import FactoryHelper
 
 

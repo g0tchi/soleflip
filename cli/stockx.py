@@ -5,7 +5,6 @@ Handles StockX integration with security focus
 """
 
 import csv
-import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -121,8 +120,8 @@ class StockXManager:
             db = DatabaseManager(config)
             db_connected = db.check_connection()
 
-            # Check if we have API credentials configured
-            api_configured = self.stockx_config is not None
+            # Check if we have API credentials configured (not used currently)
+            # api_configured = self.stockx_config is not None
 
             return db_connected  # Database is minimum requirement
         except Exception:

@@ -4,7 +4,6 @@ Production-ready PostgreSQL connection with pooling,
 health checks, and migration support.
 """
 
-import asyncio
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator

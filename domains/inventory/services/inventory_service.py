@@ -12,14 +12,12 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
-from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.database.models import Brand, Category, InventoryItem, Size
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
     InventoryRepository,
 )
-from ..repositories.inventory_repository import InventoryStats as RepoInventoryStats
 from ..repositories.product_repository import ProductRepository
 
 logger = structlog.get_logger(__name__)

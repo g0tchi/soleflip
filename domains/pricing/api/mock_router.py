@@ -976,7 +976,6 @@ async def get_inventory_forecasts(
     horizon_days: int = 90
 ):
     """Mock endpoint for inventory forecasts"""
-    from uuid import uuid4
     
     forecasts = [
         {

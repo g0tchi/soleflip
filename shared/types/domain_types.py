@@ -5,7 +5,7 @@ Domain-specific type definitions
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Union
 
 from typing_extensions import NotRequired, TypedDict
 

@@ -8,11 +8,10 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 load_dotenv()
 
@@ -20,12 +19,10 @@ from datetime import datetime
 
 from fastapi import HTTPException
 
-from domains.inventory.services.inventory_service import InventoryService
 
 # Import centralized dependencies
-from shared.api.dependencies import get_inventory_service
 from shared.config.settings import get_settings
-from shared.database.connection import db_manager, get_db_session
+from shared.database.connection import db_manager
 from shared.error_handling.exceptions import (
     SoleFlipException,
     ValidationException,

@@ -8,7 +8,7 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -40,7 +40,6 @@ except Exception as e:
 
 # --- Dialect-specific Type Compilation ---
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.types import JSON
 
 
 @compiles(JSONB, "sqlite")

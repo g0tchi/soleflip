@@ -148,7 +148,7 @@ class SecretChecker:
 
     def _check_optional_secrets(self, configured_secrets: Set[str]):
         """Check optional secrets"""
-        print(f"\n🔧 Optional Secrets")
+        print("\n🔧 Optional Secrets")
         print("-" * 20)
 
         optional_configured = self.required_secrets["optional"] & configured_secrets
@@ -166,7 +166,7 @@ class SecretChecker:
 
     def check_environments(self):
         """Check GitHub environments configuration"""
-        print(f"\n🌍 GitHub Environments")
+        print("\n🌍 GitHub Environments")
         print("=" * 25)
 
         try:
@@ -185,12 +185,12 @@ class SecretChecker:
             else:
                 print("⚠️ Could not check environments (this is normal for some repos)")
 
-        except Exception as e:
+        except Exception:
             print("⚠️ Could not check environments configuration")
 
     def provide_setup_instructions(self):
         """Provide next steps for setup"""
-        print(f"\n📋 Next Steps")
+        print("\n📋 Next Steps")
         print("=" * 15)
         print("1. Run the secret generation script:")
         print("   python scripts/deployment/generate_secrets.py --environment staging")
@@ -233,7 +233,7 @@ def main():
     checker.check_environments()
     checker.provide_setup_instructions()
 
-    print(f"\n✨ Check complete!")
+    print("\n✨ Check complete!")
 
 
 if __name__ == "__main__":

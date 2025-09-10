@@ -3,8 +3,7 @@ API Router for Inventory-related endpoints
 Production-ready CRUD operations for inventory management
 """
 
-from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 import structlog
@@ -14,14 +13,12 @@ from domains.inventory.services.inventory_service import InventoryService
 from shared.api.dependencies import (
     ErrorContext,
     PaginationParams,
-    ResponseFormatter,
     SearchParams,
     get_inventory_service,
     validate_inventory_item_id,
 )
 from shared.api.responses import (
     InventoryItemResponse,
-    InventorySummaryResponse,
     PaginatedResponse,
     ResponseBuilder,
     SuccessResponse,
@@ -236,7 +233,7 @@ async def create_stockx_listing(
         await inventory_service.update_item_status(item_id, "listed")
         
         return ResponseBuilder.success(
-            message=f"StockX listing created successfully",
+            message="StockX listing created successfully",
             data={
                 "item_id": str(item_id),
                 "listing_id": listing_id,
@@ -396,8 +393,6 @@ async def sync_inventory_from_stockx(
                         }
                         
                         # Create inventory item in database
-                        from shared.database.models import InventoryItem, Size, Product, Brand, Category
-                        from shared.repositories import BaseRepository
                         
                         # TODO: Actually create inventory item in database
                         synced_count += 1
