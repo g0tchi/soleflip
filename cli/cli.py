@@ -777,7 +777,7 @@ class RetroAdminCLI:
                                     update_data["release_date"] = datetime.fromisoformat(
                                         new_release_date.replace("Z", "+00:00")
                                     )
-                                except:
+                                except (ValueError, TypeError):
                                     pass
 
                             if update_data:
@@ -953,7 +953,7 @@ class RetroAdminCLI:
                                         update_data["release_date"] = datetime.fromisoformat(
                                             new_release_date.replace("Z", "+00:00")
                                         )
-                                    except:
+                                    except (ValueError, TypeError):
                                         pass
 
                                 if update_data:

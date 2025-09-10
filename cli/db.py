@@ -363,7 +363,7 @@ class DatabaseManager:
                         text("SELECT pg_size_pretty(pg_database_size(current_database()))")
                     )
                     db_size = size_result.scalar()
-                except:
+                except Exception:
                     db_size = "Unknown"
 
                 return {

@@ -546,7 +546,7 @@ class AwinManager:
                             f"Account ID: {account_data.get('account_id', 'Unknown')}", "cyan"
                         )
                     )
-                except:
+                except Exception:
                     print(colored_text("✓ API accessible but response format unknown", "yellow"))
 
             elif response.status_code == 401:
