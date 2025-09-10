@@ -106,7 +106,7 @@ async def test_search_stockx_products_service_error(mocker):
     )
 
     # Make the request to our API
-    response = client.get(f"/api/v1/products/search-stockx?query={search_query}")
+    response = await async_client.get(f"/api/v1/products/search-stockx?query={search_query}")
 
     # Assertions
     assert response.status_code == 502
@@ -135,7 +135,7 @@ async def test_get_market_data_success(mocker):
     )
 
     # Test without currency
-    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data")
+    response = await async_client.get(f"/api/v1/products/{product_id}/stockx-market-data")
     assert response.status_code == 200
     assert response.json() == mock_response_data
     StockXService.get_market_data_from_stockx.assert_called_once_with(
@@ -144,7 +144,7 @@ async def test_get_market_data_success(mocker):
 
     # Test with currency
     StockXService.get_market_data_from_stockx.reset_mock()
-    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data?currencyCode=EUR")
+    response = await async_client.get(f"/api/v1/products/{product_id}/stockx-market-data?currencyCode=EUR")
     assert response.status_code == 200
     assert response.json() == mock_response_data
     StockXService.get_market_data_from_stockx.assert_called_once_with(
@@ -164,7 +164,7 @@ async def test_get_market_data_not_found(mocker):
         StockXService, "get_market_data_from_stockx", new_callable=AsyncMock, return_value=None
     )
 
-    response = client.get(f"/api/v1/products/{product_id}/stockx-market-data")
+    response = await async_client.get(f"/api/v1/products/{product_id}/stockx-market-data")
 
     assert response.status_code == 404
     response_data = response.json()

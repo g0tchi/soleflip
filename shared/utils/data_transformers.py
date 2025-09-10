@@ -3,6 +3,7 @@ Data Transformation Utilities
 Common patterns for data processing and transformation
 """
 
+import asyncio
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime

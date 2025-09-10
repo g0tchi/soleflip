@@ -2,8 +2,8 @@
 Mock Pricing & Analytics API Router - Temporary endpoints with sample data
 """
 
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 import structlog
 from fastapi import APIRouter

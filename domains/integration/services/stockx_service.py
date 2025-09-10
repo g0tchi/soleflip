@@ -401,12 +401,6 @@ class StockXService:
                         status_code=e.response.status_code, 
                         response=e.response.text)
             raise
-            logger.warning(
-                "Received an unexpected HTTP status error during StockX catalog search.",
-                status_code=e.response.status_code,
-                query=query,
-            )
-            return None
 
     async def get_market_data_from_stockx(
         self, product_id: str, currency_code: Optional[str] = None
