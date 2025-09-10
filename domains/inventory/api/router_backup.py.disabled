@@ -481,95 +481,102 @@ def extract_brand_from_product_name(product_name: str) -> str:
     
     # Default fallback
     return "StockX Import"
-                        
-                        # First, check if product already exists by name
-                        existing_product = await product_repo.find_one(name=product_name)
-                        
-                        if not existing_product:
-                            # Extract brand name from product name
-                            brand_name = extract_brand_from_product_name(product_name)
-                            brand = await brand_repo.find_one(name=brand_name)
-                            if not brand:
-                                brand = await brand_repo.create(
-                                    name=brand_name,
-                                    slug=brand_name.lower().replace(" ", "-")
-                                )
-                            
-                            # Create category if it doesn't exist
-                            category_name = "Imported from StockX"
-                            category = await category_repo.find_one(name=category_name)
-                            if not category:
-                                category = await category_repo.create(
-                                    name=category_name,
-                                    slug=category_name.lower().replace(" ", "-"),
-                                    path=category_name.lower()
-                                )
-                            
-                            # Create product
-                            product_sku = f"STOCKX-{stockx_product_id[:8]}" if stockx_product_id else f"STOCKX-{product_name[:8]}"
-                            existing_product = await product_repo.create(
-                                sku=product_sku,
-                                name=product_name,
-                                brand_id=brand.id,
-                                category_id=category.id,
-                                description=f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
-                            )
-                            logger.info(f"Created new product: {product_name}")
-                        
-                        # Find or create size for this variant
-                        size_value = inventory_item_data["size"]
-                        
-                        # Look for existing size
-                        size = await size_repo.find_one(value=size_value, region="US")
-                        if not size:
-                            # Create new size if it doesn't exist
-                            size = await size_repo.create(
-                                value=size_value, 
-                                region="US", 
-                                category_id=existing_product.category_id
-                            )
-                        
-                        # Create the inventory item
-                        new_inventory_item = InventoryItem(
-                            product_id=existing_product.id,  # Now we have a valid product_id
-                            size_id=size.id,
-                            quantity=1,  # Default quantity for synced items
-                            purchase_price=inventory_item_data["purchase_price"],
-                            status="listed",  # These are already listed on StockX
-                            external_ids={"stockx_listing_id": inventory_item_data["stockx_listing_id"]},
-                            supplier="StockX",
-                            notes=f"Auto-synced from StockX listing on {datetime.utcnow().date()}"
-                        )
-                        
-                        stockx_session.add(new_inventory_item)
-                        await stockx_session.commit()
-                        synced_count += 1
-                        
-                    except Exception as listing_error:
-                        logger.error(f"Failed to process listing {listing.get('listingId')}: {listing_error}")
-                        continue
+
+
+# Legacy code block - moved to separate function or remove if unused
+# TODO: Review and integrate properly or remove
+# LEGACY CODE BLOCK - COMMENTED OUT DUE TO SYNTAX ERRORS
+# TODO: Review and integrate properly or remove entirely
+# 
+# async def _legacy_product_processing():
+#     """Legacy product processing code - needs review"""
+#     # First, check if product already exists by name
+#     # existing_product = await product_repo.find_one(name=product_name)
+#     
+#     if not existing_product:
+#         # Extract brand name from product name
+#         brand_name = extract_brand_from_product_name(product_name)
+#         brand = await brand_repo.find_one(name=brand_name)
+#         if not brand:
+#             brand = await brand_repo.create(
+#                 name=brand_name,
+#                 slug=brand_name.lower().replace(" ", "-")
+#             )
+#         
+#         # Create category if it doesn't exist
+#         category_name = "Imported from StockX"
+#         category = await category_repo.find_one(name=category_name)
+#         if not category:
+#             category = await category_repo.create(
+#                 name=category_name,
+#                 slug=category_name.lower().replace(" ", "-"),
+#                 path=category_name.lower()
+#             )
+#         
+#         # Create product
+#         product_sku = f"STOCKX-{stockx_product_id[:8]}" if stockx_product_id else f"STOCKX-{product_name[:8]}"
+#         existing_product = await product_repo.create(
+#             sku=product_sku,
+#             name=product_name,
+#             brand_id=brand.id,
+#             category_id=category.id,
+#             description=f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
+#         )
+#         logger.info(f"Created new product: {product_name}")
+#     
+#     # Find or create size for this variant
+#     size_value = inventory_item_data["size"]
+#     
+#     # Look for existing size
+#     size = await size_repo.find_one(value=size_value, region="US")
+#     if not size:
+#         # Create new size if it doesn't exist
+#         size = await size_repo.create(
+#             value=size_value, 
+#             region="US", 
+#             category_id=existing_product.category_id
+#         )
+#     
+#     # Create the inventory item
+#     new_inventory_item = InventoryItem(
+#         product_id=existing_product.id,  # Now we have a valid product_id
+#         size_id=size.id,
+#         quantity=1,  # Default quantity for synced items
+#         purchase_price=inventory_item_data["purchase_price"],
+#         status="listed",  # These are already listed on StockX
+#         external_ids={"stockx_listing_id": inventory_item_data["stockx_listing_id"]},
+#         supplier="StockX",
+#         notes=f"Auto-synced from StockX listing on {datetime.utcnow().date()}"
+#     )
+#     
+#     stockx_session.add(new_inventory_item)
+#     await stockx_session.commit()
+#     synced_count += 1
+#     
+# except Exception as listing_error:
+#     logger.error(f"Failed to process listing {listing.get('listingId')}: {listing_error}")
+#     continue
+
+        return ResponseBuilder.success(
+            message=f"Successfully synced {synced_count} items, created {products_created} new products with market data",
+            data={
+                "synced_count": synced_count,
+                "products_created": products_created,
+                "market_data_imported": market_data_imported,
+                "total_listings": len(listings),
+                "status": "completed"
+        )
                 
-                return ResponseBuilder.success(
-                    message=f"Successfully synced {synced_count} items, created {products_created} new products with market data",
-                    data={
-                        "synced_count": synced_count,
-                        "products_created": products_created,
-                        "market_data_imported": market_data_imported,
-                        "total_listings": len(listings),
-                        "status": "completed"
-                    },
-                )
-                
-            except Exception as stockx_error:
-                logger.warning("StockX API call failed during sync", error=str(stockx_error))
-                return ResponseBuilder.success(
-                    message="StockX API unavailable for sync",
-                    data={
-                        "synced_count": 0,
-                        "error": str(stockx_error),
-                        "status": "failed"
-                    },
-                )
+    except Exception as stockx_error:
+        logger.warning("StockX API call failed during sync", error=str(stockx_error))
+        return ResponseBuilder.success(
+            message="StockX API unavailable for sync",
+            data={
+                "synced_count": 0,
+                "error": str(stockx_error),
+                "status": "failed"
+            }
+        )
                 
     except Exception as e:
         error_context = ErrorContext("sync", "inventory from StockX")
