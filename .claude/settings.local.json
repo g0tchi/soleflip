@@ -35,7 +35,10 @@
       "Bash(git fetch:*)",
       "Bash(git checkout:*)",
       "Bash(pkill:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(git restore:*)",
+      "Bash(pytest:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

@@ -21,7 +21,7 @@ from shared.database.models import (
     Supplier,
     Transaction,
 )
-from shared.types.domain_types import (
+from shared.type_definitions.domain_types import (
     BusinessSize,
     ImportSourceType,
     ImportStatus,
