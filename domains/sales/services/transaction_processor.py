@@ -3,19 +3,15 @@ Transaction Processing Service
 Creates sales transactions from validated import data
 """
 
-import asyncio
-import logging
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from shared.database.connection import db_manager
 from shared.database.models import (
-    Brand,
     Category,
     InventoryItem,
     Platform,
@@ -153,7 +149,7 @@ class TransactionProcessor:
                 buyer_destination_city=processed_data.get("buyer_destination_city"),
                 notes=f"Imported from {source_platform.upper()} batch {import_record.batch_id}",
             )
-        except Exception as e:
+        except Exception:
             raise
 
         self.db_session.add(transaction)
@@ -256,7 +252,6 @@ class TransactionProcessor:
 
         # For simplicity, create a placeholder inventory item
         # In production, you'd want proper product/inventory matching
-        from shared.database.models import Brand, Category, Product
 
         # Get or create product (simplified)
         # First try to find by SKU if we have a valid one
@@ -320,7 +315,7 @@ class TransactionProcessor:
                     description=f"Auto-created from import: {product_name}",
                 )
                 self.db_session.add(product)
-            except IntegrityError as e:
+            except IntegrityError:
                 # If SKU already exists, try to find the existing product
                 if sku:
                     existing_query = select(Product).where(Product.sku == sku)
@@ -376,7 +371,7 @@ class TransactionProcessor:
                 supplier=processed_data.get("supplier", processed_data.get("seller_name", "")),
                 notes=f"Auto-created from sales import - Size: {size}",
             )
-        except Exception as e:
+        except Exception:
             raise
 
         self.db_session.add(inventory_item)
@@ -473,7 +468,6 @@ class TransactionProcessor:
 
     async def _get_or_create_size(self, size_value: str):
         """Get or create size object"""
-        from shared.database.models import Category, Size
 
         if not size_value:
             size_value = "Unknown"

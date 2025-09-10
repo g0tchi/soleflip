@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import factory
-from factory import LazyAttribute, Sequence, SubFactory
 
 from shared.database.models import (
     Brand,
@@ -26,8 +25,6 @@ from shared.type_definitions.domain_types import (
     ImportSourceType,
     ImportStatus,
     InventoryStatus,
-    PlatformType,
-    ProductStatus,
     SizeRegion,
     SupplierStatus,
     SupplierType,

@@ -2,18 +2,16 @@
 Authentication API endpoints.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.api.responses import create_error_response, create_success_response
+from shared.api.responses import create_success_response
 from shared.auth.dependencies import get_current_user, require_admin_role
 from shared.auth.jwt_handler import JWTHandler
-from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse, UserRole
+from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse
 from shared.auth.password_hasher import PasswordHasher
 from shared.database.connection import get_db_session
 from shared.repositories.base_repository import BaseRepository

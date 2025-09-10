@@ -2,9 +2,9 @@
 Pricing API Router - Smart pricing recommendations and market analysis
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 import structlog

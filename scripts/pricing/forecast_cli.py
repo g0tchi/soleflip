@@ -9,8 +9,7 @@ import json
 import logging
 import sys
 import uuid
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta
 
 # Setup logging
 logging.basicConfig(
@@ -21,8 +20,6 @@ logger = logging.getLogger(__name__)
 # Add project root to path
 sys.path.insert(0, ".")
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
 
 from domains.analytics.repositories.forecast_repository import ForecastRepository
 from domains.analytics.services.forecast_engine import (
@@ -33,7 +30,6 @@ from domains.analytics.services.forecast_engine import (
     ForecastModel,
 )
 from shared.database.connection import get_db_session
-from shared.database.models import Brand, Category, Product
 
 
 class ForecastCLI:
@@ -89,7 +85,7 @@ class ForecastCLI:
             # Generate run ID
             run_id = uuid.uuid4()
 
-            print(f"🚀 Starting forecast generation...")
+            print("🚀 Starting forecast generation...")
             print(f"Run ID: {run_id}")
             print(f"Model: {model.value}")
             print(f"Level: {level.value}")
@@ -218,7 +214,7 @@ class ForecastCLI:
                     print(f"   Forecast Days: {len(entity_forecasts_list)}")
 
                 # Note about accuracy calculation
-                print(f"\n💡 To calculate actual accuracy, provide sales data for comparison")
+                print("\n💡 To calculate actual accuracy, provide sales data for comparison")
                 print(
                     f"   Use: forecast_cli accuracy --run-id {run_id} --actual-data sales_data.csv"
                 )
@@ -236,7 +232,7 @@ class ForecastCLI:
             entity_id = uuid.UUID(args.entity_id) if args.entity_id else None
             limit_days = args.days or 30
 
-            print(f"📋 LISTING FORECASTS")
+            print("📋 LISTING FORECASTS")
             print("=" * 50)
             print(f"Level: {level}")
             print(f"Horizon: {horizon}")
@@ -300,7 +296,7 @@ class ForecastCLI:
                 print(f"   Avg Confidence: {avg_confidence:.1f}")
 
                 if args.show_daily and len(entity_forecasts) <= 7:
-                    print(f"   Daily Breakdown:")
+                    print("   Daily Breakdown:")
                     for forecast in entity_forecasts:
                         print(
                             f"     {forecast.forecast_date}: {forecast.forecasted_units:.1f} units"
@@ -318,7 +314,7 @@ class ForecastCLI:
             entity_id = uuid.UUID(args.entity_id) if args.entity_id else None
             days_back = args.days or 90
 
-            print(f"📈 DEMAND PATTERN ANALYSIS")
+            print("📈 DEMAND PATTERN ANALYSIS")
             print("=" * 50)
             print(f"Level: {entity_type}")
             print(f"Period: {days_back} days")
@@ -372,7 +368,7 @@ class ForecastCLI:
                 # Trend analysis
                 trends = summary["trend_directions"]
                 if trends:
-                    print(f"   Trends:")
+                    print("   Trends:")
                     for trend, count in trends.items():
                         percentage = (count / pattern_count) * 100
                         print(f"     {trend.title()}: {count} ({percentage:.1f}%)")
@@ -382,7 +378,7 @@ class ForecastCLI:
                     recent_patterns = sorted(
                         summary["patterns"], key=lambda p: p.pattern_date, reverse=True
                     )[:5]
-                    print(f"   Recent Patterns:")
+                    print("   Recent Patterns:")
                     for pattern in recent_patterns:
                         seasonality = (
                             f" (Season: {pattern.seasonality_factor:.2f})"
@@ -409,7 +405,7 @@ class ForecastCLI:
             end_date = datetime.now().date() - timedelta(days=args.gap_days or 7)
             start_date = end_date - timedelta(days=args.backfill_days or 30)
 
-            print(f"🔄 BACKFILL FORECAST GENERATION")
+            print("🔄 BACKFILL FORECAST GENERATION")
             print("=" * 50)
             print(f"Model: {model.value}")
             print(f"Period: {start_date} to {end_date}")
@@ -447,14 +443,14 @@ class ForecastCLI:
                         total_forecasts += len(results)
                         print(f"   ✅ Generated {len(results)} forecasts")
                     else:
-                        print(f"   ⚠️ No forecasts generated")
+                        print("   ⚠️ No forecasts generated")
 
                 except Exception as e:
                     print(f"   ❌ Error: {str(e)}")
 
                 current_date += timedelta(days=1)
 
-            print(f"\n✅ Backfill completed:")
+            print("\n✅ Backfill completed:")
             print(f"   Total Forecasts: {total_forecasts}")
             print(f"   Days Processed: {(end_date - start_date).days + 1}")
 
@@ -468,7 +464,7 @@ class ForecastCLI:
 
     async def _display_forecast_results(self, results, args):
         """Display forecast results summary"""
-        print(f"\n📊 FORECAST RESULTS SUMMARY")
+        print("\n📊 FORECAST RESULTS SUMMARY")
         print("=" * 50)
 
         for i, result in enumerate(results[: args.result_limit if args.result_limit else 5], 1):
@@ -487,13 +483,13 @@ class ForecastCLI:
             print(f"   Avg Confidence Width: ±{avg_confidence/2:.1f}")
 
             if result.model_metrics:
-                print(f"   Model Metrics:")
+                print("   Model Metrics:")
                 for metric, value in result.model_metrics.items():
                     if isinstance(value, (int, float)):
                         print(f"     {metric}: {value:.3f}")
 
             if result.feature_importance and args.show_features:
-                print(f"   Top Features:")
+                print("   Top Features:")
                 sorted_features = sorted(
                     result.feature_importance.items(), key=lambda x: x[1], reverse=True
                 )

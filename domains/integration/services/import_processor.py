@@ -4,7 +4,6 @@ Replaces the chaotic SQL-based import system with a clean,
 testable, and maintainable Python implementation.
 """
 
-import asyncio
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone

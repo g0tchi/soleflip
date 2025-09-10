@@ -6,7 +6,6 @@ Uses the actual StockX service from the main application
 
 import asyncio
 import csv
-import json
 import logging
 import os
 import sys

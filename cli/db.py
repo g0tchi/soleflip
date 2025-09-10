@@ -5,12 +5,11 @@ SQLAlchemy models and database operations with security focus
 """
 
 import csv
-import json
 import logging
 import os
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError

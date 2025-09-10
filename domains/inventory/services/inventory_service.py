@@ -13,13 +13,12 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.database.models import Brand, Category, InventoryItem, Size
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
     InventoryRepository,
 )
-from ..repositories.inventory_repository import InventoryStats as RepoInventoryStats
 from ..repositories.product_repository import ProductRepository
 
 logger = structlog.get_logger(__name__)
@@ -702,7 +701,6 @@ class InventoryService:
     async def _get_top_brands(self) -> List[Dict[str, Any]]:
         """Get top brands by inventory count"""
         from sqlalchemy import text
-        from shared.database.connection import get_db_session
         
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:
@@ -748,7 +746,6 @@ class InventoryService:
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
         from sqlalchemy import text
-        from shared.database.connection import get_db_session
         
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:
@@ -780,7 +777,6 @@ class InventoryService:
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
         """Get recent inventory activity"""
         from sqlalchemy import text
-        from shared.database.connection import get_db_session
         
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:

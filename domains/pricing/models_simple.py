@@ -3,13 +3,9 @@ Simplified Pricing Models - Working version without complex Foreign Keys
 """
 
 import uuid
-from datetime import date, datetime
-from decimal import Decimal
-from typing import Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 
 from shared.database.models import Base, TimestampMixin
 from shared.database.utils import IS_POSTGRES

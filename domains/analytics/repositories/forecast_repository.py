@@ -3,16 +3,15 @@ Forecast Repository - Data access layer for forecasting operations
 """
 
 import uuid
-from datetime import date, datetime, timedelta
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import date, timedelta
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, desc, func, or_, select, text
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 
 from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast
-from shared.database.models import Brand, Category, InventoryItem, Platform, Product, Transaction
+from shared.database.models import Product, Transaction
 
 
 class ForecastRepository:

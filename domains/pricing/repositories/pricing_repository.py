@@ -4,14 +4,13 @@ Pricing Repository - Data access layer for pricing operations
 
 import uuid
 from datetime import date, datetime, timedelta
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, desc, func, or_, select, text
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 
-from shared.database.models import Brand, Category, Platform, Product
+from shared.database.models import Brand, Product
 
 from ..models import BrandMultiplier, MarketPrice, PriceHistory, PriceRule
 

@@ -1,6 +1,4 @@
 import os
-import subprocess
-import sys
 
 # Set a valid key for this script to run without a .env file
 os.environ["FIELD_ENCRYPTION_KEY"] = "HXfzzwhvSyuNwcvmWhG3rYixL0TiuSkHiJJ0EI4sG7U="
@@ -8,7 +6,7 @@ os.environ["FIELD_ENCRYPTION_KEY"] = "HXfzzwhvSyuNwcvmWhG3rYixL0TiuSkHiJJ0EI4sG7
 
 def main():
     db_path = "./soleflip_demo.db"
-    print(f"--- Running Database Reset Script ---")
+    print("--- Running Database Reset Script ---")
 
     # 1. Delete existing DB file
     if os.path.exists(db_path):

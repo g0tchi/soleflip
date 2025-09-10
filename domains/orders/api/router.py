@@ -44,10 +44,10 @@ async def get_active_orders(
             initiatedShipmentDisplayIds=initiatedShipmentDisplayIds,
         )
         return active_orders
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to get active orders")
         raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred. See logs for details."
+            status_code=500, detail="An unexpected error occurred. See logs for details."
         )
 
 
@@ -84,8 +84,8 @@ async def get_historical_orders(
             initiated_shipment_display_ids=initiatedShipmentDisplayIds,
         )
         return historical_orders
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to get historical orders")
         raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred. See logs for details."
+            status_code=500, detail="An unexpected error occurred. See logs for details."
         )

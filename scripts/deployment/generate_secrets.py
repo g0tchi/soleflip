@@ -5,7 +5,6 @@ Creates all necessary encryption keys and provides setup instructions.
 """
 
 import argparse
-import base64
 import json
 import secrets
 from typing import Any, Dict
@@ -178,13 +177,13 @@ def main():
             json.dump(secrets_data, f, indent=2)
         print(f"[OK] Secrets saved to {filename}")
 
-    print(f"\n[SECURITY] Security Notes:")
+    print("\n[SECURITY] Security Notes:")
     print("1. Store these secrets securely")
     print("2. Never commit secrets to version control")
     print("3. Rotate secrets regularly")
     print("4. Use different secrets for each environment")
 
-    print(f"\n[NEXT] Next Steps:")
+    print("\n[NEXT] Next Steps:")
     print("1. Run the GitHub CLI commands above")
     print("2. Verify secrets in GitHub repository settings")
     print("3. Test deployment workflow")

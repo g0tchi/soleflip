@@ -4,13 +4,12 @@ Replaces direct SQL queries in n8n with proper API endpoints
 """
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session

@@ -3,16 +3,15 @@ Dead Stock Identification System
 Intelligente Erkennung und Behandlung von schwer verkäuflichem Inventar
 """
 
-import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 from dataclasses import dataclass
 from enum import Enum
 
 import structlog
-from sqlalchemy import and_, or_, select, func
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import InventoryItem, Product
@@ -608,7 +607,7 @@ class DeadStockService:
         if risk_levels is None:
             risk_levels = [StockRiskLevel.DEAD, StockRiskLevel.CRITICAL]
             
-        self.logger.info(f"Starting automated clearance", risk_levels=risk_levels, dry_run=dry_run)
+        self.logger.info("Starting automated clearance", risk_levels=risk_levels, dry_run=dry_run)
         
         try:
             # Dead Stock Analyse

@@ -6,7 +6,7 @@ Extracted to reduce code duplication in validation patterns.
 import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from dateutil import parser as date_parser
 

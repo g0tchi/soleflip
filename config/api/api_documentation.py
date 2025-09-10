@@ -6,9 +6,8 @@ Generates comprehensive API documentation with examples and schemas
 import json
 import os
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 # Add project root to the Python path

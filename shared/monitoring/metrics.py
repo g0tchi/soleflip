@@ -6,11 +6,11 @@ Comprehensive monitoring system for production environments
 import asyncio
 import time
 from collections import defaultdict, deque
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import psutil
 import structlog
@@ -459,7 +459,7 @@ def track_execution_time(metric_name: str = None):
                 duration_ms = (time.time() - start_time) * 1000
                 await registry.record_value(metric_name, duration_ms, {"status": "success"})
                 return result
-            except Exception as e:
+            except Exception:
                 duration_ms = (time.time() - start_time) * 1000
                 await registry.record_value(metric_name, duration_ms, {"status": "error"})
                 raise
@@ -473,7 +473,7 @@ def track_execution_time(metric_name: str = None):
                     registry.record_value(metric_name, duration_ms, {"status": "success"})
                 )
                 return result
-            except Exception as e:
+            except Exception:
                 duration_ms = (time.time() - start_time) * 1000
                 asyncio.create_task(
                     registry.record_value(metric_name, duration_ms, {"status": "error"})
@@ -503,7 +503,7 @@ def track_counter(metric_name: str, labels: Optional[Dict[str, str]] = None):
                 result = await func(*args, **kwargs)
                 await registry.record_value(metric_name, 1, {**(labels or {}), "status": "success"})
                 return result
-            except Exception as e:
+            except Exception:
                 await registry.record_value(metric_name, 1, {**(labels or {}), "status": "error"})
                 raise
 
@@ -514,7 +514,7 @@ def track_counter(metric_name: str, labels: Optional[Dict[str, str]] = None):
                     registry.record_value(metric_name, 1, {**(labels or {}), "status": "success"})
                 )
                 return result
-            except Exception as e:
+            except Exception:
                 asyncio.create_task(
                     registry.record_value(metric_name, 1, {**(labels or {}), "status": "error"})
                 )
@@ -553,7 +553,7 @@ async def track_operation(operation_name: str, labels: Optional[Dict[str, str]] 
             duration_metric, duration_ms, {**(labels or {}), "status": "success"}
         )
         await registry.record_value(counter_metric, 1, {**(labels or {}), "status": "success"})
-    except Exception as e:
+    except Exception:
         duration_ms = (time.time() - start_time) * 1000
         await registry.record_value(
             duration_metric, duration_ms, {**(labels or {}), "status": "error"}

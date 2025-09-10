@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import structlog
 
-from shared.utils import ValidationErrors, ValidationUtils
+from shared.utils import ValidationUtils
 
 logger = structlog.get_logger(__name__)
 
@@ -493,7 +493,7 @@ class SalesValidator(BaseValidator):
             normalized["sale_date"] = self.normalize_date(
                 record.get("Sale Date"), ["%d. %B %Y", "%d.%m.%Y", "%Y-%m-%d"]
             )
-        except ValidationError as e:
+        except ValidationError:
             # Fallback to standard formats
             normalized["sale_date"] = self.normalize_date(record.get("Sale Date"))
 

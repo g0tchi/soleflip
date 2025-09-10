@@ -3,7 +3,7 @@ JWT token handling utilities.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Optional
 from uuid import UUID
 
 import jwt

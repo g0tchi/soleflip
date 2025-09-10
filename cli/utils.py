@@ -5,7 +5,6 @@ Retro Keygen Utils - ASCII Art, Animations, and Visual Effects
 
 import os
 import random
-import sys
 import time
 from typing import List
 

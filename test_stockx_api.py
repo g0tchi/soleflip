@@ -41,17 +41,17 @@ async def test_stockx_api():
                     print(f"Variant keys: {list(variant.keys()) if variant else 'None'}")
                     
                     # Check the actual values
-                    print(f"Product name possibilities:")
+                    print("Product name possibilities:")
                     print(f"  - product.productName: {product.get('productName')}")
                     print(f"  - product.name: {product.get('name')}")
                     print(f"  - variant.product.name: {variant.get('product', {}).get('name')}")
                     
-                    print(f"Size possibilities:")
+                    print("Size possibilities:")
                     print(f"  - variant.size: {variant.get('size')}")
                     print(f"  - variant.variantValue: {variant.get('variantValue')}")
                     print(f"  - variant.sizeValue: {variant.get('sizeValue')}")
                     
-                    print(f"Price info:")
+                    print("Price info:")
                     print(f"  - amount: {listing.get('amount')}")
                     print(f"  - status: {listing.get('status')}")
                     print(f"  - currencyCode: {listing.get('currencyCode')}")

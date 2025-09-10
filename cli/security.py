@@ -103,7 +103,7 @@ class SecurityManager:
 
         # Log session start
         self.log_access(f"Session started for user: {username}")
-        self.log_audit(f"USER_LOGIN", f"User {username} started session {session_id}")
+        self.log_audit("USER_LOGIN", f"User {username} started session {session_id}")
 
         return session_id
 

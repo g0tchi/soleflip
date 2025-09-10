@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 import structlog
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response as StarletteResponse
 
 try:
     import brotli
