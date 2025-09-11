@@ -88,7 +88,7 @@ async def upload_stockx_file(
     # TODO: In a production system, this should trigger a background task.
     # For now, we process it synchronously.
     await import_processor.process_import(
-        batch_id=batch.id, source_type=SourceType.STOCKX, data=raw_csv_data, raw_data=raw_csv_data
+        batch_id=batch.id, source_type=SourceType.STOCKX, data=raw_csv_data, raw_data=raw_csv_data, retry_count=0
     )
 
     # Refetch batch to get final status
@@ -149,6 +149,7 @@ async def import_stockx_data(
                     source_type=SourceType.STOCKX,
                     data=stockx_data,
                     raw_data=stockx_data,
+                    retry_count=0
                 )
                 logger.info("Import processing completed successfully", batch_id=str(batch.id))
             except Exception as e:

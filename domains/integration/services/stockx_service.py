@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import structlog
 from sqlalchemy import select
+from shared.utils.helpers import RetryHelper
 
 from shared.database.models import SystemConfig
 
@@ -70,6 +71,12 @@ class StockXService:
         )
         return self._credentials
 
+    @RetryHelper.retry_on_exception(
+        max_attempts=3,
+        delay=2.0,
+        backoff_factor=2.0,
+        exceptions=(httpx.RequestError, httpx.TimeoutException)
+    )
     async def _refresh_access_token(self) -> None:
         """
         Uses the refresh token to get a new access token from StockX Auth service.

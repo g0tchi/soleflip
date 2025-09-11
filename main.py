@@ -60,12 +60,20 @@ async def lifespan(app: FastAPI):
     # Setup monitoring
     from shared.monitoring.health import setup_default_health_checks
     from shared.monitoring.metrics import get_metrics_collector
+    from shared.monitoring.batch_monitor import get_batch_monitor
+    import asyncio
 
     await setup_default_health_checks(db_manager)
     metrics_collector = get_metrics_collector()
     metrics_collector.start_collection()
+    
+    # Initialize batch monitoring
+    batch_monitor = get_batch_monitor()
+    
+    # Start continuous batch monitoring as a background task
+    asyncio.create_task(batch_monitor.run_continuous_monitoring(interval_seconds=300))
 
-    logger.info("Monitoring and health checks initialized")
+    logger.info("Monitoring, health checks, and batch monitoring initialized")
 
     yield
 
@@ -149,6 +157,7 @@ from domains.products.api.router import router as products_router
 
 # Monitoring routers
 from shared.monitoring.prometheus import router as prometheus_router
+from shared.monitoring.batch_monitor_router import router as batch_monitor_router
 
 # Authentication routes (public)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -165,6 +174,7 @@ app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
 # app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])  # Temporarily disabled
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
+app.include_router(batch_monitor_router, tags=["Batch Monitoring"])
 
 
 @app.get("/", response_model=APIInfo, tags=["System"])

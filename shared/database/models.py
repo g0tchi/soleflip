@@ -415,6 +415,14 @@ class ImportBatch(Base, TimestampMixin):
     status = Column(String(50), default="pending")
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
+    
+    # Retry tracking fields
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    last_error = Column(String(1000))
+    error_message = Column(String(1000))
+    next_retry_at = Column(DateTime(timezone=True))
+    
     import_records = relationship("ImportRecord", back_populates="batch")
 
 

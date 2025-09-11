@@ -109,6 +109,7 @@ async def stockx_import_orders_webhook(
                 source_type=SourceType.STOCKX,
                 data=orders_data,
                 raw_data=orders_data,
+                retry_count=0  # Start with zero retries
             )
         except Exception as e:
             logger.error(
@@ -117,7 +118,12 @@ async def stockx_import_orders_webhook(
                 error=str(e),
                 exc_info=True,
             )
-            await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
+            # The ImportProcessor will handle retry logic automatically
+            # Only update to FAILED if retries are exhausted
+            from shared.database.models import ImportBatch
+            batch_record = await import_processor.db_session.get(ImportBatch, batch_id)
+            if batch_record and batch_record.status not in ["retrying", "processing"]:
+                await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
 
     background_tasks.add_task(run_import_task, batch.id)
 
