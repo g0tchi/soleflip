@@ -73,14 +73,55 @@ async def lifespan(app: FastAPI):
     # Start continuous batch monitoring as a background task
     asyncio.create_task(batch_monitor.run_continuous_monitoring(interval_seconds=300))
 
-    logger.info("Monitoring, health checks, and batch monitoring initialized")
+    # Initialize event-driven domain communication
+    from domains.integration.events import get_integration_event_handler
+    from domains.products.events import get_product_event_handler
+    from domains.inventory.events import get_inventory_event_handler
+    
+    # Initialize all event handlers
+    get_integration_event_handler()
+    get_product_event_handler() 
+    get_inventory_event_handler()
+
+    # Initialize performance optimizations
+    from shared.performance import initialize_cache, get_database_optimizer
+    from shared.auth.token_blacklist import initialize_token_blacklist
+    import os
+    
+    # Initialize cache system
+    redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
+    await initialize_cache(redis_url)
+    
+    # Initialize JWT token blacklist system
+    try:
+        # Try to reuse Redis connection for token blacklist
+        redis_client = None
+        if redis_url:
+            import redis.asyncio as redis
+            redis_client = redis.from_url(redis_url)
+        await initialize_token_blacklist(redis_client)
+    except ImportError:
+        # Redis not available, use in-memory blacklist only
+        await initialize_token_blacklist()
+    
+    # Setup database performance indexes
+    db_optimizer = get_database_optimizer()
+    async with db_manager.get_session() as session:
+        await db_optimizer.create_performance_indexes(session)
+
+    logger.info("Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized")
 
     yield
 
     logger.info("SoleFlipper API shutting down...")
+    
+    # Shutdown security systems
+    from shared.auth.token_blacklist import shutdown_token_blacklist
+    await shutdown_token_blacklist()
+    
     metrics_collector.stop_collection()
     await db_manager.close()
-    logger.info("Database connections closed")
+    logger.info("Database connections closed, security systems shutdown")
 
 
 class APIInfo(BaseModel):

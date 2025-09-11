@@ -479,6 +479,22 @@ class StockXPresaleMarking(Base, TimestampMixin):
     unmarked_at = Column(DateTime(timezone=True))
 
 
+class EventStore(Base, TimestampMixin):
+    """Event store for domain events and event sourcing"""
+    __tablename__ = "event_store"
+    __table_args__ = {"schema": "logging"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    event_type = Column(String(100), nullable=False, index=True)
+    aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True) 
+    event_data = Column(JSONB, nullable=False)
+    correlation_id = Column(UUID(as_uuid=True), index=True)
+    causation_id = Column(UUID(as_uuid=True), index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    version = Column(Integer, default=1)
+
+
 # Import pricing models to register them with SQLAlchemy
 # This ensures the relationships defined above are properly linked
 from domains.pricing.models import *  # noqa: F401,F403
