@@ -6,6 +6,7 @@ import httpx
 import structlog
 from sqlalchemy import select
 from shared.utils.helpers import RetryHelper
+from shared.exceptions.domain_exceptions import StockXApiException, AuthenticationException
 
 from shared.database.models import SystemConfig
 
@@ -115,8 +116,9 @@ class StockXService:
                 # If refresh fails, credentials might be bad. Clear local cache.
                 self._access_token = None
                 self._token_expiry = None
-                raise Exception(
-                    "Could not refresh StockX access token. Please check your credentials."
+                raise AuthenticationException(
+                    "Could not refresh StockX access token. Please check your credentials.",
+                    status_code=e.response.status_code
                 ) from e
 
     async def _get_valid_access_token(self) -> str:
@@ -135,7 +137,7 @@ class StockXService:
             # If token is missing or expired, refresh it
             await self._refresh_access_token()
             if not self._access_token:
-                raise Exception("Failed to obtain a valid access token.")
+                raise AuthenticationException("Failed to obtain a valid access token.")
             return self._access_token
 
     async def get_historical_orders(

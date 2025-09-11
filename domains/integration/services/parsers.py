@@ -83,7 +83,7 @@ class CSVParser(BaseParser):
             has_newlines = "\n" in sample
 
             return has_commas and has_newlines
-        except:
+        except (TypeError, AttributeError, UnicodeDecodeError):
             return False
 
     def parse(self, content: Union[bytes, str, io.IOBase], **kwargs) -> ParseResult:
@@ -202,7 +202,7 @@ class JSONParser(BaseParser):
             # Look for JSON indicators
             stripped = test_content.strip()
             return stripped.startswith("{") or stripped.startswith("[")
-        except:
+        except (TypeError, AttributeError, UnicodeDecodeError):
             return False
 
     def parse(self, content: Union[bytes, str, io.IOBase], **kwargs) -> ParseResult:
