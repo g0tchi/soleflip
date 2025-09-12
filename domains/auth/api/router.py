@@ -2,18 +2,16 @@
 Authentication API endpoints.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.api.responses import create_error_response, create_success_response
+from shared.api.responses import create_success_response
 from shared.auth.dependencies import get_current_user, require_admin_role
 from shared.auth.jwt_handler import JWTHandler
-from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse, UserRole
+from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse
 from shared.auth.password_hasher import PasswordHasher
 from shared.database.connection import get_db_session
 from shared.repositories.base_repository import BaseRepository
@@ -170,19 +168,52 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Logout current user.
-    Note: With JWT tokens, logout is primarily client-side token removal.
-    In a production system, you might want to maintain a blacklist of revoked tokens.
-
+    Logout current user and blacklist the JWT token.
+    
     Args:
+        request: FastAPI request object (to extract token)
         current_user: Current authenticated user
 
     Returns:
         Success message
     """
-    logger.info("User logout", user_id=current_user.id, username=current_user.username)
+    # Extract JWT token from Authorization header
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Remove "Bearer " prefix
+        
+        # Get token expiration from JWT handler
+        try:
+            from shared.auth.jwt_handler import get_jwt_handler
+            from shared.auth.token_blacklist import blacklist_token
+            import jwt
+            
+            # Decode token to get expiration (without verification)
+            jwt_handler = get_jwt_handler()
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            exp_timestamp = unverified_payload.get("exp")
+            
+            if exp_timestamp:
+                # Add token to blacklist
+                await blacklist_token(token, exp_timestamp)
+                logger.info(
+                    "User logout with token blacklisted", 
+                    user_id=current_user.id, 
+                    username=current_user.username,
+                    token_prefix=token[:20] + "..."
+                )
+            else:
+                logger.warning("Token has no expiration, cannot blacklist properly")
+        
+        except Exception as e:
+            logger.error(f"Failed to blacklist token during logout: {e}")
+    else:
+        logger.info("User logout without valid token", user_id=current_user.id, username=current_user.username)
 
     return create_success_response(
         message="Successfully logged out", data={"username": current_user.username}

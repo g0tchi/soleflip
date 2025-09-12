@@ -4,7 +4,6 @@ Check if Alias transactions were created successfully
 """
 import asyncio
 import sys
-from pathlib import Path
 
 sys.path.append(".")
 
@@ -67,7 +66,7 @@ async def check_alias_transactions():
 
             transaction_stats = transactions_result.fetchone()
 
-            print(f"\\nTransaction Statistics:")
+            print("\\nTransaction Statistics:")
             print(f"  Transactions created: {transaction_stats.transaction_count}")
             print(
                 f"  Date range: {transaction_stats.earliest_date} to {transaction_stats.latest_date}"
@@ -125,7 +124,7 @@ async def check_alias_transactions():
 
             platform_stats = platform_result.fetchall()
 
-            print(f"\\nPlatform Distribution (Last Hour):")
+            print("\\nPlatform Distribution (Last Hour):")
             for platform in platform_stats:
                 print(f"  {platform.platform_name}: {platform.transaction_count} transactions")
 
@@ -148,11 +147,11 @@ async def check_alias_transactions():
             errors = error_result.fetchall()
 
             if errors:
-                print(f"\\nProcessing Errors:")
+                print("\\nProcessing Errors:")
                 for error in errors:
                     print(f"  {error.error_count} records: {error.error_message}")
             else:
-                print(f"\\nNo processing errors found! All records processed successfully.")
+                print("\\nNo processing errors found! All records processed successfully.")
 
     except Exception as e:
         print(f"ERROR: Failed to check transactions: {e}")

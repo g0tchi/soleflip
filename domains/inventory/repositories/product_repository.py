@@ -10,7 +10,7 @@ from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.database.models import Brand, Category, InventoryItem, Product
 
 from shared.repositories import BaseRepository
 

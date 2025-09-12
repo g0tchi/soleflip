@@ -10,7 +10,7 @@ import secrets
 from datetime import datetime, timezone
 from decimal import Decimal
 from functools import wraps
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 from uuid import UUID
 
 import structlog

@@ -4,11 +4,9 @@ Retro Keygen Admin CLI
 A nostalgic CLI tool for database and API management
 """
 
-import os
 import random
 import sys
 import time
-from typing import Optional
 
 from db import DatabaseManager
 from shopify import ShopifyManager
@@ -295,13 +293,13 @@ class RetroAdminCLI:
         )
 
         # Environment info
-        print(colored_text(f"\n[ENV] ENVIRONMENT INFO", "cyan"))
+        print(colored_text("\n[ENV] ENVIRONMENT INFO", "cyan"))
         print(colored_text(f"Mode: {self.config.system.environment.upper()}", "white"))
         print(colored_text(f"Test Mode: {'YES' if self.config.system.is_test else 'NO'}", "white"))
         print(colored_text(f"Debug: {'YES' if self.config.system.debug else 'NO'}", "white"))
 
         # Show retro-style feature list
-        print(colored_text(f"\n[FEATURES] SYSTEM CAPABILITIES:", "bright_cyan"))
+        print(colored_text("\n[FEATURES] SYSTEM CAPABILITIES:", "bright_cyan"))
         features = [
             ("Retro Interface", "ASCII Art + Keygen Animations"),
             ("Database Engine", "PostgreSQL + SQLAlchemy"),
@@ -520,7 +518,7 @@ class RetroAdminCLI:
 
                     stats = result.fetchone()
 
-                    print(colored_text(f"\nProduct Analysis Results:", "purple"))
+                    print(colored_text("\nProduct Analysis Results:", "purple"))
                     print(colored_text("-" * 30, "violet"))
                     print(colored_text(f"Total Products: {stats[0]}", "white"))
                     print(colored_text(f"Missing Description: {stats[1]}", "yellow"))
@@ -546,7 +544,7 @@ class RetroAdminCLI:
                     products = result.fetchall()
 
                     if products:
-                        print(colored_text(f"\nSample Products Needing Enrichment:", "purple"))
+                        print(colored_text("\nSample Products Needing Enrichment:", "purple"))
                         print(colored_text("-" * 40, "violet"))
                         for i, product in enumerate(products, 1):
                             name, sku, brand_name, desc, retail, release = product
@@ -577,7 +575,7 @@ class RetroAdminCLI:
                         )
 
                         sample_products = result.fetchall()
-                        print(colored_text(f"\nSample Products in Database:", "purple"))
+                        print(colored_text("\nSample Products in Database:", "purple"))
                         print(colored_text("-" * 40, "violet"))
                         for i, product in enumerate(sample_products, 1):
                             name, sku, brand_name, desc, retail, release = product
@@ -678,7 +676,7 @@ class RetroAdminCLI:
         try:
             import asyncio
 
-            from sqlalchemy import select, text, update
+            from sqlalchemy import text, update
 
             from domains.integration.services.stockx_service import StockXService
             from shared.database.connection import db_manager
@@ -777,7 +775,7 @@ class RetroAdminCLI:
                                     update_data["release_date"] = datetime.fromisoformat(
                                         new_release_date.replace("Z", "+00:00")
                                     )
-                                except:
+                                except (ValueError, TypeError):
                                     pass
 
                             if update_data:
@@ -810,9 +808,9 @@ class RetroAdminCLI:
                                     )
                                 )
                             else:
-                                print(colored_text(f"  - No new data found", "dim"))
+                                print(colored_text("  - No new data found", "dim"))
                         else:
-                            print(colored_text(f"  ✗ No StockX match found", "red"))
+                            print(colored_text("  ✗ No StockX match found", "red"))
 
                     await session.commit()
                     print(
@@ -848,7 +846,6 @@ class RetroAdminCLI:
 
         try:
             import asyncio
-            import time
 
             from sqlalchemy import text, update
 
@@ -953,7 +950,7 @@ class RetroAdminCLI:
                                         update_data["release_date"] = datetime.fromisoformat(
                                             new_release_date.replace("Z", "+00:00")
                                         )
-                                    except:
+                                    except (ValueError, TypeError):
                                         pass
 
                                 if update_data:
@@ -987,10 +984,10 @@ class RetroAdminCLI:
                                     )
                                 else:
                                     skipped_count += 1
-                                    print(colored_text(f"  - No new data available", "dim"))
+                                    print(colored_text("  - No new data available", "dim"))
                             else:
                                 skipped_count += 1
-                                print(colored_text(f"  ✗ No StockX match found", "red"))
+                                print(colored_text("  ✗ No StockX match found", "red"))
 
                             # Rate limiting - pause between requests
                             await asyncio.sleep(2)
@@ -1063,7 +1060,7 @@ class RetroAdminCLI:
                         release_pct = (stats[3] / total) * 100
                         resale_pct = (stats[4] / total) * 100
 
-                        print(colored_text(f"\nEnrichment Statistics:", "bright_cyan"))
+                        print(colored_text("\nEnrichment Statistics:", "bright_cyan"))
                         print(colored_text("-" * 30, "cyan"))
                         print(colored_text(f"Total Products: {total}", "white"))
                         print(

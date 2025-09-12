@@ -4,7 +4,6 @@ Execute Database Improvements - Step by Step
 """
 import asyncio
 import sys
-from pathlib import Path
 
 sys.path.append(".")
 
@@ -173,7 +172,7 @@ async def execute_step_by_step_improvements():
                     await session.execute(text(sql))
                     await session.commit()
 
-                print(f"  SUCCESS")
+                print("  SUCCESS")
                 success_count += 1
 
             except Exception as e:
@@ -240,7 +239,6 @@ async def create_indexes_separately():
     ]
 
     # Use direct database connection for CONCURRENTLY indexes
-    import os
     import subprocess
 
     success_count = 0
@@ -286,7 +284,7 @@ asyncio.run(run())
                 )
 
                 if result.returncode == 0:
-                    print(f"    SUCCESS")
+                    print("    SUCCESS")
                     success_count += 1
                 else:
                     print(f"    ERROR: {result.stderr}")
@@ -298,11 +296,11 @@ asyncio.run(run())
                     async with db.get_session() as session:
                         await session.execute(text(sql))
                         await session.commit()
-                    print(f"    SUCCESS")
+                    print("    SUCCESS")
                     success_count += 1
                 except Exception as e:
                     if "already exists" in str(e).lower():
-                        print(f"    OK (already exists)")
+                        print("    OK (already exists)")
                         success_count += 1
                     else:
                         print(f"    ERROR: {e}")

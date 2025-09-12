@@ -3,7 +3,7 @@ JWT token handling utilities.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Optional
 from uuid import UUID
 
 import jwt
@@ -12,6 +12,7 @@ import structlog
 from shared.config.settings import get_settings
 
 from .models import TokenPayload, UserRole
+from .token_blacklist import is_token_blacklisted
 
 logger = structlog.get_logger(__name__)
 
@@ -21,8 +22,15 @@ class JWTHandler:
 
     def __init__(self):
         self.settings = get_settings()
-        # Use encryption key as JWT secret for now (in production, use separate secret)
-        self.secret_key = self.settings.field_encryption_key
+        # Use separate JWT secret key for security
+        jwt_secret = os.getenv("JWT_SECRET_KEY")
+        if not jwt_secret:
+            # Generate a secure random key if not provided
+            import secrets
+            jwt_secret = secrets.token_urlsafe(64)
+            logger.warning("JWT_SECRET_KEY not set in environment, using generated key. Set JWT_SECRET_KEY in production!")
+        
+        self.secret_key = jwt_secret
         self.algorithm = "HS256"
         self.access_token_expire_minutes = 60 * 24  # 24 hours
 
@@ -57,7 +65,7 @@ class JWTHandler:
             "type": "access",
         }
 
-        logger.debug("Creating access token", user_id=user_id, username=username, expires_at=expire)
+        logger.debug("Creating access token", user_id=user_id, username=username, expires_at=expire.isoformat())
 
         try:
             token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
@@ -80,6 +88,10 @@ class JWTHandler:
             ValueError: If token is invalid or expired
         """
         try:
+            # SECURITY: Check if token is blacklisted
+            if await is_token_blacklisted(token):
+                raise ValueError("Token has been revoked")
+                
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
             # Validate required fields

@@ -8,7 +8,7 @@ import csv
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -187,26 +187,27 @@ class AwinManager:
                 total_rows = sum(1 for line in f) - 1  # -1 for header
 
             # Display analysis
-            print(colored_text(f"\n📊 CSV Analysis:", "bright_white"))
+            print(colored_text("\n📊 CSV Analysis:", "bright_white"))
             print(colored_text(f"Total Rows: {total_rows:,}", "cyan"))
             print(colored_text(f"Columns: {len(headers) if headers else 0}", "cyan"))
-            print(colored_text(f"Delimiter: {'Tab' if delimiter == '\\t' else 'Comma'}", "cyan"))
+            delimiter_name = 'Tab' if delimiter == '\t' else 'Comma'
+            print(colored_text(f"Delimiter: {delimiter_name}", "cyan"))
 
             if headers:
-                print(colored_text(f"\nColumn Headers:", "bright_yellow"))
+                print(colored_text("\nColumn Headers:", "bright_yellow"))
                 for i, header in enumerate(headers[:10], 1):  # Show first 10 headers
                     print(colored_text(f"  {i}. {header}", "white"))
                 if len(headers) > 10:
                     print(colored_text(f"  ... and {len(headers) - 10} more columns", "dim"))
 
             if rows:
-                print(colored_text(f"\nSample Data (first row):", "bright_yellow"))
+                print(colored_text("\nSample Data (first row):", "bright_yellow"))
                 for header in list(headers)[:5]:  # Show first 5 columns
                     value = rows[0].get(header, "")[:50]  # Truncate long values
                     print(colored_text(f"  {header}: {value}", "white"))
 
             # Import options
-            print(colored_text(f"\nImport Options:", "bright_cyan"))
+            print(colored_text("\nImport Options:", "bright_cyan"))
             print(colored_text("1. Validate data only (dry run)", "white"))
             print(colored_text("2. Import to database (if connected)", "white"))
             print(colored_text("3. Export processed JSON", "white"))
@@ -272,7 +273,7 @@ class AwinManager:
                         validation_results["valid_rows"] += 1
 
             # Display validation results
-            print(colored_text(f"\n✅ VALIDATION COMPLETE", "bright_green"))
+            print(colored_text("\n✅ VALIDATION COMPLETE", "bright_green"))
             print(colored_text(f"Total Rows: {validation_results['total_rows']:,}", "white"))
             print(colored_text(f"Valid Rows: {validation_results['valid_rows']:,}", "bright_green"))
             print(
@@ -290,12 +291,12 @@ class AwinManager:
 
             # Show first few errors/warnings
             if validation_results["errors"]:
-                print(colored_text(f"\nFirst 5 Errors:", "red"))
+                print(colored_text("\nFirst 5 Errors:", "red"))
                 for error in validation_results["errors"][:5]:
                     print(colored_text(f"  • {error}", "red"))
 
             if validation_results["warnings"]:
-                print(colored_text(f"\nFirst 5 Warnings:", "yellow"))
+                print(colored_text("\nFirst 5 Warnings:", "yellow"))
                 for warning in validation_results["warnings"][:5]:
                     print(colored_text(f"  • {warning}", "yellow"))
 
@@ -313,7 +314,7 @@ class AwinManager:
 
     def _import_csv_to_db(self, csv_file: str, delimiter: str, total_rows: int):
         """Import CSV to database (placeholder)"""
-        print(colored_text(f"\n💾 IMPORTING TO DATABASE", "bright_blue"))
+        print(colored_text("\n💾 IMPORTING TO DATABASE", "bright_blue"))
 
         # Check database connection
         if not self.config.database or not hasattr(self.config, "database"):
@@ -334,7 +335,7 @@ class AwinManager:
 
     def _export_csv_to_json(self, csv_file: str, delimiter: str, total_rows: int):
         """Export CSV to structured JSON"""
-        print(colored_text(f"\n📄 EXPORTING TO JSON", "bright_cyan"))
+        print(colored_text("\n📄 EXPORTING TO JSON", "bright_cyan"))
 
         output_file = csv_file.replace(
             ".csv", f'_processed_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
@@ -452,7 +453,7 @@ class AwinManager:
                     "white",
                 )
             )
-            print(colored_text(f"    Status: ", "dim"), end="")
+            print(colored_text("    Status: ", "dim"), end="")
             print(colored_text(status.upper(), status_color))
 
         # Summary statistics
@@ -460,7 +461,7 @@ class AwinManager:
         success_count = sum(1 for r in self.import_history if r["status"] == "success")
         failed_count = sum(1 for r in self.import_history if r["status"] == "failed")
 
-        print(colored_text(f"\n📊 SUMMARY:", "bright_cyan"))
+        print(colored_text("\n📊 SUMMARY:", "bright_cyan"))
         print(colored_text(f"Total Imports: {len(self.import_history)}", "white"))
         print(colored_text(f"Successful: {success_count}", "bright_green"))
         print(colored_text(f"Failed: {failed_count}", "red"))
@@ -546,7 +547,7 @@ class AwinManager:
                             f"Account ID: {account_data.get('account_id', 'Unknown')}", "cyan"
                         )
                     )
-                except:
+                except Exception:
                     print(colored_text("✓ API accessible but response format unknown", "yellow"))
 
             elif response.status_code == 401:

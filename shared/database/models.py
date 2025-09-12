@@ -8,7 +8,7 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -40,7 +40,6 @@ except Exception as e:
 
 # --- Dialect-specific Type Compilation ---
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.types import JSON
 
 
 @compiles(JSONB, "sqlite")
@@ -416,6 +415,14 @@ class ImportBatch(Base, TimestampMixin):
     status = Column(String(50), default="pending")
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
+    
+    # Retry tracking fields
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    last_error = Column(String(1000))
+    error_message = Column(String(1000))
+    next_retry_at = Column(DateTime(timezone=True))
+    
     import_records = relationship("ImportRecord", back_populates="batch")
 
 
@@ -470,6 +477,22 @@ class StockXPresaleMarking(Base, TimestampMixin):
     is_presale = Column(Boolean, default=True)
     marked_at = Column(DateTime(timezone=True), default=func.now())
     unmarked_at = Column(DateTime(timezone=True))
+
+
+class EventStore(Base, TimestampMixin):
+    """Event store for domain events and event sourcing"""
+    __tablename__ = "event_store"
+    __table_args__ = {"schema": "logging"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    event_type = Column(String(100), nullable=False, index=True)
+    aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True) 
+    event_data = Column(JSONB, nullable=False)
+    correlation_id = Column(UUID(as_uuid=True), index=True)
+    causation_id = Column(UUID(as_uuid=True), index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    version = Column(Integer, default=1)
 
 
 # Import pricing models to register them with SQLAlchemy

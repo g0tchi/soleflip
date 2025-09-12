@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +29,6 @@ from domains.analytics.services.forecast_engine import (
 from domains.integration.services.stockx_service import StockXService
 from domains.inventory.models import InventoryItem
 from domains.pricing.services.smart_pricing_service import SmartPricingService
-from shared.database.connection import get_db_session
 
 
 class InsightType(Enum):

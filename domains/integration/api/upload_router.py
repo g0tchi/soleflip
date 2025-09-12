@@ -1,5 +1,4 @@
 import io
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -10,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.integration.services.import_processor import ImportProcessor, SourceType
+from shared.auth.dependencies import require_admin_role
 from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
@@ -63,13 +63,23 @@ async def upload_stockx_file(
     validate_only: bool = Form(False),
     batch_size: int = Form(1000),
     import_processor: ImportProcessor = Depends(get_import_processor),
+    current_user = Depends(require_admin_role),  # SECURITY: Require admin role
 ):
     """
     Handles the upload of a StockX sales history CSV file.
     It validates the data and initiates an import process.
     """
+    # SECURITY: Enhanced file validation
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
+    
+    # Check file size (max 100MB for CSV imports)
+    if file.size and file.size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB")
+    
+    # Check MIME type
+    if file.content_type and not file.content_type.startswith("text/"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Expected text/csv")
 
     content = await file.read()
 
@@ -86,10 +96,10 @@ async def upload_stockx_file(
         source_type=SourceType.STOCKX, filename=file.filename
     )
 
-    # TODO: In a production system, this should trigger a background task.
-    # For now, we process it synchronously.
+    # Process import with retry mechanism - synchronous processing for immediate feedback
+    # Background processing is handled by the retry mechanism if needed
     await import_processor.process_import(
-        batch_id=batch.id, source_type=SourceType.STOCKX, data=raw_csv_data, raw_data=raw_csv_data
+        batch_id=batch.id, source_type=SourceType.STOCKX, data=raw_csv_data, raw_data=raw_csv_data, retry_count=0
     )
 
     # Refetch batch to get final status
@@ -108,7 +118,9 @@ async def upload_stockx_file(
 
 @router.post("/stockx/import", response_model=ImportResponse, tags=["StockX Integration"])
 async def import_stockx_data(
-    request: ImportRequest, import_processor: ImportProcessor = Depends(get_import_processor)
+    request: ImportRequest, 
+    import_processor: ImportProcessor = Depends(get_import_processor),
+    current_user = Depends(require_admin_role)  # SECURITY: Require admin role
 ):
     """
     Initiates a StockX data import for the specified date range.
@@ -150,6 +162,7 @@ async def import_stockx_data(
                     source_type=SourceType.STOCKX,
                     data=stockx_data,
                     raw_data=stockx_data,
+                    retry_count=0
                 )
                 logger.info("Import processing completed successfully", batch_id=str(batch.id))
             except Exception as e:

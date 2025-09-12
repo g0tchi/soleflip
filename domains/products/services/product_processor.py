@@ -3,7 +3,6 @@
 Product Processing Service
 Extracts and creates products from imported sales data
 """
-import asyncio
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,11 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 from sqlalchemy import select, text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domains.integration.services.stockx_service import StockXService
-from shared.database.models import Brand, Category, Product, Size
+from shared.database.models import Brand, Category, Product
 
 logger = structlog.get_logger(__name__)
 

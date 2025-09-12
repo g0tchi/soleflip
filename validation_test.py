@@ -5,7 +5,7 @@ Tests basic functionality without complex relationships
 """
 import asyncio
 import uuid
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 import asyncpg
@@ -197,12 +197,12 @@ async def validate_pricing_system():
         print("\n" + "=" * 60)
         print("SUCCESS: VALIDATION COMPLETE - ALL SYSTEMS OPERATIONAL")
         print("=" * 60)
-        print(f"[OK] Database schemas created and accessible")
-        print(f"[OK] Tables created with proper structure")
-        print(f"[OK] Data insertion working correctly")
-        print(f"[OK] Data retrieval functioning")
-        print(f"[OK] Analytics queries operational")
-        print(f"[OK] Performance indexes in place")
+        print("[OK] Database schemas created and accessible")
+        print("[OK] Tables created with proper structure")
+        print("[OK] Data insertion working correctly")
+        print("[OK] Data retrieval functioning")
+        print("[OK] Analytics queries operational")
+        print("[OK] Performance indexes in place")
         print("\nThe Pricing & Forecasting System is ready for production use!")
 
     except Exception as e:

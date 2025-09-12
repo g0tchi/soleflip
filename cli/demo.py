@@ -3,7 +3,6 @@
 Demo script for the Retro CLI without requiring database connections
 """
 
-import sys
 import time
 
 from utils import clear_screen, colored_text, keygen_animation, show_banner, wait_for_key
@@ -34,9 +33,9 @@ def demo_authentication():
 
     keygen_animation(f"Generating demo key for {username}")
 
-    print(colored_text(f"\n✓ DEMO ACCESS GRANTED", "green"))
+    print(colored_text("\n✓ DEMO ACCESS GRANTED", "green"))
     print(colored_text(f"  User: {username}", "yellow"))
-    print(colored_text(f"  Mode: DEMONSTRATION", "yellow"))
+    print(colored_text("  Mode: DEMONSTRATION", "yellow"))
 
     return username
 

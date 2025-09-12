@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,10 +70,13 @@ class AwinConnector:
         batch.completed_at = datetime.utcnow()
 
         await self.session.commit()
-        print(f"Import complete for batch {batch.id}. "
-              f"Total: {batch.total_records}, "
-              f"Processed: {batch.processed_records}, "
-              f"Errors: {batch.error_records}")
+        logger.info(
+            "Import complete for batch",
+            batch_id=str(batch.id),
+            total_records=batch.total_records,
+            processed_records=batch.processed_records,
+            error_records=batch.error_records
+        )
 
         return batch
 

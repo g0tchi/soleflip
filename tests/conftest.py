@@ -4,10 +4,9 @@ Provides reusable test fixtures for database, API client, and test data
 Integrates with the new fixture infrastructure in tests.fixtures
 """
 
-import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, AsyncGenerator, Dict, Generator
+from typing import Any, AsyncGenerator, Dict
 from uuid import uuid4
 
 import pytest
@@ -111,8 +110,6 @@ async def legacy_db_session() -> AsyncGenerator[AsyncSession, None]:
     await engine.dispose()
 
 
-import anyio
-from fastapi import BackgroundTasks
 from httpx import ASGITransport
 
 

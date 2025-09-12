@@ -2,7 +2,6 @@
 Service layer type definitions
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import (
@@ -15,14 +14,13 @@ from typing import (
     Optional,
     Protocol,
     TypeVar,
-    Union,
     runtime_checkable,
 )
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import NotRequired, TypedDict
 
-from .base_types import EntityId, Option, Result
+from .base_types import EntityId
 from .domain_types import *
 
 T = TypeVar("T")

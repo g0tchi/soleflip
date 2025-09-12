@@ -3,7 +3,7 @@ Admin API Router
 Provides administrative functions like database queries and system management
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -47,7 +47,22 @@ async def execute_query(
                 status_code=400, detail="Only SELECT queries are allowed for security reasons"
             )
 
-        # Execute the query
+        # SECURITY: Validate query against whitelist to prevent SQL injection
+        allowed_queries = {
+            "SELECT COUNT(*) FROM products",
+            "SELECT COUNT(*) FROM import_batches", 
+            "SELECT status, COUNT(*) FROM import_batches GROUP BY status",
+            "SELECT COUNT(*) FROM inventory_items",
+            "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100"
+        }
+        
+        if request.query not in allowed_queries:
+            raise HTTPException(
+                status_code=403, 
+                detail="Query not allowed. Only predefined queries are permitted for security."
+            )
+        
+        # Execute the whitelisted query
         import time
 
         start_time = time.time()

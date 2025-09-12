@@ -6,20 +6,19 @@ Business logic layer for inventory management
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import structlog
+from sqlalchemy import and_, or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
-from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.database.models import Brand, Category, InventoryItem, Size
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
     InventoryRepository,
 )
-from ..repositories.inventory_repository import InventoryStats as RepoInventoryStats
 from ..repositories.product_repository import ProductRepository
 
 logger = structlog.get_logger(__name__)
@@ -185,11 +184,11 @@ class InventoryService:
     
     async def sync_all_stockx_listings_to_inventory(self) -> Dict[str, int]:
         """
-        Sync all current StockX listings to inventory items
+        Sync all current StockX listings to inventory items with comprehensive duplicate detection
         Creates inventory items for listings that don't have matching items
         """
-        self.logger.info("Starting sync of all StockX listings to inventory")
-        stats = {"created": 0, "updated": 0, "skipped": 0, "matched": 0}
+        self.logger.info("Starting sync of all StockX listings to inventory with duplicate detection")
+        stats = {"created": 0, "updated": 0, "skipped": 0, "matched": 0, "duplicates_detected": 0, "duplicates_merged": 0}
         
         try:
             # Get StockX service
@@ -214,19 +213,38 @@ class InventoryService:
                 product_name = product_info.get("productName", "Unknown Product")
                 size = variant_info.get("variantValue", "Unknown Size")
                 
-                # Check if we already have an inventory item for this listing
-                from sqlalchemy import select
-                from shared.database.models import InventoryItem
+                # Run comprehensive duplicate detection for this listing
+                has_duplicates, duplicate_matches = await self.detect_duplicate_listings(listing)
                 
-                stmt = select(InventoryItem).where(
-                    InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
-                )
-                result = await self.db_session.execute(stmt)
-                existing_item = result.scalar_one_or_none()
-                
-                if existing_item:
-                    stats["matched"] += 1
-                    continue
+                if has_duplicates:
+                    self.logger.info(
+                        f"Duplicate detected for listing {listing_id}",
+                        duplicate_count=len(duplicate_matches),
+                        match_types=[match["match_type"] for match in duplicate_matches]
+                    )
+                    stats["duplicates_detected"] += 1
+                    
+                    # Handle high-confidence exact matches automatically
+                    exact_matches = [match for match in duplicate_matches if match["confidence"] >= 1.0]
+                    if exact_matches:
+                        stats["matched"] += 1
+                        continue
+                    
+                    # For other duplicates, log and potentially merge based on business rules
+                    high_confidence_matches = [match for match in duplicate_matches if match["confidence"] >= 0.9]
+                    if high_confidence_matches:
+                        # Auto-merge if we have a single high-confidence match
+                        primary_match = high_confidence_matches[0]
+                        existing_item = primary_match["item"]
+                        
+                        # Update external IDs to include this listing ID
+                        if not existing_item.external_ids:
+                            existing_item.external_ids = {}
+                        existing_item.external_ids["stockx_listing_id"] = listing_id
+                        
+                        stats["duplicates_merged"] += 1
+                        stats["matched"] += 1
+                        continue
                 
                 # Create new inventory item for this StockX listing
                 try:
@@ -888,3 +906,361 @@ class InventoryService:
         except Exception as e:
             self.logger.error("Failed to sync item from StockX", item_id=str(item_id), error=str(e))
             raise
+
+    async def detect_duplicate_listings(self, listing_data: Dict[str, Any]) -> Tuple[bool, List[Dict[str, Any]]]:
+        """
+        Comprehensive duplicate detection for StockX listings
+        Returns (has_duplicates, list_of_duplicate_items)
+        """
+        listing_id = listing_data.get("listingId")
+        product_info = listing_data.get("product", {})
+        variant_info = listing_data.get("variant", {})
+        
+        product_name = product_info.get("productName", "")
+        size = variant_info.get("variantValue", "")
+        brand_name = listing_data.get("brand", "")
+        
+        potential_duplicates = []
+        
+        # Check 1: Exact StockX listing ID match
+        existing_by_listing_id = await self._find_by_stockx_listing_id(listing_id)
+        if existing_by_listing_id:
+            potential_duplicates.append({
+                "item": existing_by_listing_id,
+                "match_type": "exact_listing_id",
+                "confidence": 1.0
+            })
+            return True, potential_duplicates
+        
+        # Check 2: Product name + size combination
+        similar_by_name_size = await self._find_similar_by_name_size(product_name, size, brand_name)
+        for item in similar_by_name_size:
+            potential_duplicates.append({
+                "item": item,
+                "match_type": "name_size_match",
+                "confidence": 0.9
+            })
+        
+        # Check 3: SKU-based matching (if StockX product ID exists)
+        stockx_product_id = product_info.get("productId")
+        if stockx_product_id:
+            similar_by_sku = await self._find_by_stockx_product_id(stockx_product_id, size)
+            for item in similar_by_sku:
+                if item not in [d["item"] for d in potential_duplicates]:
+                    potential_duplicates.append({
+                        "item": item,
+                        "match_type": "product_id_match", 
+                        "confidence": 0.8
+                    })
+        
+        # Check 4: Fuzzy text matching for product names
+        fuzzy_matches = await self._fuzzy_match_products(product_name, size, brand_name)
+        for item, similarity_score in fuzzy_matches:
+            if item not in [d["item"] for d in potential_duplicates] and similarity_score > 0.85:
+                potential_duplicates.append({
+                    "item": item,
+                    "match_type": "fuzzy_name_match",
+                    "confidence": similarity_score
+                })
+        
+        return len(potential_duplicates) > 0, potential_duplicates
+
+    async def _find_by_stockx_listing_id(self, listing_id: str) -> Optional[Any]:
+        """Find inventory item by exact StockX listing ID"""
+        try:
+            from shared.database.models import InventoryItem
+            stmt = select(InventoryItem).where(
+                InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
+            )
+            result = await self.db_session.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            self.logger.error(f"Error finding item by listing ID: {e}")
+            return None
+
+    async def _find_similar_by_name_size(self, product_name: str, size: str, brand_name: str) -> List[Any]:
+        """Find items with similar product name and exact size match"""
+        try:
+            from shared.database.models import InventoryItem, Product, Brand, Size
+            
+            # Normalize product name for comparison
+            normalized_name = product_name.lower().strip()
+            
+            stmt = select(InventoryItem).join(Product).join(Brand, isouter=True).join(Size, isouter=True).where(
+                and_(
+                    func.lower(Product.name).like(f"%{normalized_name}%"),
+                    Size.value == size,
+                    or_(
+                        Brand.name.ilike(f"%{brand_name}%"),
+                        brand_name == ""  # Handle cases where brand is not specified
+                    )
+                )
+            )
+            result = await self.db_session.execute(stmt)
+            return result.scalars().all()
+        except Exception as e:
+            self.logger.error(f"Error finding similar items by name/size: {e}")
+            return []
+
+    async def _find_by_stockx_product_id(self, product_id: str, size: str) -> List[Any]:
+        """Find items by StockX product ID and size"""
+        try:
+            from shared.database.models import InventoryItem, Size
+            stmt = select(InventoryItem).join(Size, isouter=True).where(
+                and_(
+                    InventoryItem.external_ids['stockx_product_id'].astext == product_id,
+                    Size.value == size
+                )
+            )
+            result = await self.db_session.execute(stmt)
+            return result.scalars().all()
+        except Exception as e:
+            self.logger.error(f"Error finding items by product ID: {e}")
+            return []
+
+    async def _fuzzy_match_products(self, product_name: str, size: str, brand_name: str) -> List[Tuple[Any, float]]:
+        """Perform fuzzy text matching on product names"""
+        try:
+            from shared.database.models import InventoryItem, Product, Brand, Size
+            
+            # Get all inventory items with the same size and similar brand
+            stmt = select(InventoryItem, Product, Brand).join(Product).join(Brand, isouter=True).join(Size, isouter=True).where(
+                and_(
+                    Size.value == size,
+                    or_(
+                        Brand.name.ilike(f"%{brand_name}%"),
+                        brand_name == ""
+                    )
+                )
+            )
+            result = await self.db_session.execute(stmt)
+            items_with_details = result.all()
+            
+            fuzzy_matches = []
+            for item, product, brand in items_with_details:
+                if product and product.name:
+                    similarity = self._calculate_text_similarity(product_name.lower(), product.name.lower())
+                    if similarity > 0.7:  # Only include reasonably similar items
+                        fuzzy_matches.append((item, similarity))
+            
+            # Sort by similarity descending
+            fuzzy_matches.sort(key=lambda x: x[1], reverse=True)
+            return fuzzy_matches[:5]  # Return top 5 matches
+            
+        except Exception as e:
+            self.logger.error(f"Error in fuzzy matching: {e}")
+            return []
+
+    def _calculate_text_similarity(self, text1: str, text2: str) -> float:
+        """Calculate text similarity using Jaccard similarity of word sets"""
+        try:
+            # Simple tokenization and normalization
+            words1 = set(text1.lower().split())
+            words2 = set(text2.lower().split())
+            
+            # Remove common stop words that don't help with matching
+            stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+            words1 = words1 - stop_words
+            words2 = words2 - stop_words
+            
+            # Jaccard similarity
+            intersection = len(words1.intersection(words2))
+            union = len(words1.union(words2))
+            
+            if union == 0:
+                return 0.0
+            
+            return intersection / union
+        except Exception:
+            return 0.0
+
+    async def merge_duplicate_inventory_items(self, primary_item_id: UUID, duplicate_item_ids: List[UUID]) -> Dict[str, Any]:
+        """
+        Merge duplicate inventory items into a primary item
+        """
+        try:
+            from shared.database.models import InventoryItem
+            
+            # Get primary item
+            primary_item = await self.db_session.get(InventoryItem, primary_item_id)
+            if not primary_item:
+                raise ValueError(f"Primary item {primary_item_id} not found")
+            
+            merge_stats = {
+                "primary_item_id": str(primary_item_id),
+                "merged_items": 0,
+                "total_quantity_added": 0,
+                "external_ids_merged": 0
+            }
+            
+            for duplicate_id in duplicate_item_ids:
+                duplicate_item = await self.db_session.get(InventoryItem, duplicate_id)
+                if not duplicate_item:
+                    self.logger.warning(f"Duplicate item {duplicate_id} not found, skipping")
+                    continue
+                
+                # Merge quantity
+                if duplicate_item.quantity:
+                    primary_item.quantity = (primary_item.quantity or 0) + duplicate_item.quantity
+                    merge_stats["total_quantity_added"] += duplicate_item.quantity
+                
+                # Merge external IDs
+                if duplicate_item.external_ids:
+                    if not primary_item.external_ids:
+                        primary_item.external_ids = {}
+                    primary_item.external_ids.update(duplicate_item.external_ids)
+                    merge_stats["external_ids_merged"] += len(duplicate_item.external_ids)
+                
+                # Keep the earliest purchase date
+                if duplicate_item.purchase_date and (not primary_item.purchase_date or duplicate_item.purchase_date < primary_item.purchase_date):
+                    primary_item.purchase_date = duplicate_item.purchase_date
+                
+                # Keep the lowest purchase price (assuming it's more accurate)
+                if duplicate_item.purchase_price and (not primary_item.purchase_price or duplicate_item.purchase_price < primary_item.purchase_price):
+                    primary_item.purchase_price = duplicate_item.purchase_price
+                
+                # Delete the duplicate item
+                await self.db_session.delete(duplicate_item)
+                merge_stats["merged_items"] += 1
+            
+            await self.db_session.commit()
+            
+            self.logger.info(
+                "Successfully merged duplicate inventory items",
+                primary_item_id=str(primary_item_id),
+                merged_count=merge_stats["merged_items"]
+            )
+            
+            return merge_stats
+            
+        except Exception as e:
+            await self.db_session.rollback()
+            self.logger.error(f"Failed to merge duplicate items: {e}")
+            raise
+
+    async def run_duplicate_detection_scan(self) -> Dict[str, Any]:
+        """
+        Run a comprehensive scan for duplicate inventory items across the entire inventory
+        """
+        self.logger.info("Starting comprehensive duplicate detection scan")
+        
+        scan_results = {
+            "total_items_scanned": 0,
+            "duplicate_groups_found": 0,
+            "total_duplicates": 0,
+            "auto_merged": 0,
+            "require_manual_review": 0,
+            "duplicate_groups": []
+        }
+        
+        try:
+            from shared.database.models import InventoryItem, Product, Brand, Size
+            
+            # Get all inventory items with related data  
+            from sqlalchemy.orm import selectinload
+            stmt = select(InventoryItem).options(
+                # Include related objects for comparison
+                selectinload(InventoryItem.product).selectinload(Product.brand),
+                selectinload(InventoryItem.product).selectinload(Product.category),
+                selectinload(InventoryItem.size)
+            )
+            result = await self.db_session.execute(stmt)
+            all_items = result.scalars().all()
+            
+            scan_results["total_items_scanned"] = len(all_items)
+            
+            # Group items by potential duplicate criteria
+            processed_items = set()
+            
+            for item in all_items:
+                if item.id in processed_items:
+                    continue
+                
+                # Find all potential duplicates for this item
+                duplicates = await self._find_all_duplicates_for_item(item, all_items)
+                
+                if duplicates:
+                    duplicate_group = {
+                        "primary_item_id": str(item.id),
+                        "duplicates": [{"item_id": str(dup.id), "confidence": 0.9} for dup in duplicates],
+                        "can_auto_merge": self._can_auto_merge_group([item] + duplicates)
+                    }
+                    
+                    scan_results["duplicate_groups"].append(duplicate_group)
+                    scan_results["duplicate_groups_found"] += 1
+                    scan_results["total_duplicates"] += len(duplicates)
+                    
+                    if duplicate_group["can_auto_merge"]:
+                        scan_results["auto_merged"] += 1
+                    else:
+                        scan_results["require_manual_review"] += 1
+                    
+                    # Mark all items in this group as processed
+                    processed_items.add(item.id)
+                    for dup in duplicates:
+                        processed_items.add(dup.id)
+            
+            self.logger.info("Duplicate detection scan completed", results=scan_results)
+            return scan_results
+            
+        except Exception as e:
+            self.logger.error(f"Failed to run duplicate detection scan: {e}")
+            return {"error": str(e)}
+
+    async def _find_all_duplicates_for_item(self, item: Any, all_items: List[Any]) -> List[Any]:
+        """Find all duplicate items for a given inventory item"""
+        duplicates = []
+        
+        if not item.product:
+            return duplicates
+        
+        item_name = item.product.name.lower() if item.product.name else ""
+        item_size = item.size.value if item.size else ""
+        item_brand = item.product.brand.name.lower() if item.product.brand else ""
+        
+        for other_item in all_items:
+            if other_item.id == item.id or not other_item.product:
+                continue
+            
+            other_name = other_item.product.name.lower() if other_item.product.name else ""
+            other_size = other_item.size.value if other_item.size else ""
+            other_brand = other_item.product.brand.name.lower() if other_item.product.brand else ""
+            
+            # Check for exact matches
+            if (item_name == other_name and 
+                item_size == other_size and 
+                item_brand == other_brand):
+                duplicates.append(other_item)
+                continue
+            
+            # Check for high similarity matches
+            name_similarity = self._calculate_text_similarity(item_name, other_name)
+            if (name_similarity > 0.9 and 
+                item_size == other_size and 
+                item_brand == other_brand):
+                duplicates.append(other_item)
+        
+        return duplicates
+
+    def _can_auto_merge_group(self, items: List[Any]) -> bool:
+        """Determine if a group of duplicate items can be automatically merged"""
+        try:
+            # Auto-merge if all items have the same status and no conflicting external IDs
+            statuses = {item.status for item in items if item.status}
+            if len(statuses) > 1:
+                return False  # Different statuses require manual review
+            
+            # Check for conflicting external listing IDs
+            all_external_ids = {}
+            for item in items:
+                if item.external_ids:
+                    for key, value in item.external_ids.items():
+                        if key in all_external_ids and all_external_ids[key] != value:
+                            return False  # Conflicting external IDs
+                        all_external_ids[key] = value
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error determining auto-merge eligibility: {e}")
+            return False

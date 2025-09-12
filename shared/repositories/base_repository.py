@@ -4,13 +4,13 @@ Standardized repository interface for all domain repositories.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import text
 
 logger = structlog.get_logger(__name__)
@@ -255,8 +255,22 @@ class BaseRepository(Generic[T]):
         return await self.get_all(limit=limit, offset=offset, filters=filters)
 
     async def execute_raw(self, query: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        """Execute raw SQL query (use with caution)"""
-        self._logger.debug("Executing raw query", query=query[:100])
+        """
+        Execute raw SQL query (use with extreme caution - restricted access)
+        SECURITY: Only allows SELECT queries to prevent data modification
+        """
+        # SECURITY: Restrict to SELECT queries only
+        query_upper = query.strip().upper()
+        if not query_upper.startswith("SELECT"):
+            raise ValueError("Raw queries are restricted to SELECT statements only")
+        
+        # SECURITY: Block potentially dangerous keywords
+        dangerous_keywords = ["DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE", "TRUNCATE", "EXEC"]
+        for keyword in dangerous_keywords:
+            if keyword in query_upper:
+                raise ValueError(f"Raw query contains restricted keyword: {keyword}")
+        
+        self._logger.debug("Executing raw SELECT query", query=query[:100])
 
         result = await self.db.execute(text(query), params or {})
         return result

@@ -3,12 +3,12 @@ API-specific type definitions
 """
 
 from datetime import datetime
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 
-from .base_types import EntityId, HTTPStatus, JSONDict
+from .base_types import EntityId, JSONDict
 from .domain_types import *
 
 T = TypeVar("T")

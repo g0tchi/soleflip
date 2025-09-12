@@ -8,7 +8,6 @@ from slugify import slugify
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from sqlalchemy.future import select
-from sqlalchemy.orm.exc import NoResultFound
 
 from shared.database.connection import DatabaseManager  # Import class instead of global instance
 from shared.database.models import Base, Brand, BrandPattern  # Import Base for schema creation

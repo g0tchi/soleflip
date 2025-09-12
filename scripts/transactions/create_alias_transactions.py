@@ -4,7 +4,6 @@ Create transactions from existing Alias batch
 """
 import asyncio
 import sys
-from pathlib import Path
 
 sys.path.append(".")
 
@@ -55,7 +54,7 @@ async def create_alias_transactions():
         processor = TransactionProcessor()
         stats = await processor.create_transactions_from_batch(batch_id)
 
-        print(f"\nTransaction creation completed!")
+        print("\nTransaction creation completed!")
         print("Stats:")
         for key, value in stats.items():
             if key == "errors" and isinstance(value, list):
@@ -68,7 +67,7 @@ async def create_alias_transactions():
                 print(f"  {key}: {value}")
 
         # Verify results
-        print(f"\nVerifying transaction creation...")
+        print("\nVerifying transaction creation...")
         async with db.get_session() as session:
             # Count new transactions
             tx_result = await session.execute(

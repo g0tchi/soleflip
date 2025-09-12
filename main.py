@@ -8,11 +8,10 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 load_dotenv()
 
@@ -20,12 +19,10 @@ from datetime import datetime
 
 from fastapi import HTTPException
 
-from domains.inventory.services.inventory_service import InventoryService
 
 # Import centralized dependencies
-from shared.api.dependencies import get_inventory_service
 from shared.config.settings import get_settings
-from shared.database.connection import db_manager, get_db_session
+from shared.database.connection import db_manager
 from shared.error_handling.exceptions import (
     SoleFlipException,
     ValidationException,
@@ -63,19 +60,68 @@ async def lifespan(app: FastAPI):
     # Setup monitoring
     from shared.monitoring.health import setup_default_health_checks
     from shared.monitoring.metrics import get_metrics_collector
+    from shared.monitoring.batch_monitor import get_batch_monitor
+    import asyncio
 
     await setup_default_health_checks(db_manager)
     metrics_collector = get_metrics_collector()
     metrics_collector.start_collection()
+    
+    # Initialize batch monitoring
+    batch_monitor = get_batch_monitor()
+    
+    # Start continuous batch monitoring as a background task
+    asyncio.create_task(batch_monitor.run_continuous_monitoring(interval_seconds=300))
 
-    logger.info("Monitoring and health checks initialized")
+    # Initialize event-driven domain communication
+    from domains.integration.events import get_integration_event_handler
+    from domains.products.events import get_product_event_handler
+    from domains.inventory.events import get_inventory_event_handler
+    
+    # Initialize all event handlers
+    get_integration_event_handler()
+    get_product_event_handler() 
+    get_inventory_event_handler()
+
+    # Initialize performance optimizations
+    from shared.performance import initialize_cache, get_database_optimizer
+    from shared.auth.token_blacklist import initialize_token_blacklist
+    import os
+    
+    # Initialize cache system
+    redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
+    await initialize_cache(redis_url)
+    
+    # Initialize JWT token blacklist system
+    try:
+        # Try to reuse Redis connection for token blacklist
+        redis_client = None
+        if redis_url:
+            import redis.asyncio as redis
+            redis_client = redis.from_url(redis_url)
+        await initialize_token_blacklist(redis_client)
+    except ImportError:
+        # Redis not available, use in-memory blacklist only
+        await initialize_token_blacklist()
+    
+    # Setup database performance indexes
+    db_optimizer = get_database_optimizer()
+    async with db_manager.get_session() as session:
+        await db_optimizer.create_performance_indexes(session)
+
+    logger.info("Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized")
 
     yield
 
     logger.info("SoleFlipper API shutting down...")
+    
+    # Shutdown security systems
+    from shared.auth.token_blacklist import shutdown_token_blacklist
+    await shutdown_token_blacklist()
+    
     metrics_collector.stop_collection()
     await db_manager.close()
-    logger.info("Database connections closed")
+    logger.info("Database connections closed, security systems shutdown")
 
 
 class APIInfo(BaseModel):
@@ -152,6 +198,7 @@ from domains.products.api.router import router as products_router
 
 # Monitoring routers
 from shared.monitoring.prometheus import router as prometheus_router
+from shared.monitoring.batch_monitor_router import router as batch_monitor_router
 
 # Authentication routes (public)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -168,6 +215,7 @@ app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
 # app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])  # Temporarily disabled
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
+app.include_router(batch_monitor_router, tags=["Batch Monitoring"])
 
 
 @app.get("/", response_model=APIInfo, tags=["System"])

@@ -170,7 +170,7 @@ class ShopifyManager:
             product = response.json().get("product", {})
 
             # Display current product info
-            print(colored_text(f"\nCurrent Product:", "bright_white"))
+            print(colored_text("\nCurrent Product:", "bright_white"))
             print(colored_text(f"Title: {product.get('title', 'N/A')}", "cyan"))
             print(colored_text(f"Status: {product.get('status', 'N/A')}", "cyan"))
             print(colored_text(f"Type: {product.get('product_type', 'N/A')}", "cyan"))

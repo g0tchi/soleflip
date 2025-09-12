@@ -2,10 +2,9 @@
 Analytics & Forecast API Router - Advanced sales forecasting and predictive analytics
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog

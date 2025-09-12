@@ -1,12 +1,13 @@
 import asyncio
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
 from sqlalchemy import select
+from shared.utils.helpers import RetryHelper
+from shared.exceptions.domain_exceptions import StockXApiException, AuthenticationException
 
-from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
 
 logger = structlog.get_logger(__name__)
@@ -71,6 +72,12 @@ class StockXService:
         )
         return self._credentials
 
+    @RetryHelper.retry_on_exception(
+        max_attempts=3,
+        delay=2.0,
+        backoff_factor=2.0,
+        exceptions=(httpx.RequestError, httpx.TimeoutException)
+    )
     async def _refresh_access_token(self) -> None:
         """
         Uses the refresh token to get a new access token from StockX Auth service.
@@ -109,8 +116,9 @@ class StockXService:
                 # If refresh fails, credentials might be bad. Clear local cache.
                 self._access_token = None
                 self._token_expiry = None
-                raise Exception(
-                    "Could not refresh StockX access token. Please check your credentials."
+                raise AuthenticationException(
+                    "Could not refresh StockX access token. Please check your credentials.",
+                    status_code=e.response.status_code
                 ) from e
 
     async def _get_valid_access_token(self) -> str:
@@ -129,7 +137,7 @@ class StockXService:
             # If token is missing or expired, refresh it
             await self._refresh_access_token()
             if not self._access_token:
-                raise Exception("Failed to obtain a valid access token.")
+                raise AuthenticationException("Failed to obtain a valid access token.")
             return self._access_token
 
     async def get_historical_orders(
@@ -344,7 +352,7 @@ class StockXService:
         try:
             response_data = await self._make_get_request(endpoint, params=params)
             return response_data
-        except httpx.HTTPStatusError as e:
+        except httpx.HTTPStatusError:
             # A 404 is not expected for a search, but we'll log it.
             # Other errors will be re-raised by the helper.
             raise
