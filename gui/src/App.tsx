@@ -5,7 +5,7 @@ import Inventory from './pages/Inventory';
 import Analytics from './pages/Analytics';
 import PricingForecast from './pages/PricingForecast';
 import Import from './pages/Import';
-import DataManagement from './pages/DataManagement';
+import CommerceIntelligencePlatform from './pages/CommerceIntelligencePlatform';
 
 function App() {
   return (
@@ -16,7 +16,7 @@ function App() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/pricing-forecast" element={<PricingForecast />} />
-          <Route path="/data-management" element={<DataManagement />} />
+          <Route path="/commerce-intelligence" element={<CommerceIntelligencePlatform />} />
           <Route path="/import" element={<Import />} />
         </Routes>
       </Layout>

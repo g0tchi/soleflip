@@ -28,7 +28,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: '/inventory', icon: Package, label: 'Inventory' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/pricing-forecast', icon: Brain, label: 'AI Pricing' },
-    { path: '/data-management', icon: Database, label: 'Data Management' },
+    { path: '/commerce-intelligence', icon: Database, label: 'Commerce Intel' },
   ];
 
   return (
