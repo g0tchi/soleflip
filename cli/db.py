@@ -110,16 +110,39 @@ class DatabaseManager:
                 print(colored_text("No tables found in database", "yellow"))
                 return
 
+            # Optimize: Get all row counts in batch operation
+            table_row_counts = {}
+            try:
+                with self.get_session() as session:
+                    # Use UNION ALL to get all counts in single query for PostgreSQL
+                    if tables:
+                        union_queries = []
+                        for table in tables:
+                            union_queries.append(f"SELECT '{table}' as table_name, COUNT(*) as row_count FROM {table}")
+                        
+                        union_query = " UNION ALL ".join(union_queries)
+                        result = session.execute(text(union_query))
+                        
+                        for row in result:
+                            table_row_counts[row.table_name] = row.row_count
+            except Exception as e:
+                logger.warning(f"Batch count query failed, falling back to individual queries: {e}")
+                # Fallback to individual queries if batch fails
+                table_row_counts = {}
+
             for i, table in enumerate(tables, 1):
                 # Get table info
                 try:
                     columns = inspector.get_columns(table)
                     column_count = len(columns)
 
-                    # Get row count (safely)
-                    with self.get_session() as session:
-                        result = session.execute(text(f"SELECT COUNT(*) FROM {table}"))
-                        row_count = result.scalar()
+                    # Get row count from batch or individual query
+                    row_count = table_row_counts.get(table)
+                    if row_count is None:
+                        # Fallback for failed batch operation
+                        with self.get_session() as session:
+                            result = session.execute(text(f"SELECT COUNT(*) FROM {table}"))
+                            row_count = result.scalar()
 
                     print(colored_text(f"{i:2d}. {table}", "bright_white"))
                     print(colored_text(f"    Columns: {column_count}, Rows: {row_count:,}", "dim"))

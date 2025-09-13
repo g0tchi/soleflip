@@ -737,22 +737,47 @@ class RetroAdminCLI:
                     stockx_service = StockXService(session)
                     enriched_count = 0
 
+                    # PERFORMANCE OPTIMIZATION: Batch StockX searches to avoid N+1 queries
+                    print(colored_text("\nBatch searching StockX for all products...", "yellow"))
+                    
+                    # Create batch search terms
+                    product_search_map = {}
+                    unique_search_terms = set()
+                    
                     for product in selected_products:
                         product_id, name, sku, description, retail_price, release_date = product
+                        search_term = name.lower().strip()
+                        unique_search_terms.add(search_term)
+                        product_search_map[search_term] = product
 
-                        print(colored_text(f"\nEnriching: {name}", "yellow"))
-
-                        # Search StockX for this product
+                    # Batch search all unique terms (reduces API calls significantly)
+                    stockx_results_cache = {}
+                    total_terms = len(unique_search_terms)
+                    
+                    for i, search_term in enumerate(unique_search_terms, 1):
+                        print(colored_text(f"Searching {i}/{total_terms}: {search_term[:30]}...", "dim"))
                         search_results = await stockx_service.search_stockx_catalog(
-                            name, page_size=5
+                            search_term, page_size=5
                         )
+                        if search_results and "results" in search_results and search_results["results"]:
+                            stockx_results_cache[search_term] = search_results["results"][0]
+                        
+                        # Add small delay to respect API limits
+                        await asyncio.sleep(0.1)
 
-                        if (
-                            search_results
-                            and "results" in search_results
-                            and search_results["results"]
-                        ):
-                            stockx_product = search_results["results"][0]  # Take best match
+                    print(colored_text(f"Found matches for {len(stockx_results_cache)} products\n", "green"))
+
+                    # Now process each product with cached results
+                    for product in selected_products:
+                        product_id, name, sku, description, retail_price, release_date = product
+                        search_term = name.lower().strip()
+                        
+                        print(colored_text(f"Processing: {name}", "yellow"))
+
+                        # Get cached StockX result
+                        stockx_product = stockx_results_cache.get(search_term)
+
+                        if stockx_product:
 
                             # Extract enrichment data
                             new_description = stockx_product.get(
