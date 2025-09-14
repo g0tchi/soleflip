@@ -1068,37 +1068,94 @@ class RetroAdminCLI:
         return update_data
 
     async def _execute_product_updates_batch(self, session, updates_batch: list):
-        """Execute product updates in batch to avoid N+1 queries"""
+        """Execute product updates using true bulk operations"""
         from sqlalchemy import text
         
-        # Build batch update query
         if not updates_batch:
             return
         
-        print(colored_text(f"\nExecuting batch update for {len(updates_batch)} products...", "cyan"))
+        print(colored_text(f"\nExecuting optimized bulk update for {len(updates_batch)} products...", "cyan"))
         
+        # PERFORMANCE OPTIMIZATION: Group updates by field combinations to enable bulk operations
+        update_groups = {}
         for product_id, update_data in updates_batch:
-            # Individual updates are necessary here due to varying update fields
-            # But we're minimizing the number by batching the preparation
-            from sqlalchemy import update
-            from shared.database.models import Product
-            
-            await session.execute(
-                update(Product)
-                .where(Product.id == product_id)
-                .values(**update_data)
-            )
+            # Create a key from the fields being updated
+            field_key = tuple(sorted(update_data.keys()))
+            if field_key not in update_groups:
+                update_groups[field_key] = []
+            update_groups[field_key].append((product_id, update_data))
+        
+        # Execute bulk updates for each field combination
+        for field_combination, group_updates in update_groups.items():
+            if len(group_updates) == 1:
+                # Single update - use individual query
+                product_id, update_data = group_updates[0]
+                from sqlalchemy import update
+                from shared.database.models import Product
+                await session.execute(
+                    update(Product)
+                    .where(Product.id == product_id)
+                    .values(**update_data)
+                )
+            else:
+                # Multiple updates with same fields - use bulk operation
+                await self._execute_bulk_product_update(session, field_combination, group_updates)
+
+    async def _execute_bulk_product_update(self, session, field_combination: tuple, group_updates: list):
+        """Execute bulk product update for products with identical field sets"""
+        from sqlalchemy import text
+        
+        # Build dynamic bulk update query
+        fields = list(field_combination)
+        set_clauses = []
+        values_list = []
+        
+        for product_id, update_data in group_updates:
+            # Build VALUES row
+            values_row = [f"'{product_id}'"]  # product_id first
+            for field in fields:
+                value = update_data[field]
+                if isinstance(value, str):
+                    values_row.append(f"'{value}'")
+                elif value is None:
+                    values_row.append("NULL")
+                else:
+                    values_row.append(str(value))
+            values_list.append(f"({', '.join(values_row)})")
+        
+        # Build SET clauses
+        for i, field in enumerate(fields, 1):  # Start from 1 because 0 is product_id
+            set_clauses.append(f"{field} = v.col{i}")
+        
+        # Build column list for VALUES
+        col_names = ['product_id'] + [f'col{i}' for i in range(1, len(fields) + 1)]
+        
+        values_clause = ", ".join(values_list)
+        set_clause = ", ".join(set_clauses)
+        col_clause = ", ".join(col_names)
+        
+        bulk_query = f"""
+            UPDATE products.products 
+            SET {set_clause}
+            FROM (VALUES {values_clause}) AS v({col_clause})
+            WHERE products.products.id::text = v.product_id
+        """
+        
+        await session.execute(text(bulk_query))
 
     async def _execute_inventory_updates_batch(self, session, updates_batch: list):
-        """Execute inventory updates in batch"""
+        """Execute inventory updates using true bulk operations"""
         from sqlalchemy import text
         
         if not updates_batch:
             return
         
-        print(colored_text(f"\nExecuting batch inventory update for {len(updates_batch)} items...", "cyan"))
+        print(colored_text(f"\nExecuting optimized bulk inventory update for {len(updates_batch)} items...", "cyan"))
         
-        for product_id, stockx_product_id in updates_batch:
+        # PERFORMANCE OPTIMIZATION: Use VALUES clause for bulk update
+        if len(updates_batch) == 1:
+            # Single update
+            product_id, stockx_product_id = updates_batch[0]
             await session.execute(
                 text(
                     """
@@ -1111,6 +1168,24 @@ class RetroAdminCLI:
                     "stockx_data": f'{{"stockx_product_id": "{stockx_product_id}"}}',
                     "product_id": str(product_id),
                 },
+            )
+        else:
+            # Bulk update using VALUES clause
+            values_list = []
+            for product_id, stockx_product_id in updates_batch:
+                values_list.append(f"('{product_id}', '{stockx_product_id}')")
+            
+            values_clause = ", ".join(values_list)
+            
+            await session.execute(
+                text(
+                    f"""
+                    UPDATE products.inventory 
+                    SET external_ids = COALESCE(external_ids, '{{}}') || ('{{"stockx_product_id": "' || v.stockx_id || '"}}')::jsonb
+                    FROM (VALUES {values_clause}) AS v(product_id, stockx_id)
+                    WHERE products.inventory.product_id::text = v.product_id
+                """
+                )
             )
 
     def _print_enrichment_summary(self, total_products: int, enriched_count: int, skipped_count: int, error_count: int):

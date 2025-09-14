@@ -1215,12 +1215,16 @@ class InventoryService:
                 "external_ids_merged": 0
             }
             
-            for duplicate_id in duplicate_item_ids:
-                duplicate_item = await self.db_session.get(InventoryItem, duplicate_id)
-                if not duplicate_item:
-                    self.logger.warning(f"Duplicate item {duplicate_id} not found, skipping")
-                    continue
-                
+            # PERFORMANCE OPTIMIZATION: Batch load all duplicate items at once
+            from sqlalchemy import select
+            duplicate_items_result = await self.db_session.execute(
+                select(InventoryItem).where(InventoryItem.id.in_(duplicate_item_ids))
+            )
+            duplicate_items = duplicate_items_result.scalars().all()
+            
+            # Process merging in memory first
+            items_to_delete = []
+            for duplicate_item in duplicate_items:
                 # Merge quantity
                 if duplicate_item.quantity:
                     primary_item.quantity = (primary_item.quantity or 0) + duplicate_item.quantity
@@ -1241,9 +1245,14 @@ class InventoryService:
                 if duplicate_item.purchase_price and (not primary_item.purchase_price or duplicate_item.purchase_price < primary_item.purchase_price):
                     primary_item.purchase_price = duplicate_item.purchase_price
                 
-                # Delete the duplicate item
-                await self.db_session.delete(duplicate_item)
+                items_to_delete.append(duplicate_item.id)
                 merge_stats["merged_items"] += 1
+            
+            # PERFORMANCE OPTIMIZATION: Bulk delete all duplicates in one query
+            if items_to_delete:
+                await self.db_session.execute(
+                    InventoryItem.__table__.delete().where(InventoryItem.id.in_(items_to_delete))
+                )
             
             await self.db_session.commit()
             
