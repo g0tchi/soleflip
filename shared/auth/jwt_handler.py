@@ -2,6 +2,7 @@
 JWT token handling utilities.
 """
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
@@ -74,7 +75,7 @@ class JWTHandler:
             logger.error("Failed to create access token", error=str(e))
             raise ValueError("Failed to create access token")
 
-    def decode_token(self, token: str) -> TokenPayload:
+    async def decode_token(self, token: str) -> TokenPayload:
         """
         Decode and validate a JWT token.
 
@@ -134,7 +135,7 @@ class JWTHandler:
             logger.error("Token decode error", error=str(e))
             raise ValueError("Token decode error")
 
-    def is_token_expired(self, token: str) -> bool:
+    async def is_token_expired(self, token: str) -> bool:
         """
         Check if a token is expired without raising an exception.
 
@@ -145,12 +146,12 @@ class JWTHandler:
             True if token is expired or invalid, False otherwise
         """
         try:
-            self.decode_token(token)
+            await self.decode_token(token)
             return False
         except ValueError as e:
             return "expired" in str(e).lower()
 
-    def get_token_expiry(self, token: str) -> Optional[datetime]:
+    async def get_token_expiry(self, token: str) -> Optional[datetime]:
         """
         Get the expiration time of a token.
 
@@ -161,7 +162,7 @@ class JWTHandler:
             Expiration datetime or None if token is invalid
         """
         try:
-            payload = self.decode_token(token)
+            payload = await self.decode_token(token)
             return datetime.fromtimestamp(payload.exp, tz=timezone.utc)
         except ValueError:
             return None

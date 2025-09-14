@@ -65,7 +65,7 @@ async def get_current_user_from_token(
 
     try:
         # Decode and validate token
-        token_payload = jwt_handler.decode_token(token)
+        token_payload = await jwt_handler.decode_token(token)
 
         # Get user from database
         user_repo = BaseRepository(User, db)

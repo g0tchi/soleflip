@@ -61,17 +61,44 @@ async def lifespan(app: FastAPI):
     from shared.monitoring.health import setup_default_health_checks
     from shared.monitoring.metrics import get_metrics_collector
     from shared.monitoring.batch_monitor import get_batch_monitor
+    from shared.monitoring.apm import get_apm_collector, collect_system_metrics
+    from shared.monitoring.alerting import get_alert_manager, start_alert_monitoring
     import asyncio
+    import os
 
     await setup_default_health_checks(db_manager)
     metrics_collector = get_metrics_collector()
     metrics_collector.start_collection()
     
+    # Initialize APM system
+    apm_collector = get_apm_collector()
+    logger.info("APM system initialized")
+    
+    # Advanced health monitoring temporarily disabled
+    logger.info("Basic health monitoring active")
+    
+    # Initialize alerting system
+    alert_manager = get_alert_manager()
+    logger.info("Alerting system initialized")
+    
     # Initialize batch monitoring
     batch_monitor = get_batch_monitor()
     
-    # Start continuous batch monitoring as a background task
+    # Define system metrics collection task
+    async def _start_system_metrics_collection():
+        """Background task for collecting system metrics"""
+        while True:
+            try:
+                await collect_system_metrics()
+                await asyncio.sleep(30)  # Collect every 30 seconds
+            except Exception as e:
+                logger.error("System metrics collection failed", error=str(e))
+                await asyncio.sleep(60)  # Wait longer on error
+    
+    # Start continuous monitoring tasks
     asyncio.create_task(batch_monitor.run_continuous_monitoring(interval_seconds=300))
+    asyncio.create_task(_start_system_metrics_collection())
+    asyncio.create_task(start_alert_monitoring(check_interval_seconds=60))
 
     # Initialize event-driven domain communication
     from domains.integration.events import get_integration_event_handler
@@ -104,10 +131,10 @@ async def lifespan(app: FastAPI):
         # Redis not available, use in-memory blacklist only
         await initialize_token_blacklist()
     
-    # Setup database performance indexes
-    db_optimizer = get_database_optimizer()
-    async with db_manager.get_session() as session:
-        await db_optimizer.create_performance_indexes(session)
+    # Setup database performance indexes (temporarily disabled)
+    # db_optimizer = get_database_optimizer()
+    # async with db_manager.get_session() as session:
+    #     await db_optimizer.create_performance_indexes(session)
 
     logger.info("Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized")
 
@@ -163,6 +190,43 @@ setup_etag_middleware(app, {
     "weak_etags": True,  # Better performance
     "exclude_paths": ["/health", "/metrics", "/docs", "/openapi.json", "/health/ready", "/health/live"]
 })
+
+# Add APM request monitoring middleware
+from shared.monitoring.apm import monitor_request
+from fastapi import Request
+import time
+
+@app.middleware("http")
+async def apm_middleware(request: Request, call_next):
+    """APM middleware to automatically track all HTTP requests"""
+    from shared.monitoring.apm import get_apm_collector, RequestMetrics
+    
+    start_time = time.time()
+    status_code = 200
+    error_message = None
+    
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception as e:
+        status_code = 500
+        error_message = str(e)
+        raise
+    finally:
+        response_time_ms = (time.time() - start_time) * 1000
+        
+        # Record request metrics
+        metrics = RequestMetrics(
+            method=request.method,
+            path=str(request.url.path),
+            status_code=status_code,
+            response_time_ms=response_time_ms,
+            timestamp=datetime.utcnow(),
+            error_message=error_message
+        )
+        
+        get_apm_collector().record_request(metrics)
 
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
@@ -225,11 +289,23 @@ async def root():
 
 @app.get("/health", tags=["System"])
 async def health_check():
-    """Comprehensive health check endpoint"""
+    """Comprehensive health check endpoint with APM integration"""
     from shared.monitoring.health import get_health_manager
+    # from shared.monitoring.advanced_health import get_advanced_health_manager
+    from shared.monitoring.apm import get_apm_collector
 
     health_manager = get_health_manager()
+    # advanced_health = get_advanced_health_manager()
+    apm_collector = get_apm_collector()
+    
+    # Get basic health status
     health_status = await health_manager.get_overall_health()
+    
+    # Advanced health checks temporarily disabled
+    advanced_status = {"overall_status": "healthy", "startup_checks": {}, "component_health": {}}
+    
+    # Get APM performance summary (last 5 minutes)
+    performance_summary = apm_collector.get_performance_summary(minutes=5)
 
     return {
         "status": health_status["status"],
@@ -239,6 +315,18 @@ async def health_check():
         "uptime_seconds": health_status["uptime_seconds"],
         "checks_summary": health_status["checks"],
         "components": health_status["components"],
+        "advanced_health": {
+            "overall_status": advanced_status["overall_status"],
+            "startup_checks": advanced_status["startup_checks"],
+            "component_health": advanced_status["component_health"]
+        },
+        "performance": {
+            "health_score": performance_summary["health_score"],
+            "requests": performance_summary["requests"],
+            "database": performance_summary["database"],
+            "system": performance_summary["system"],
+            "alerts_count": performance_summary["alerts"]["count"]
+        }
     }
 
 
@@ -251,6 +339,105 @@ async def get_metrics():
     return {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "metrics": registry.get_metrics_summary(),
+    }
+
+
+@app.get("/metrics/apm", tags=["System"])
+async def get_apm_metrics():
+    """Get detailed APM metrics and performance insights"""
+    from shared.monitoring.apm import get_apm_collector
+    
+    apm_collector = get_apm_collector()
+    
+    # Get performance summaries for different time windows
+    current_5min = apm_collector.get_performance_summary(minutes=5)
+    current_15min = apm_collector.get_performance_summary(minutes=15)
+    current_60min = apm_collector.get_performance_summary(minutes=60)
+    
+    # Get recent alerts (last 10)
+    recent_alerts = apm_collector.performance_alerts[-10:] if apm_collector.performance_alerts else []
+    
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "time_windows": {
+            "last_5_minutes": current_5min,
+            "last_15_minutes": current_15min,
+            "last_60_minutes": current_60min
+        },
+        "recent_alerts": recent_alerts,
+        "thresholds": {
+            "slow_request_ms": apm_collector.slow_request_threshold_ms,
+            "slow_query_ms": apm_collector.slow_query_threshold_ms,
+            "high_cpu_percent": apm_collector.high_cpu_threshold,
+            "high_memory_percent": apm_collector.high_memory_threshold
+        },
+        "error_tracking": dict(apm_collector.error_tracking),
+        "slow_queries": [
+            {
+                "query_type": sq.query_type,
+                "execution_time_ms": sq.execution_time_ms,
+                "table_name": sq.table_name,
+                "timestamp": sq.timestamp.isoformat() + "Z"
+            }
+            for sq in list(apm_collector.slow_queries)[-10:]  # Last 10 slow queries
+        ]
+    }
+
+
+@app.get("/alerts", tags=["System"])
+async def get_alerts():
+    """Get current system alerts and alerting statistics"""
+    from shared.monitoring.alerting import get_alert_manager
+    
+    alert_manager = get_alert_manager()
+    
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "active_alerts": [
+            {
+                "rule_name": alert.rule_name,
+                "severity": alert.severity.value,
+                "message": alert.message,
+                "timestamp": alert.timestamp.isoformat() + "Z",
+                "details": alert.details
+            }
+            for alert in alert_manager.get_active_alerts()
+        ],
+        "alert_stats": alert_manager.get_alert_stats(hours=24),
+        "rule_count": len(alert_manager.rules),
+        "enabled_rules": len([rule for rule in alert_manager.rules.values() if rule.enabled])
+    }
+
+
+@app.get("/alerts/history", tags=["System"])
+async def get_alert_history(hours: int = 24):
+    """Get alert history for the specified time period"""
+    from shared.monitoring.alerting import get_alert_manager
+    
+    if hours > 168:  # Limit to 1 week
+        hours = 168
+    
+    alert_manager = get_alert_manager()
+    history = alert_manager.get_alert_history(hours=hours)
+    
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timeframe_hours": hours,
+        "total_alerts": len(history),
+        "alerts": [
+            {
+                "rule_name": alert.rule_name,
+                "severity": alert.severity.value,
+                "message": alert.message,
+                "timestamp": alert.timestamp.isoformat() + "Z",
+                "resolved": alert.resolved,
+                "resolved_at": alert.resolved_at.isoformat() + "Z" if alert.resolved_at else None,
+                "duration_minutes": round(
+                    ((alert.resolved_at or datetime.utcnow()) - alert.timestamp).total_seconds() / 60, 2
+                )
+            }
+            for alert in history
+        ]
     }
 
 

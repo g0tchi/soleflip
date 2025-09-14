@@ -90,12 +90,12 @@ async def execute_query(
                         value = row[i]
                         # Convert datetime and other objects to strings for JSON serialization
                         if hasattr(value, "isoformat"):
-                        value = value.isoformat()
-                    elif value is None:
-                        value = None
-                    else:
-                        value = str(value) if not isinstance(value, (int, float, bool)) else value
-                    row_dict[column] = value
+                            value = value.isoformat()
+                        elif value is None:
+                            value = None
+                        else:
+                            value = str(value) if not isinstance(value, (int, float, bool)) else value
+                        row_dict[column] = value
                 results.append(row_dict)
         else:
             results = []

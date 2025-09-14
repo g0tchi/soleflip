@@ -13,7 +13,7 @@ import structlog
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Brand, Category, InventoryItem, Size
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
