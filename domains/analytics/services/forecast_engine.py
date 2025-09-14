@@ -130,15 +130,19 @@ class ForecastEngine:
         if not entity_ids:
             entity_ids = await self._get_forecastable_entities(config.level)
 
+        # PERFORMANCE OPTIMIZATION: Use list comprehension with error handling
         results = []
-        for entity_id in entity_ids:
+        async def safe_forecast(entity_id):
             try:
                 result = await self._forecast_single_entity(config, entity_id, run_id)
-                if result:
-                    results.append(result)
+                return result if result else None
             except Exception as e:
                 self.logger.error(f"Failed to forecast entity {entity_id}: {str(e)}")
-                continue
+                return None
+        
+        # Process all entities and filter out None results
+        forecast_results = [await safe_forecast(entity_id) for entity_id in entity_ids]
+        results = [result for result in forecast_results if result is not None]
 
         # Store forecasts in database
         await self._store_forecast_results(results, run_id)
@@ -292,11 +296,9 @@ class ForecastEngine:
             # Fall back to simple mean
             predictions = [np.mean(y[-7:])] * config.prediction_days
         else:
-            # Use seasonal pattern
+            # Use seasonal pattern with list comprehension
             seasonal_pattern = y[-season_length:]
-            predictions = []
-            for i in range(config.prediction_days):
-                predictions.append(seasonal_pattern[i % season_length])
+            predictions = [seasonal_pattern[i % season_length] for i in range(config.prediction_days)]
 
         # Calculate confidence intervals based on historical variance
         recent_variance = np.var(y[-min(30, len(y)) :])
@@ -381,23 +383,24 @@ class ForecastEngine:
                 if trend_idx is not None:
                     last_features[0, trend_idx] += 1
 
-        # Calculate confidence intervals using prediction quantiles
+        # Calculate confidence intervals using prediction quantiles with list comprehensions
         n_trees = model.n_estimators
-        tree_predictions = []
+        
+        # PERFORMANCE OPTIMIZATION: Use nested list comprehensions for tree predictions
+        tree_predictions = [
+            [max(0, tree.predict(X[-1:].reshape(1, -1))[0]) for tree in model.estimators_]
+            for i in range(config.prediction_days)
+        ]
 
-        for i in range(config.prediction_days):
-            tree_preds = []
-            for tree in model.estimators_:
-                pred = tree.predict(X[-1:].reshape(1, -1))[0]
-                tree_preds.append(max(0, pred))
-            tree_predictions.append(tree_preds)
-
-        confidence_intervals = []
+        # PERFORMANCE OPTIMIZATION: Use list comprehension for confidence intervals
         alpha = 1 - config.confidence_level
-        for tree_preds in tree_predictions:
-            lower = np.percentile(tree_preds, 100 * alpha / 2)
-            upper = np.percentile(tree_preds, 100 * (1 - alpha / 2))
-            confidence_intervals.append((lower, upper))
+        confidence_intervals = [
+            (
+                np.percentile(tree_preds, 100 * alpha / 2),
+                np.percentile(tree_preds, 100 * (1 - alpha / 2))
+            )
+            for tree_preds in tree_predictions
+        ]
 
         # Model metrics
         y_pred = model.predict(X_test)
