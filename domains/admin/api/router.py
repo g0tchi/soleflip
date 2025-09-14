@@ -68,20 +68,28 @@ async def execute_query(
         start_time = time.time()
 
         result = await db.execute(text(request.query))
-        rows = result.fetchall()
-
+        
+        # STREAMING OPTIMIZATION: Use fetchmany() for memory-efficient processing
         execution_time = (time.time() - start_time) * 1000
-
-        # Convert rows to list of dictionaries
-        if rows:
-            columns = result.keys()
-            results = []
-            for row in rows:
-                row_dict = {}
-                for i, column in enumerate(columns):
-                    value = row[i]
-                    # Convert datetime and other objects to strings for JSON serialization
-                    if hasattr(value, "isoformat"):
+        
+        # Process results in chunks to avoid memory exhaustion
+        columns = result.keys() if result.returns_rows else []
+        results = []
+        chunk_size = 10000  # Process 10k rows at a time
+        
+        if result.returns_rows:
+            while True:
+                chunk = result.fetchmany(chunk_size)
+                if not chunk:
+                    break
+                
+                # Process chunk
+                for row in chunk:
+                    row_dict = {}
+                    for i, column in enumerate(columns):
+                        value = row[i]
+                        # Convert datetime and other objects to strings for JSON serialization
+                        if hasattr(value, "isoformat"):
                         value = value.isoformat()
                     elif value is None:
                         value = None

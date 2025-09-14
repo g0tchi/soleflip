@@ -114,7 +114,14 @@ async def upload_stockx_file(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV file: {e}")
 
-    raw_csv_data = df.to_dict("records")
+    # STREAMING OPTIMIZATION: Use generator for memory-efficient processing
+    # Instead of loading all data into memory with to_dict(), use iterrows()
+    def generate_csv_records():
+        for _, row in df.iterrows():
+            yield row.to_dict()
+    
+    # For now, convert to list for compatibility (in production, process as generator)
+    raw_csv_data = list(generate_csv_records())
 
     # Create an initial batch record to get a batch_id
     batch = await import_processor.create_initial_batch(

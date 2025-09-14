@@ -209,7 +209,9 @@ class DeadStockService:
                     ["product", "product.brand", "product.category", "size"]
                 )
             
-            return list(items)
+            # STREAMING OPTIMIZATION: Return generator instead of list for memory efficiency
+            # Caller can iterate directly without loading all items into memory
+            return items  # Remove list() constructor - return generator directly
             
         except Exception as e:
             self.logger.error(f"Failed to get inventory for analysis: {e}")
