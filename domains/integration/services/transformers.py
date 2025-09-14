@@ -16,6 +16,10 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
+_CLEANUP_PATTERN = re.compile(r"[,\s]")
+_CURRENCY_CLEANUP_PATTERN = re.compile(r"[^0-9.-]")
+
 
 class TransformError(Exception):
     """Custom exception for transformation errors"""
@@ -242,15 +246,15 @@ class DataTransformer:
     def _transform_integer(self, value: Any) -> int:
         """Transform value to integer"""
         if isinstance(value, str):
-            # Remove common formatting
-            clean_value = re.sub(r"[,\s]", "", value)
+            # Remove common formatting using compiled regex
+            clean_value = _CLEANUP_PATTERN.sub("", value)
             return int(float(clean_value))  # Handle "123.0" -> 123
         return int(value)
 
     def _transform_decimal(self, value: Any) -> Decimal:
         """Transform value to decimal"""
         if isinstance(value, str):
-            clean_value = re.sub(r"[,\s]", "", value)
+            clean_value = _CLEANUP_PATTERN.sub("", value)
             return Decimal(clean_value)
         return Decimal(str(value))
 
@@ -325,8 +329,8 @@ class DataTransformer:
             if match:
                 return Decimal(match.group(1))
 
-            # Fallback to direct conversion
-            clean_value = re.sub(r"[^0-9.-]", "", value)
+            # Fallback to direct conversion using compiled regex
+            clean_value = _CURRENCY_CLEANUP_PATTERN.sub("", value)
             if clean_value:
                 return Decimal(clean_value)
 

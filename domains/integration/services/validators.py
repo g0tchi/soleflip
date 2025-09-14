@@ -13,6 +13,9 @@ import structlog
 
 from shared.utils import ValidationUtils
 
+# PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
+_SIZE_NUMBER_PATTERN = re.compile(r"^\d+\.?\d*$")
+
 logger = structlog.get_logger(__name__)
 
 
@@ -379,8 +382,8 @@ class StockXValidator(BaseValidator):
         if size_str in ["N/A", "", "NULL", "NAN"]:
             return "One Size"
 
-        # Add US prefix if it's just a number
-        if re.match(r"^\d+\.?\d*$", size_str):
+        # Add US prefix if it's just a number using compiled regex
+        if _SIZE_NUMBER_PATTERN.match(size_str):
             return f"US {size_str}"
 
         return size_str

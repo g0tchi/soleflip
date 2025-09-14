@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import Brand, Category, Product
 
+# PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
+_CLEAN_NAME_PATTERN = re.compile(r"[^a-zA-Z0-9\s]")
+
 logger = structlog.get_logger(__name__)
 
 
@@ -173,7 +176,7 @@ class ProductProcessor:
         return category
 
     def _generate_sku(self, product_name: str, brand_name: Optional[str] = None) -> str:
-        clean_name = re.sub(r"[^a-zA-Z0-9\s]", "", product_name)
+        clean_name = _CLEAN_NAME_PATTERN.sub("", product_name)
         words = clean_name.split()[:4]
         brand_prefix = (brand_name[:3] if brand_name else "GEN").upper()
         name_part = "".join(word[:3].upper() for word in words)
