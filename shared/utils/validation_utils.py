@@ -10,6 +10,9 @@ from typing import Any, Optional
 
 from dateutil import parser as date_parser
 
+# PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
+_CURRENCY_CLEAN_PATTERN = re.compile(r"[^\d\.-]")
+_SIZE_NUMERIC_PATTERN = re.compile(r"[^\d\.]") 
 
 class ValidationUtils:
     """Centralized validation utilities for common data normalization patterns."""
@@ -41,8 +44,8 @@ class ValidationUtils:
             return Decimal(str(value))
 
         if isinstance(value, str):
-            # Remove currency symbols and spaces
-            clean_value = re.sub(r"[^\d\.-]", "", value.strip())
+            # Remove currency symbols and spaces using compiled regex
+            clean_value = _CURRENCY_CLEAN_PATTERN.sub("", value.strip())
             if not clean_value:
                 return None
 
@@ -112,8 +115,8 @@ class ValidationUtils:
             if size_str in ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]:
                 return size_str
 
-            # Handle numeric sizes (remove non-numeric chars except decimal point)
-            numeric_size = re.sub(r"[^\d\.]", "", size_str)
+            # Handle numeric sizes using compiled regex
+            numeric_size = _SIZE_NUMERIC_PATTERN.sub("", size_str)
             if numeric_size:
                 try:
                     # Convert to float and back to standardize format

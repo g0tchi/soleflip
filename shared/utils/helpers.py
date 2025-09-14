@@ -17,6 +17,13 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
+_DIGITS_ONLY_PATTERN = re.compile(r"[^\d]")
+_CAMEL_TO_SNAKE_1_PATTERN = re.compile(r"(.)([A-Z][a-z]+)")
+_CAMEL_TO_SNAKE_2_PATTERN = re.compile(r"([a-z0-9])([A-Z])")
+_SLUG_CLEAN_PATTERN = re.compile(r"[^\w\s-]")
+_SLUG_HYPHEN_PATTERN = re.compile(r"[-\s]+")
+
 T = TypeVar("T")
 
 
@@ -32,8 +39,8 @@ class ValidationHelper:
     @staticmethod
     def is_valid_phone(phone: str) -> bool:
         """Validate phone number format"""
-        # Remove all non-digits
-        digits_only = re.sub(r"[^\d]", "", phone)
+        # Remove all non-digits using compiled regex
+        digits_only = _DIGITS_ONLY_PATTERN.sub("", phone)
         # Should be 10-15 digits
         return 10 <= len(digits_only) <= 15
 
@@ -136,9 +143,9 @@ class StringHelper:
 
     @staticmethod
     def to_snake_case(camel_str: str) -> str:
-        """Convert CamelCase to snake_case"""
-        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", camel_str)
-        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+        """Convert CamelCase to snake_case using compiled regex"""
+        s1 = _CAMEL_TO_SNAKE_1_PATTERN.sub(r"\1_\2", camel_str)
+        return _CAMEL_TO_SNAKE_2_PATTERN.sub(r"\1_\2", s1).lower()
 
     @staticmethod
     def to_camel_case(snake_str: str) -> str:
@@ -148,10 +155,10 @@ class StringHelper:
 
     @staticmethod
     def slugify(text: str) -> str:
-        """Convert text to URL-friendly slug"""
+        """Convert text to URL-friendly slug using compiled regex"""
         # Convert to lowercase and replace spaces/special chars with hyphens
-        text = re.sub(r"[^\w\s-]", "", text.lower())
-        text = re.sub(r"[-\s]+", "-", text)
+        text = _SLUG_CLEAN_PATTERN.sub("", text.lower())
+        text = _SLUG_HYPHEN_PATTERN.sub("-", text)
         return text.strip("-")
 
     @staticmethod
