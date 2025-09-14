@@ -269,12 +269,60 @@ class SecurityManager:
             if not log_file.exists():
                 return []
 
-            with open(log_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                return [line.strip() for line in lines[-count:]]
+            # MEMORY OPTIMIZATION: Use efficient tail reading for large log files
+            import os
+            file_size_mb = os.path.getsize(log_file) / (1024 * 1024)
+            
+            if file_size_mb > 10:  # Files larger than 10MB use efficient tail reading
+                return self._tail_file_efficiently(log_file, count)
+            else:
+                # Regular processing for smaller files
+                with open(log_file, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    return [line.strip() for line in lines[-count:]]
 
         except IOError:
             return []
+
+    def _tail_file_efficiently(self, file_path: str, count: int) -> List[str]:
+        """Efficiently read last N lines from large files without loading entire file"""
+        import mmap
+        
+        try:
+            with open(file_path, 'rb') as f:
+                # Memory-map the file for efficient random access
+                with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                    # Start from end and work backwards
+                    lines = []
+                    line_start = len(mm)
+                    lines_found = 0
+                    
+                    # Search backwards for newlines
+                    for pos in range(len(mm) - 1, -1, -1):
+                        if mm[pos] == ord('\n'):
+                            if lines_found > 0:  # Skip the very last newline
+                                line = mm[pos + 1:line_start].decode('utf-8', errors='ignore').strip()
+                                if line:  # Only add non-empty lines
+                                    lines.append(line)
+                                    lines_found += 1
+                                    if lines_found >= count:
+                                        break
+                            line_start = pos
+                    
+                    # Add the first line if we haven't found enough
+                    if lines_found < count and line_start > 0:
+                        line = mm[0:line_start].decode('utf-8', errors='ignore').strip()
+                        if line:
+                            lines.append(line)
+                    
+                    # Reverse to get correct chronological order
+                    return lines[::-1]
+        
+        except Exception:
+            # Fallback to regular method if memory mapping fails
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                return [line.strip() for line in lines[-count:]]
 
     def get_session_stats(self) -> Dict[str, Any]:
         """Get session statistics"""
