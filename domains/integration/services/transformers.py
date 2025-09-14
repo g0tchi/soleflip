@@ -208,63 +208,89 @@ class DataTransformer:
         return transformed_value
 
     def _transform_by_type(self, value: Any, field_type: FieldType) -> Any:
-        """Transform value based on target field type"""
+        """Transform value based on target field type using strategy pattern"""
         if value is None:
             return None
 
+        # Strategy pattern: delegate to specific transformation methods
+        transformation_strategies = {
+            FieldType.STRING: self._transform_string,
+            FieldType.INTEGER: self._transform_integer,
+            FieldType.DECIMAL: self._transform_decimal,
+            FieldType.BOOLEAN: self._transform_boolean,
+            FieldType.DATE: self._transform_date,
+            FieldType.DATETIME: self._transform_datetime,
+            FieldType.UUID: self._transform_uuid,
+            FieldType.EMAIL: self._transform_email,
+            FieldType.URL: self._transform_url,
+            FieldType.CURRENCY: self._transform_currency,
+        }
+
+        strategy = transformation_strategies.get(field_type)
+        if strategy is None:
+            return value
+
         try:
-            if field_type == FieldType.STRING:
-                return str(value).strip()
-
-            elif field_type == FieldType.INTEGER:
-                if isinstance(value, str):
-                    # Remove common formatting
-                    clean_value = re.sub(r"[,\s]", "", value)
-                    return int(float(clean_value))  # Handle "123.0" -> 123
-                return int(value)
-
-            elif field_type == FieldType.DECIMAL:
-                if isinstance(value, str):
-                    clean_value = re.sub(r"[,\s]", "", value)
-                    return Decimal(clean_value)
-                return Decimal(str(value))
-
-            elif field_type == FieldType.BOOLEAN:
-                if isinstance(value, str):
-                    return value.lower() in ("true", "1", "yes", "on", "enabled")
-                return bool(value)
-
-            elif field_type == FieldType.DATE:
-                return self._parse_date(value).date()
-
-            elif field_type == FieldType.DATETIME:
-                return self._parse_date(value)
-
-            elif field_type == FieldType.UUID:
-                if isinstance(value, str):
-                    return uuid.UUID(value)
-                return value
-
-            elif field_type == FieldType.EMAIL:
-                email = str(value).strip().lower()
-                if "@" not in email:
-                    raise ValueError("Invalid email format")
-                return email
-
-            elif field_type == FieldType.URL:
-                url = str(value).strip()
-                if not url.startswith(("http://", "https://")):
-                    url = "https://" + url
-                return url
-
-            elif field_type == FieldType.CURRENCY:
-                return self._parse_currency(value)
-
-            else:
-                return value
-
+            return strategy(value)
         except Exception as e:
             raise TransformError(f"Cannot convert '{value}' to {field_type.value}: {str(e)}")
+
+    def _transform_string(self, value: Any) -> str:
+        """Transform value to string"""
+        return str(value).strip()
+
+    def _transform_integer(self, value: Any) -> int:
+        """Transform value to integer"""
+        if isinstance(value, str):
+            # Remove common formatting
+            clean_value = re.sub(r"[,\s]", "", value)
+            return int(float(clean_value))  # Handle "123.0" -> 123
+        return int(value)
+
+    def _transform_decimal(self, value: Any) -> Decimal:
+        """Transform value to decimal"""
+        if isinstance(value, str):
+            clean_value = re.sub(r"[,\s]", "", value)
+            return Decimal(clean_value)
+        return Decimal(str(value))
+
+    def _transform_boolean(self, value: Any) -> bool:
+        """Transform value to boolean"""
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes", "on", "enabled")
+        return bool(value)
+
+    def _transform_date(self, value: Any):
+        """Transform value to date"""
+        return self._parse_date(value).date()
+
+    def _transform_datetime(self, value: Any) -> datetime:
+        """Transform value to datetime"""
+        return self._parse_date(value)
+
+    def _transform_uuid(self, value: Any):
+        """Transform value to UUID"""
+        if isinstance(value, str):
+            return uuid.UUID(value)
+        return value
+
+    def _transform_email(self, value: Any) -> str:
+        """Transform value to valid email"""
+        email = str(value).strip().lower()
+        if "@" not in email:
+            raise ValueError("Invalid email format")
+        return email
+
+    def _transform_url(self, value: Any) -> str:
+        """Transform value to valid URL"""
+        url = str(value).strip()
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        return url
+
+    def _transform_currency(self, value: Any) -> Decimal:
+        """Transform value to currency decimal"""
+        return self._parse_currency(value)
 
     def _parse_date(self, value: Any) -> datetime:
         """Parse date/datetime with multiple format support"""
@@ -430,44 +456,29 @@ class NotionTransformer(DataTransformer):
     def _transform_notion_record(
         self, record: Dict[str, Any], row_idx: int
     ) -> Optional[Dict[str, Any]]:
-        """Transform a single Notion record"""
+        """Transform a single Notion record using strategy pattern"""
         properties = record.get("properties", {})
         transformed = {}
 
-        # Extract common Notion property types
+        # Strategy pattern: delegate to specific property transformation methods
+        notion_property_strategies = {
+            "title": self._transform_notion_title,
+            "rich_text": self._transform_notion_rich_text,
+            "number": self._transform_notion_number,
+            "date": self._transform_notion_date,
+            "select": self._transform_notion_select,
+        }
+
+        # Transform each property using appropriate strategy
         for prop_name, prop_data in properties.items():
             prop_type = prop_data.get("type")
-
-            if prop_type == "title":
-                title_data = prop_data.get("title", [])
-                if title_data:
-                    transformed[prop_name.lower().replace(" ", "_")] = (
-                        title_data[0].get("text", {}).get("content", "")
-                    )
-
-            elif prop_type == "rich_text":
-                text_data = prop_data.get("rich_text", [])
-                if text_data:
-                    transformed[prop_name.lower().replace(" ", "_")] = (
-                        text_data[0].get("text", {}).get("content", "")
-                    )
-
-            elif prop_type == "number":
-                number_value = prop_data.get("number")
-                if number_value is not None:
-                    transformed[prop_name.lower().replace(" ", "_")] = Decimal(str(number_value))
-
-            elif prop_type == "date":
-                date_data = prop_data.get("date")
-                if date_data and date_data.get("start"):
-                    transformed[prop_name.lower().replace(" ", "_")] = self._parse_date(
-                        date_data["start"]
-                    )
-
-            elif prop_type == "select":
-                select_data = prop_data.get("select")
-                if select_data:
-                    transformed[prop_name.lower().replace(" ", "_")] = select_data.get("name", "")
+            strategy = notion_property_strategies.get(prop_type)
+            
+            if strategy:
+                field_name = prop_name.lower().replace(" ", "_")
+                transformed_value = strategy(prop_data)
+                if transformed_value is not None:
+                    transformed[field_name] = transformed_value
 
         # Add metadata
         transformed["notion_id"] = record.get("id")
@@ -476,6 +487,41 @@ class NotionTransformer(DataTransformer):
         transformed["_transformed_at"] = datetime.now(timezone.utc)
 
         return transformed
+
+    def _transform_notion_title(self, prop_data: Dict[str, Any]) -> Optional[str]:
+        """Transform Notion title property"""
+        title_data = prop_data.get("title", [])
+        if title_data:
+            return title_data[0].get("text", {}).get("content", "")
+        return None
+
+    def _transform_notion_rich_text(self, prop_data: Dict[str, Any]) -> Optional[str]:
+        """Transform Notion rich_text property"""
+        text_data = prop_data.get("rich_text", [])
+        if text_data:
+            return text_data[0].get("text", {}).get("content", "")
+        return None
+
+    def _transform_notion_number(self, prop_data: Dict[str, Any]) -> Optional[Decimal]:
+        """Transform Notion number property"""
+        number_value = prop_data.get("number")
+        if number_value is not None:
+            return Decimal(str(number_value))
+        return None
+
+    def _transform_notion_date(self, prop_data: Dict[str, Any]) -> Optional[datetime]:
+        """Transform Notion date property"""
+        date_data = prop_data.get("date")
+        if date_data and date_data.get("start"):
+            return self._parse_date(date_data["start"])
+        return None
+
+    def _transform_notion_select(self, prop_data: Dict[str, Any]) -> Optional[str]:
+        """Transform Notion select property"""
+        select_data = prop_data.get("select")
+        if select_data:
+            return select_data.get("name", "")
+        return None
 
 
 class AliasTransformer(DataTransformer):

@@ -185,9 +185,9 @@ class InventoryService:
     async def sync_all_stockx_listings_to_inventory(self) -> Dict[str, int]:
         """
         Sync all current StockX listings to inventory items with comprehensive duplicate detection
-        Creates inventory items for listings that don't have matching items
+        PERFORMANCE OPTIMIZED: Uses batch operations to avoid N+1 queries
         """
-        self.logger.info("Starting sync of all StockX listings to inventory with duplicate detection")
+        self.logger.info("Starting optimized sync of all StockX listings to inventory")
         stats = {"created": 0, "updated": 0, "skipped": 0, "matched": 0, "duplicates_detected": 0, "duplicates_merged": 0}
         
         try:
@@ -201,134 +201,256 @@ class InventoryService:
             listings = await stockx_service.get_all_listings()
             self.logger.info(f"Found {len(listings)} StockX listings to sync")
             
-            for listing in listings:
-                listing_id = listing.get("listingId")
-                if not listing_id:
-                    stats["skipped"] += 1
-                    continue
-                
-                # Extract product info
-                product_info = listing.get("product", {})
-                variant_info = listing.get("variant", {})
-                product_name = product_info.get("productName", "Unknown Product")
-                size = variant_info.get("variantValue", "Unknown Size")
-                
-                # Run comprehensive duplicate detection for this listing
-                has_duplicates, duplicate_matches = await self.detect_duplicate_listings(listing)
-                
-                if has_duplicates:
-                    self.logger.info(
-                        f"Duplicate detected for listing {listing_id}",
-                        duplicate_count=len(duplicate_matches),
-                        match_types=[match["match_type"] for match in duplicate_matches]
-                    )
-                    stats["duplicates_detected"] += 1
-                    
-                    # Handle high-confidence exact matches automatically
-                    exact_matches = [match for match in duplicate_matches if match["confidence"] >= 1.0]
-                    if exact_matches:
-                        stats["matched"] += 1
-                        continue
-                    
-                    # For other duplicates, log and potentially merge based on business rules
-                    high_confidence_matches = [match for match in duplicate_matches if match["confidence"] >= 0.9]
-                    if high_confidence_matches:
-                        # Auto-merge if we have a single high-confidence match
-                        primary_match = high_confidence_matches[0]
-                        existing_item = primary_match["item"]
-                        
-                        # Update external IDs to include this listing ID
-                        if not existing_item.external_ids:
-                            existing_item.external_ids = {}
-                        existing_item.external_ids["stockx_listing_id"] = listing_id
-                        
-                        stats["duplicates_merged"] += 1
-                        stats["matched"] += 1
-                        continue
-                
-                # Create new inventory item for this StockX listing
-                try:
-                    # Create a basic product first if needed (simplified)
-                    from shared.database.models import Product, Category, Brand, Size
-                    
-                    # Find or create brand
-                    brand_name = listing.get("brand", "Unknown")
-                    brand = await self.brand_repo.find_one_by({"name": brand_name})
-                    if not brand:
-                        from shared.database.models import Brand
-                        brand = Brand(name=brand_name, slug=brand_name.lower().replace(" ", "-"))
-                        self.db_session.add(brand)
-                        await self.db_session.flush()
-                    
-                    # Find or create category (default to sneakers)
-                    category = await self.category_repo.find_one_by({"name": "Sneakers"})
-                    if not category:
-                        from shared.database.models import Category
-                        category = Category(name="Sneakers", slug="sneakers")
-                        self.db_session.add(category)
-                        await self.db_session.flush()
-                    
-                    # Find or create product
-                    product_sku = f"stockx-{listing_id}"
-                    product = await self.product_repo.find_one_by({"sku": product_sku})
-                    if not product:
-                        from shared.database.models import Product
-                        product = Product(
-                            sku=product_sku,
-                            name=product_name,
-                            brand_id=brand.id,
-                            category_id=category.id
-                        )
-                        self.db_session.add(product)
-                        await self.db_session.flush()
-                    
-                    # Find or create size
-                    size_obj = await self.size_repo.find_one_by({
-                        "value": size,
-                        "category_id": category.id,
-                        "region": "US"
-                    })
-                    if not size_obj:
-                        from shared.database.models import Size
-                        size_obj = Size(
-                            value=size,
-                            category_id=category.id,
-                            region="US"
-                        )
-                        self.db_session.add(size_obj)
-                        await self.db_session.flush()
-                    
-                    # Create inventory item
-                    new_item = InventoryItem(
-                        product_id=product.id,
-                        size_id=size_obj.id,
-                        quantity=1,
-                        status="listed_stockx",
-                        external_ids={
-                            "stockx_listing_id": listing_id,
-                            "created_from_sync": True
-                        }
-                    )
-                    
-                    self.db_session.add(new_item)
-                    stats["created"] += 1
-                    
-                    self.logger.info(f"Created inventory item for StockX listing {listing_id}")
-                    
-                except Exception as item_error:
-                    self.logger.error(f"Failed to create inventory item for listing {listing_id}: {item_error}")
-                    stats["skipped"] += 1
+            # PERFORMANCE OPTIMIZATION: Pre-load all existing data in batches
+            existing_entities = await self._preload_sync_entities(listings)
+            
+            # Process listings in batches to avoid N+1 queries
+            batch_results = await self._process_listings_batch(
+                listings, existing_entities, stats
+            )
             
             # Commit all changes
             await self.db_session.commit()
             
-            self.logger.info("Completed StockX listings sync", stats=stats)
-            return stats
+            self.logger.info("Completed optimized StockX listings sync", stats=batch_results)
+            return batch_results
             
         except Exception as e:
             await self.db_session.rollback()
             self.logger.error("Failed to sync StockX listings to inventory", error=str(e))
             return {"error": str(e)}
+
+    async def _preload_sync_entities(self, listings: List[Dict]) -> Dict[str, Any]:
+        """Pre-load all entities needed for sync to avoid N+1 queries"""
+        # Extract unique values from listings
+        brand_names = set(listing.get("brand", "Unknown") for listing in listings)
+        product_skus = set(f"stockx-{listing.get('listingId')}" for listing in listings if listing.get('listingId'))
+        size_values = set(listing.get("variant", {}).get("variantValue", "Unknown Size") for listing in listings)
+        
+        # Batch load all brands
+        brands_query = select(Brand).where(Brand.name.in_(brand_names))
+        brands_result = await self.db_session.execute(brands_query)
+        existing_brands = {brand.name: brand for brand in brands_result.scalars().all()}
+        
+        # Batch load all products
+        products_query = select(Product).where(Product.sku.in_(product_skus)) if product_skus else None
+        existing_products = {}
+        if products_query:
+            products_result = await self.db_session.execute(products_query)
+            existing_products = {product.sku: product for product in products_result.scalars().all()}
+        
+        # Get default category (Sneakers)
+        category_query = select(Category).where(Category.name == "Sneakers")
+        category_result = await self.db_session.execute(category_query)
+        category = category_result.scalar_one_or_none()
+        
+        if not category:
+            from shared.database.models import Category
+            category = Category(name="Sneakers", slug="sneakers")
+            self.db_session.add(category)
+            await self.db_session.flush()
+        
+        # Batch load all sizes for this category
+        sizes_query = select(Size).where(
+            and_(
+                Size.value.in_(size_values),
+                Size.category_id == category.id,
+                Size.region == "US"
+            )
+        )
+        sizes_result = await self.db_session.execute(sizes_query)
+        existing_sizes = {size.value: size for size in sizes_result.scalars().all()}
+        
+        return {
+            "brands": existing_brands,
+            "products": existing_products,
+            "category": category,
+            "sizes": existing_sizes
+        }
+
+    async def _process_listings_batch(self, listings: List[Dict], entities: Dict[str, Any], stats: Dict[str, int]) -> Dict[str, int]:
+        """Process listings in optimized batches"""
+        new_brands = []
+        new_products = []
+        new_sizes = []
+        new_inventory_items = []
+        
+        for listing in listings:
+            listing_id = listing.get("listingId")
+            if not listing_id:
+                stats["skipped"] += 1
+                continue
+            
+            try:
+                # Check for duplicates first
+                has_duplicates, duplicate_matches = await self.detect_duplicate_listings(listing)
+                
+                if has_duplicates:
+                    duplicate_handled = self._handle_duplicates(listing_id, duplicate_matches, stats)
+                    if duplicate_handled:
+                        continue
+                
+                # Extract listing data
+                product_info = listing.get("product", {})
+                variant_info = listing.get("variant", {})
+                product_name = product_info.get("productName", "Unknown Product")
+                size_value = variant_info.get("variantValue", "Unknown Size")
+                brand_name = listing.get("brand", "Unknown")
+                
+                # Get or create brand
+                brand = await self._get_or_prepare_brand(brand_name, entities["brands"], new_brands)
+                
+                # Get or create product
+                product_sku = f"stockx-{listing_id}"
+                product = await self._get_or_prepare_product(
+                    product_sku, product_name, brand, entities["category"], 
+                    entities["products"], new_products
+                )
+                
+                # Get or create size
+                size_obj = await self._get_or_prepare_size(
+                    size_value, entities["category"], entities["sizes"], new_sizes
+                )
+                
+                # Prepare inventory item
+                new_inventory_items.append({
+                    "product_id": product.id,
+                    "size_id": size_obj.id,
+                    "quantity": 1,
+                    "status": "listed_stockx",
+                    "external_ids": {
+                        "stockx_listing_id": listing_id,
+                        "created_from_sync": True
+                    }
+                })
+                stats["created"] += 1
+                
+            except Exception as e:
+                self.logger.error(f"Failed to prepare inventory item for listing {listing_id}: {e}")
+                stats["skipped"] += 1
+        
+        # Batch insert all new entities
+        await self._batch_insert_entities(new_brands, new_products, new_sizes, new_inventory_items)
+        
+        return stats
+
+    def _handle_duplicates(self, listing_id: str, duplicate_matches: List[Dict], stats: Dict[str, int]) -> bool:
+        """Handle duplicate detection results"""
+        self.logger.info(
+            f"Duplicate detected for listing {listing_id}",
+            duplicate_count=len(duplicate_matches),
+            match_types=[match["match_type"] for match in duplicate_matches]
+        )
+        stats["duplicates_detected"] += 1
+        
+        # Handle high-confidence exact matches automatically
+        exact_matches = [match for match in duplicate_matches if match["confidence"] >= 1.0]
+        if exact_matches:
+            stats["matched"] += 1
+            return True
+        
+        # For other duplicates, log and potentially merge based on business rules
+        high_confidence_matches = [match for match in duplicate_matches if match["confidence"] >= 0.9]
+        if high_confidence_matches:
+            primary_match = high_confidence_matches[0]
+            existing_item = primary_match["item"]
+            
+            # Update external IDs to include this listing ID
+            if not existing_item.external_ids:
+                existing_item.external_ids = {}
+            existing_item.external_ids["stockx_listing_id"] = listing_id
+            
+            stats["duplicates_merged"] += 1
+            stats["matched"] += 1
+            return True
+        
+        return False
+
+    async def _get_or_prepare_brand(self, brand_name: str, existing_brands: Dict, new_brands: List) -> Brand:
+        """Get existing brand or prepare new one for batch insert"""
+        if brand_name in existing_brands:
+            return existing_brands[brand_name]
+        
+        # Check if already prepared for creation
+        for brand in new_brands:
+            if brand.name == brand_name:
+                return brand
+        
+        # Create new brand for batch insert
+        from shared.database.models import Brand
+        new_brand = Brand(name=brand_name, slug=brand_name.lower().replace(" ", "-"))
+        new_brands.append(new_brand)
+        existing_brands[brand_name] = new_brand  # Add to cache to avoid duplicates
+        return new_brand
+
+    async def _get_or_prepare_product(self, sku: str, name: str, brand: Brand, category: Category, 
+                                      existing_products: Dict, new_products: List) -> Product:
+        """Get existing product or prepare new one for batch insert"""
+        if sku in existing_products:
+            return existing_products[sku]
+        
+        # Check if already prepared for creation
+        for product in new_products:
+            if product.sku == sku:
+                return product
+        
+        # Create new product for batch insert
+        from shared.database.models import Product
+        new_product = Product(
+            sku=sku,
+            name=name,
+            brand_id=brand.id,
+            category_id=category.id
+        )
+        new_products.append(new_product)
+        existing_products[sku] = new_product  # Add to cache
+        return new_product
+
+    async def _get_or_prepare_size(self, size_value: str, category: Category, 
+                                   existing_sizes: Dict, new_sizes: List) -> Size:
+        """Get existing size or prepare new one for batch insert"""
+        if size_value in existing_sizes:
+            return existing_sizes[size_value]
+        
+        # Check if already prepared for creation
+        for size in new_sizes:
+            if size.value == size_value:
+                return size
+        
+        # Create new size for batch insert
+        from shared.database.models import Size
+        new_size = Size(
+            value=size_value,
+            category_id=category.id,
+            region="US"
+        )
+        new_sizes.append(new_size)
+        existing_sizes[size_value] = new_size  # Add to cache
+        return new_size
+
+    async def _batch_insert_entities(self, brands: List, products: List, sizes: List, inventory_items: List):
+        """Batch insert all new entities to minimize database round trips"""
+        # Insert brands first (no dependencies)
+        if brands:
+            self.db_session.add_all(brands)
+            await self.db_session.flush()  # Get IDs for dependent entities
+        
+        # Insert sizes (depends on category, already exists)
+        if sizes:
+            self.db_session.add_all(sizes)
+            await self.db_session.flush()
+        
+        # Insert products (depends on brands)
+        if products:
+            self.db_session.add_all(products)
+            await self.db_session.flush()
+        
+        # Insert inventory items (depends on products and sizes)
+        if inventory_items:
+            inventory_objects = []
+            for item_data in inventory_items:
+                inventory_objects.append(InventoryItem(**item_data))
+            self.db_session.add_all(inventory_objects)
 
     async def create_product_with_inventory(
         self,

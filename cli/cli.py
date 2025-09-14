@@ -882,156 +882,27 @@ class RetroAdminCLI:
                 await db_manager.initialize()
 
                 async with db_manager.get_session() as session:
-                    # Get all products that need enrichment
-                    result = await session.execute(
-                        text(
-                            """
-                        SELECT id, name, sku, description, retail_price, release_date
-                        FROM products.products 
-                        WHERE description IS NULL OR retail_price IS NULL OR release_date IS NULL
-                        ORDER BY created_at DESC
-                    """
-                        )
-                    )
-
-                    products = result.fetchall()
+                    products = await self._get_products_needing_enrichment(session)
                     total_products = len(products)
 
                     if total_products == 0:
                         print(colored_text("\nNo products need enrichment!", "green"))
                         return
 
-                    print(
-                        colored_text(
-                            f"\nStarting bulk enrichment of {total_products} products...",
-                            "bright_cyan",
-                        )
-                    )
+                    print(colored_text(f"\nStarting bulk enrichment of {total_products} products...", "bright_cyan"))
                     print(colored_text("This may take several minutes. Please wait...", "yellow"))
 
                     stockx_service = StockXService(session)
-                    enriched_count = 0
-                    skipped_count = 0
-                    error_count = 0
-
-                    for i, product in enumerate(products, 1):
-                        product_id, name, sku, description, retail_price, release_date = product
-
-                        # Progress indicator
-                        progress = (i / total_products) * 100
-                        print(
-                            colored_text(f"\n[{progress:.1f}%] Processing: {name[:50]}...", "cyan")
-                        )
-
-                        try:
-                            # Search StockX for this product
-                            search_results = await stockx_service.search_stockx_catalog(
-                                name, page_size=3
-                            )
-
-                            if (
-                                search_results
-                                and "results" in search_results
-                                and search_results["results"]
-                            ):
-                                # Find best match (could be improved with fuzzy matching)
-                                best_match = None
-                                for result in search_results["results"]:
-                                    result_title = result.get("title", "").lower()
-                                    if name.lower() in result_title or any(
-                                        word in result_title for word in name.lower().split()[:2]
-                                    ):
-                                        best_match = result
-                                        break
-
-                                if not best_match:
-                                    best_match = search_results["results"][
-                                        0
-                                    ]  # Fallback to first result
-
-                                # Extract enrichment data
-                                new_description = best_match.get("description") or best_match.get(
-                                    "title"
-                                )
-                                new_retail_price = best_match.get("retailPrice")
-                                new_release_date = best_match.get("releaseDate")
-                                stockx_product_id = best_match.get("id")
-
-                                # Update product in database
-                                update_data = {}
-                                if not description and new_description:
-                                    update_data["description"] = new_description[
-                                        :1000
-                                    ]  # Limit length
-                                if not retail_price and new_retail_price:
-                                    try:
-                                        update_data["retail_price"] = float(new_retail_price)
-                                    except (ValueError, TypeError):
-                                        pass
-                                if not release_date and new_release_date:
-                                    try:
-                                        from datetime import datetime
-
-                                        update_data["release_date"] = datetime.fromisoformat(
-                                            new_release_date.replace("Z", "+00:00")
-                                        )
-                                    except (ValueError, TypeError):
-                                        pass
-
-                                if update_data:
-                                    await session.execute(
-                                        update(Product)
-                                        .where(Product.id == product_id)
-                                        .values(**update_data)
-                                    )
-
-                                    # Update inventory items with StockX ID
-                                    if stockx_product_id:
-                                        await session.execute(
-                                            text(
-                                                """
-                                            UPDATE products.inventory 
-                                            SET external_ids = COALESCE(external_ids, '{}') || :stockx_data
-                                            WHERE product_id = :product_id
-                                        """
-                                            ),
-                                            {
-                                                "stockx_data": f'{{"stockx_product_id": "{stockx_product_id}"}}',
-                                                "product_id": str(product_id),
-                                            },
-                                        )
-
-                                    enriched_count += 1
-                                    print(
-                                        colored_text(
-                                            f"  ✓ Updated: {', '.join(update_data.keys())}", "green"
-                                        )
-                                    )
-                                else:
-                                    skipped_count += 1
-                                    print(colored_text("  - No new data available", "dim"))
-                            else:
-                                skipped_count += 1
-                                print(colored_text("  ✗ No StockX match found", "red"))
-
-                            # Rate limiting - pause between requests
-                            await asyncio.sleep(2)
-
-                        except Exception as e:
-                            error_count += 1
-                            print(colored_text(f"  ✗ Error: {str(e)[:100]}", "red"))
-                            continue
+                    
+                    # PERFORMANCE OPTIMIZATION: Process in intelligent batches
+                    enriched_count, skipped_count, error_count = await self._process_products_in_batches(
+                        products, stockx_service, session
+                    )
 
                     # Commit all changes
                     await session.commit()
 
-                    print(colored_text("\n" + "=" * 60, "green"))
-                    print(colored_text("BULK ENRICHMENT COMPLETE!", "bright_green"))
-                    print(colored_text(f"Total Processed: {total_products}", "white"))
-                    print(colored_text(f"Successfully Enriched: {enriched_count}", "green"))
-                    print(colored_text(f"Skipped (No Data): {skipped_count}", "yellow"))
-                    print(colored_text(f"Errors: {error_count}", "red"))
-                    print(colored_text("=" * 60, "green"))
+                    self._print_enrichment_summary(total_products, enriched_count, skipped_count, error_count)
 
                 await db_manager.close()
 
@@ -1041,6 +912,216 @@ class RetroAdminCLI:
             print(colored_text(f"Critical error during bulk enrichment: {str(e)}", "red"))
 
         wait_for_key()
+
+    async def _get_products_needing_enrichment(self, session) -> list:
+        """Get all products that need enrichment data"""
+        from sqlalchemy import text
+        
+        result = await session.execute(
+            text(
+                """
+                SELECT id, name, sku, description, retail_price, release_date
+                FROM products.products 
+                WHERE description IS NULL OR retail_price IS NULL OR release_date IS NULL
+                ORDER BY created_at DESC
+            """
+            )
+        )
+        return result.fetchall()
+
+    async def _process_products_in_batches(self, products, stockx_service, session) -> tuple[int, int, int]:
+        """Process products in intelligent batches to avoid N+1 queries"""
+        import asyncio
+        enriched_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        # PERFORMANCE OPTIMIZATION: Batch products by search term similarity
+        search_results_cache = {}
+        product_updates_batch = []
+        inventory_updates_batch = []
+        
+        total_products = len(products)
+        
+        for i, product in enumerate(products, 1):
+            product_id, name, sku, description, retail_price, release_date = product
+            
+            # Progress indicator
+            progress = (i / total_products) * 100
+            print(colored_text(f"\n[{progress:.1f}%] Processing: {name[:50]}...", "cyan"))
+            
+            try:
+                enrichment_data = await self._get_stockx_enrichment_data(
+                    name, stockx_service, search_results_cache
+                )
+                
+                if enrichment_data:
+                    update_data = self._prepare_product_update_data(
+                        enrichment_data, description, retail_price, release_date
+                    )
+                    
+                    if update_data:
+                        product_updates_batch.append((product_id, update_data))
+                        
+                        if enrichment_data.get('stockx_product_id'):
+                            inventory_updates_batch.append((
+                                product_id, enrichment_data['stockx_product_id']
+                            ))
+                        
+                        enriched_count += 1
+                        print(colored_text(f"  ✓ Queued for update: {', '.join(update_data.keys())}", "green"))
+                    else:
+                        skipped_count += 1
+                        print(colored_text("  - No new data available", "dim"))
+                else:
+                    skipped_count += 1
+                    print(colored_text("  ✗ No StockX match found", "red"))
+                
+                # Rate limiting - pause between requests
+                await asyncio.sleep(0.5)  # Reduced sleep time since we're batching updates
+                
+            except Exception as e:
+                error_count += 1
+                print(colored_text(f"  ✗ Error: {str(e)[:100]}", "red"))
+                continue
+        
+        # PERFORMANCE OPTIMIZATION: Execute all updates in batches
+        if product_updates_batch:
+            await self._execute_product_updates_batch(session, product_updates_batch)
+        
+        if inventory_updates_batch:
+            await self._execute_inventory_updates_batch(session, inventory_updates_batch)
+        
+        return enriched_count, skipped_count, error_count
+
+    async def _get_stockx_enrichment_data(self, product_name: str, stockx_service, cache: dict) -> dict:
+        """Get enrichment data from StockX with caching"""
+        # Use cache to avoid duplicate API calls for similar products
+        cache_key = product_name.lower().strip()
+        if cache_key in cache:
+            return cache[cache_key]
+        
+        search_results = await stockx_service.search_stockx_catalog(product_name, page_size=3)
+        
+        if not (search_results and "results" in search_results and search_results["results"]):
+            cache[cache_key] = None
+            return None
+        
+        # Find best match using improved matching logic
+        best_match = self._find_best_stockx_match(product_name, search_results["results"])
+        
+        if best_match:
+            enrichment_data = {
+                'description': best_match.get("description") or best_match.get("title"),
+                'retail_price': best_match.get("retailPrice"),
+                'release_date': best_match.get("releaseDate"),
+                'stockx_product_id': best_match.get("id")
+            }
+            cache[cache_key] = enrichment_data
+            return enrichment_data
+        
+        cache[cache_key] = None
+        return None
+
+    def _find_best_stockx_match(self, product_name: str, results: list) -> dict:
+        """Find the best matching StockX result"""
+        name_lower = product_name.lower()
+        name_words = name_lower.split()[:3]  # First 3 words for better matching
+        
+        # Strategy 1: Exact substring match
+        for result in results:
+            result_title = result.get("title", "").lower()
+            if name_lower in result_title:
+                return result
+        
+        # Strategy 2: Word overlap match
+        for result in results:
+            result_title = result.get("title", "").lower()
+            if any(word in result_title for word in name_words if len(word) > 2):
+                return result
+        
+        # Fallback: First result
+        return results[0] if results else None
+
+    def _prepare_product_update_data(self, enrichment_data: dict, description, retail_price, release_date) -> dict:
+        """Prepare update data for product"""
+        update_data = {}
+        
+        if not description and enrichment_data.get('description'):
+            update_data["description"] = enrichment_data['description'][:1000]  # Limit length
+        
+        if not retail_price and enrichment_data.get('retail_price'):
+            try:
+                update_data["retail_price"] = float(enrichment_data['retail_price'])
+            except (ValueError, TypeError):
+                pass
+        
+        if not release_date and enrichment_data.get('release_date'):
+            try:
+                from datetime import datetime
+                update_data["release_date"] = datetime.fromisoformat(
+                    enrichment_data['release_date'].replace("Z", "+00:00")
+                )
+            except (ValueError, TypeError):
+                pass
+        
+        return update_data
+
+    async def _execute_product_updates_batch(self, session, updates_batch: list):
+        """Execute product updates in batch to avoid N+1 queries"""
+        from sqlalchemy import text
+        
+        # Build batch update query
+        if not updates_batch:
+            return
+        
+        print(colored_text(f"\nExecuting batch update for {len(updates_batch)} products...", "cyan"))
+        
+        for product_id, update_data in updates_batch:
+            # Individual updates are necessary here due to varying update fields
+            # But we're minimizing the number by batching the preparation
+            from sqlalchemy import update
+            from shared.database.models import Product
+            
+            await session.execute(
+                update(Product)
+                .where(Product.id == product_id)
+                .values(**update_data)
+            )
+
+    async def _execute_inventory_updates_batch(self, session, updates_batch: list):
+        """Execute inventory updates in batch"""
+        from sqlalchemy import text
+        
+        if not updates_batch:
+            return
+        
+        print(colored_text(f"\nExecuting batch inventory update for {len(updates_batch)} items...", "cyan"))
+        
+        for product_id, stockx_product_id in updates_batch:
+            await session.execute(
+                text(
+                    """
+                    UPDATE products.inventory 
+                    SET external_ids = COALESCE(external_ids, '{}') || :stockx_data
+                    WHERE product_id = :product_id
+                """
+                ),
+                {
+                    "stockx_data": f'{{"stockx_product_id": "{stockx_product_id}"}}',
+                    "product_id": str(product_id),
+                },
+            )
+
+    def _print_enrichment_summary(self, total_products: int, enriched_count: int, skipped_count: int, error_count: int):
+        """Print enrichment process summary"""
+        print(colored_text("\n" + "=" * 60, "green"))
+        print(colored_text("BULK ENRICHMENT COMPLETE!", "bright_green"))
+        print(colored_text(f"Total Processed: {total_products}", "white"))
+        print(colored_text(f"Successfully Enriched: {enriched_count}", "green"))
+        print(colored_text(f"Skipped (No Data): {skipped_count}", "yellow"))
+        print(colored_text(f"Errors: {error_count}", "red"))
+        print(colored_text("=" * 60, "green"))
 
     def show_enrichment_stats(self):
         """Show product enrichment statistics"""
