@@ -32,19 +32,7 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-@router.get(
-    "",
-    response_model=PaginatedResponse[InventoryItemResponse],
-    summary="Get All Inventory Items (Legacy)",
-    description="Legacy endpoint that redirects to /items. Retrieve all inventory items with optional filtering and pagination",
-)
-async def get_inventory_items_legacy(
-    pagination: PaginationParams = Depends(),
-    search: SearchParams = Depends(),
-    inventory_service: InventoryService = Depends(get_inventory_service),
-):
-    """Legacy inventory endpoint - redirects to /items"""
-    return await get_inventory_items(pagination, search, inventory_service)
+# Legacy redirect endpoint removed
 
 
 @router.get(
@@ -448,10 +436,7 @@ async def unmark_stockx_listing_presale(
         raise error_context.create_error_response(e)
 
 
-@router.get("/test-presale")
-async def test_presale_endpoint():
-    """Simple test endpoint to check if presale routes work"""
-    return {"message": "Presale test endpoint working"}
+# Test endpoint removed for production
 
 
 @router.post(
@@ -726,11 +711,7 @@ def extract_brand_from_product_name(product_name: str) -> str:
     return "StockX Import"
 
 
-@router.get(
-    "/summary",
-    summary="Get Inventory Summary",
-    description="Get detailed inventory summary with recent activity, top brands, and status breakdown",
-)
+# Summary endpoint removed - use Dashboard metrics instead
 async def get_inventory_summary(
     inventory_service: InventoryService = Depends(get_inventory_service),
 ):
@@ -748,11 +729,7 @@ async def get_inventory_summary(
         raise error_context.create_error_response(e)
 
 
-@router.get(
-    "/export",
-    summary="Stream Inventory Export",
-    description="Stream large inventory dataset as JSON or CSV for efficient download",
-)
+# Export endpoint removed - use external tools or background jobs
 async def export_inventory_stream(
     format: str = "json",
     chunk_size: int = 100,

@@ -353,96 +353,114 @@ const Inventory = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Package className="w-16 h-16 text-blue-400 animate-pulse mx-auto mb-4" />
-          <p className="modern-heading text-lg">Loading Inventory...</p>
+        <div className="text-center space-element">
+          <div className="pulse-glow rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center" style={{
+            backgroundColor: 'rgba(127, 90, 240, 0.1)',
+            border: '1px solid rgba(127, 90, 240, 0.2)'
+          }}>
+            <Package className="w-12 h-12 animate-spin" style={{ color: '#7f5af0' }} />
+          </div>
+          <h2 className="heading-md mb-2">Loading Inventory...</h2>
+          <p className="body-lg">Fetching your products and listings</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-8 space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="modern-heading text-3xl mb-2">
-            Inventory Management
-          </h1>
-          <p className="modern-subheading">
+    <div className="min-h-screen padding-section space-section fade-in">
+      {/* Enhanced Header */}
+      <div className="flex justify-between items-start mb-12">
+        <div className="space-tight">
+          <h1 className="heading-xl mb-2">Inventory</h1>
+          <p className="body-lg" style={{ color: '#94a1b2' }}>
             {tabs.find(t => t.id === activeTab)?.description}
           </p>
         </div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={fetchInventory}
-            className="modern-button-outline flex items-center space-x-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
-          </button>
-        </div>
+        <button
+          onClick={fetchInventory}
+          className="modern-button flex items-center space-x-3 hover:scale-105 transition-transform"
+          style={{
+            background: 'linear-gradient(135deg, #7f5af0 0%, #8b66f5 100%)',
+            color: '#fffffe'
+          }}
+        >
+          <RefreshCw className="w-5 h-5" />
+          <span>Refresh Data</span>
+        </button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="modern-card px-6 py-3">
-          <div className="flex items-center space-x-4">
-            <div className="p-2 rounded-xl bg-gray-500/10">
-              <Package className="w-5 h-5 text-gray-400" />
+      {/* Enhanced Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+        <div className="modern-card-metric slide-up group hover:scale-105">
+          <div className="flex items-start justify-between mb-4">
+            <div className="metric-icon group-hover:scale-110 transition-transform duration-300">
+              <Package className="w-6 h-6" style={{ color: '#7f5af0' }} />
             </div>
-            <div>
-              <div className="text-xl font-bold modern-heading">
-                {stats.total}
-              </div>
-              <div className="text-xs modern-subheading">
-                Total Items
-              </div>
+            <div className="w-1 h-8 rounded-full opacity-60" style={{
+              background: 'linear-gradient(180deg, #7f5af0 0%, transparent 100%)'
+            }} />
+          </div>
+          <div className="space-tight">
+            <div className="metric-value mb-2">
+              {stats.total}
+            </div>
+            <div className="metric-label">
+              Total Items
             </div>
           </div>
         </div>
-        <div className="modern-card px-6 py-3">
-          <div className="flex items-center space-x-4">
-            <div className="p-2 rounded-xl bg-green-500/10">
-              <CheckCircle className="w-5 h-5 text-green-400" />
+        <div className="modern-card-metric slide-up group hover:scale-105" style={{ animationDelay: '0.1s' }}>
+          <div className="flex items-start justify-between mb-4">
+            <div className="metric-icon group-hover:scale-110 transition-transform duration-300">
+              <CheckCircle className="w-6 h-6" style={{ color: '#2cb67d' }} />
             </div>
-            <div>
-              <div className="text-xl font-bold modern-heading">
-                {stats.in_stock}
-              </div>
-              <div className="text-xs modern-subheading">
-                In Stock
-              </div>
+            <div className="w-1 h-8 rounded-full opacity-60" style={{
+              background: 'linear-gradient(180deg, #2cb67d 0%, transparent 100%)'
+            }} />
+          </div>
+          <div className="space-tight">
+            <div className="metric-value mb-2">
+              {stats.in_stock}
+            </div>
+            <div className="metric-label">
+              In Stock
             </div>
           </div>
         </div>
-        <div className="modern-card px-6 py-3">
-          <div className="flex items-center space-x-4">
-            <div className="p-2 rounded-xl bg-blue-500/10">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
+        <div className="modern-card-metric slide-up group hover:scale-105" style={{ animationDelay: '0.2s' }}>
+          <div className="flex items-start justify-between mb-4">
+            <div className="metric-icon group-hover:scale-110 transition-transform duration-300">
+              <TrendingUp className="w-6 h-6" style={{ color: '#7f5af0' }} />
             </div>
-            <div>
-              <div className="text-xl font-bold modern-heading">
-                {stats.listed_stockx}
-              </div>
-              <div className="text-xs modern-subheading">
-                StockX Listings
-              </div>
+            <div className="w-1 h-8 rounded-full opacity-60" style={{
+              background: 'linear-gradient(180deg, #7f5af0 0%, transparent 100%)'
+            }} />
+          </div>
+          <div className="space-tight">
+            <div className="metric-value mb-2">
+              {stats.listed_stockx}
+            </div>
+            <div className="metric-label">
+              StockX Listings
             </div>
           </div>
         </div>
-        <div className="modern-card px-6 py-3">
-          <div className="flex items-center space-x-4">
-            <div className="p-2 rounded-xl bg-purple-500/10">
-              <Star className="w-5 h-5 text-purple-400" />
+        <div className="modern-card-metric slide-up group hover:scale-105" style={{ animationDelay: '0.3s' }}>
+          <div className="flex items-start justify-between mb-4">
+            <div className="metric-icon group-hover:scale-110 transition-transform duration-300">
+              <Star className="w-6 h-6" style={{ color: '#2cb67d' }} />
             </div>
-            <div>
-              <div className="text-xl font-bold modern-heading">
-                {stats.listed_alias}
-              </div>
-              <div className="text-xs modern-subheading">
-                Alias Listings
-              </div>
+            <div className="w-1 h-8 rounded-full opacity-60" style={{
+              background: 'linear-gradient(180deg, #2cb67d 0%, transparent 100%)'
+            }} />
+          </div>
+          <div className="space-tight">
+            <div className="metric-value mb-2">
+              {stats.listed_alias}
+            </div>
+            <div className="metric-label">
+              Alias Listings
             </div>
           </div>
         </div>

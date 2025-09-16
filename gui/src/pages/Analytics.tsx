@@ -138,45 +138,60 @@ const Analytics = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <BarChart3 className="w-16 h-16 text-purple-400 animate-pulse mx-auto mb-4" />
-          <p className="modern-heading text-xl">Loading Analytics...</p>
+        <div className="text-center space-element">
+          <div className="pulse-glow rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center" style={{
+            backgroundColor: 'rgba(127, 90, 240, 0.1)',
+            border: '1px solid rgba(127, 90, 240, 0.2)'
+          }}>
+            <BarChart3 className="w-12 h-12 animate-spin" style={{ color: '#7f5af0' }} />
+          </div>
+          <h2 className="heading-md mb-2">Loading Analytics...</h2>
+          <p className="body-lg">Analyzing your business performance</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8 space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0">
-        <div>
-          <h1 className="text-2xl font-bold modern-heading mb-1">
-            Analytics
-          </h1>
-          <p className="text-sm modern-subheading">
+    <div className="min-h-screen padding-section space-section fade-in">
+      {/* Enhanced Header */}
+      <div className="flex justify-between items-start mb-12">
+        <div className="space-tight">
+          <h1 className="heading-xl mb-2">Analytics</h1>
+          <p className="body-lg" style={{ color: '#94a1b2' }}>
             Business intelligence and performance metrics
           </p>
         </div>
-        <button 
+        <button
           onClick={fetchStats}
-          className="modern-button-outline flex items-center space-x-2 w-full sm:w-auto justify-center"
+          className="modern-button flex items-center space-x-3 hover:scale-105 transition-transform"
+          style={{
+            background: 'linear-gradient(135deg, #7f5af0 0%, #8b66f5 100%)',
+            color: '#fffffe'
+          }}
         >
           <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
+          <span>Refresh Data</span>
         </button>
       </div>
 
       {error ? (
-        <div className="modern-card text-center">
-          <p className="text-red-400 text-lg">{error}</p>
-          <button onClick={fetchStats} className="modern-button mt-4">Retry</button>
+        <div className="modern-card-elevated text-center space-element">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8" style={{ color: '#f87171' }} />
+          </div>
+          <h3 className="heading-sm mb-3" style={{ color: '#f87171' }}>Failed to Load Analytics</h3>
+          <p className="body-md mb-6">{error}</p>
+          <button onClick={fetchStats} className="modern-button" style={{
+            background: 'linear-gradient(135deg, #7f5af0 0%, #8b66f5 100%)',
+            color: '#fffffe'
+          }}>Retry</button>
         </div>
       ) : (
         <>
-          {/* Product Data Enrichment */}
-          <div className="modern-card">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4 sm:gap-0">
+          {/* Enhanced Product Data Enrichment */}
+          <div className="modern-card-elevated space-element">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4 sm:gap-0">
               <h2 className="text-xl sm:text-2xl font-bold modern-heading">Product Data Enrichment</h2>
               <button 
                 onClick={startEnrichment}

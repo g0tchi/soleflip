@@ -433,45 +433,56 @@ const PricingForecast = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Brain className="w-16 h-16 animate-pulse mx-auto mb-4 text-purple-500" />
-          <p className={`${headingClasses} text-xl`}>
-            Loading AI Insights...
-          </p>
+        <div className="text-center space-element">
+          <div className="pulse-glow rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center" style={{
+            backgroundColor: 'rgba(127, 90, 240, 0.1)',
+            border: '1px solid rgba(127, 90, 240, 0.2)'
+          }}>
+            <Brain className="w-12 h-12 animate-spin" style={{ color: '#7f5af0' }} />
+          </div>
+          <h2 className="heading-md mb-2">Loading AI Insights...</h2>
+          <p className="body-lg">Analyzing pricing intelligence and forecasts</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={containerClasses}>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className={`${headingClasses} text-3xl lg:text-4xl mb-2`}>
-            AI Pricing & Forecasting
-          </h1>
-          <p className={`${subheadingClasses} text-base lg:text-lg`}>
+    <div className="min-h-screen padding-section space-section fade-in">
+      {/* Enhanced Header */}
+      <div className="flex justify-between items-start mb-12">
+        <div className="space-tight">
+          <h1 className="heading-xl mb-2">AI Pricing & Forecasting</h1>
+          <p className="body-lg" style={{ color: '#94a1b2' }}>
             AI-powered pricing optimization and sales forecasting
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
+        <div className="flex items-center gap-4">
+          <button
             onClick={() => setShowSmartPricing(!showSmartPricing)}
-            className={`modern-button-outline flex items-center space-x-2 text-sm px-4 py-2 ${
-              showSmartPricing ? 'bg-purple-500/20 border-purple-400' : ''
-            }`}
+            className="modern-button-secondary flex items-center space-x-3 transition-transform hover:scale-105"
+            style={{
+              background: showSmartPricing
+                ? 'linear-gradient(135deg, #2cb67d 0%, #35c487 100%)'
+                : 'rgba(44, 182, 125, 0.1)',
+              color: showSmartPricing ? '#fffffe' : '#2cb67d',
+              border: `1px solid ${showSmartPricing ? 'transparent' : 'rgba(44, 182, 125, 0.3)'}`
+            }}
           >
-            <Bot className="w-4 h-4" />
+            <Bot className="w-5 h-5" />
             <span>Smart Pricing</span>
           </button>
-          <button 
+          <button
             onClick={fetchData}
             disabled={isLoading}
-            className="modern-button-outline flex items-center space-x-2 text-sm px-4 py-2"
+            className="modern-button flex items-center space-x-3 hover:scale-105 transition-transform"
+            style={{
+              background: 'linear-gradient(135deg, #7f5af0 0%, #8b66f5 100%)',
+              color: '#fffffe'
+            }}
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh Data</span>
           </button>
         </div>
       </div>

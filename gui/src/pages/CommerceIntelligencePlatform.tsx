@@ -306,14 +306,12 @@ const CommerceIntelligencePlatform = () => {
   ];
 
   return (
-    <div className="min-h-screen p-8 space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-bold modern-heading mb-2">
-            Commerce Intelligence Platform
-          </h1>
-          <p className="text-xl modern-subheading">
+    <div className="min-h-screen padding-section space-section fade-in">
+      {/* Enhanced Header */}
+      <div className="flex justify-between items-start mb-12">
+        <div className="space-tight">
+          <h1 className="heading-xl mb-2">Commerce Intelligence</h1>
+          <p className="body-lg" style={{ color: '#94a1b2' }}>
             Enterprise data processing and commerce analytics
           </p>
         </div>

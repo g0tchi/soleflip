@@ -36,7 +36,16 @@
       "Bash(git checkout:*)",
       "Bash(pkill:*)",
       "Bash(psql:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(claude mcp add:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_resize",
+      "Bash(rm:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

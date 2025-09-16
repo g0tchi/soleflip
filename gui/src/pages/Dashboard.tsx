@@ -59,11 +59,12 @@ const Dashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modern theme styles
-  const containerClasses = 'min-h-screen p-8 space-y-8';
-  const cardClasses = 'modern-card';
-  const headingClasses = 'modern-heading';
-  const subheadingClasses = 'modern-subheading';
+  // Enhanced modern theme styles
+  const containerClasses = 'min-h-screen padding-section space-section fade-in';
+  const cardClasses = 'modern-card-elevated';
+  const metricCardClasses = 'modern-card-metric slide-up';
+  const headingClasses = 'heading-lg';
+  const subheadingClasses = 'body-md';
 
   const fetchMetrics = async () => {
     try {
@@ -149,46 +150,70 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-16 h-16 animate-spin mx-auto mb-4 text-purple-500" />
-          <p className={`${headingClasses} text-xl`}>Loading Dashboard...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+        <div className="text-center space-element">
+          <div className="pulse-glow rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-gradient-to-r from-purple-500/20 to-green-500/20">
+            <RefreshCw className="w-12 h-12 animate-spin text-purple-400" />
+          </div>
+          <h2 className="heading-md mb-2">Loading Dashboard...</h2>
+          <p className="body-lg">Fetching your latest metrics</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={containerClasses}>
-      {/* Header */}
-      <div className="flex justify-end items-start mb-8">
+    <div className="responsive-p-lg space-section fade-in">
+      {/* Enhanced Responsive Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-8 sm:mb-12 space-y-4 sm:space-y-0">
+        <div className="space-tight">
+          <h1 className="responsive-text-4xl font-bold mb-2" style={{ color: '#fffffe' }}>Dashboard</h1>
+          <p className="responsive-text-lg" style={{ color: '#94a1b2' }}>Real-time insights into your business performance</p>
+        </div>
         <button
           onClick={fetchMetrics}
           disabled={isLoading}
-          className="modern-button-outline flex items-center space-x-2"
+          className="youtube-button flex items-center space-x-3 micro-bounce self-start"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
+          <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <span className="responsive-text-sm">Refresh Data</span>
         </button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((card) => {
+      {/* Enhanced Responsive Stats Grid */}
+      <div className="responsive-grid mb-8 sm:mb-12 lg:mb-16">
+        {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div key={card.title} className="modern-card px-6 py-3">
-              <div className="flex items-center space-x-4">
-                <div className={`p-2 rounded-xl bg-${card.color}-500/10`}>
-                  <Icon className={`w-5 h-5 text-${card.color}-400`} />
+            <div
+              key={card.title}
+              className="frosted-glass reactive-card group micro-pulse"
+              style={{
+                animationDelay: `${index * 0.1}s`,
+                padding: '1.5rem',
+                borderRadius: '16px'
+              }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="metric-icon group-hover:scale-110 reactive-icon">
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
                 </div>
-                <div>
-                  <div className="text-xl font-bold modern-heading">
-                    {card.value}
-                  </div>
-                  <div className="text-xs modern-subheading">
-                    {card.title}
-                  </div>
+                <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-purple-500 to-transparent rounded-full opacity-60" />
+              </div>
+              <div className="space-tight">
+                <div className="responsive-text-2xl font-bold tracking-tight mb-2" style={{
+                  background: 'linear-gradient(135deg, #fffffe 0%, #7f5af0 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>
+                  {card.value}
+                </div>
+                <div className="responsive-text-sm font-medium uppercase tracking-wider" style={{
+                  color: '#94a1b2',
+                  letterSpacing: '0.1em'
+                }}>
+                  {card.title}
                 </div>
               </div>
             </div>
@@ -196,52 +221,61 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Recent Activity */}
-        <div className={`${cardClasses} lg:col-span-2`}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className={`${headingClasses} text-xl`}>Recent Activity</h2>
-            <button className="text-sm cursor-pointer bg-none border-none text-gray-400 hover:text-white">
-              View all
+      {/* Enhanced Responsive Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12">
+        {/* Enhanced Recent Activity */}
+        <div className="frosted-glass lg:col-span-2 space-element responsive-p-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-2 sm:space-y-0">
+            <div className="space-tight">
+              <h2 className="responsive-text-2xl font-semibold" style={{ color: '#fffffe' }}>Recent Activity</h2>
+              <p className="responsive-text-sm uppercase tracking-wider font-medium" style={{ color: '#72757e' }}>Latest transactions and updates</p>
+            </div>
+            <button className="youtube-button text-sm self-start sm:self-auto">
+              View all →
             </button>
           </div>
           
-          <div className="flex flex-col gap-4">
-            {recentActivity.length > 0 ? recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-800">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    activity.type === 'sale' ? 'bg-green-400/20' :
-                    activity.type === 'listing' ? 'bg-purple-500/20' : 'bg-red-400/20'
+          <div className="space-element">
+            {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
+              <div
+                key={activity.id}
+                className="group flex items-center justify-between p-6 md:p-8 rounded-2xl bg-gradient-to-r from-gray-800/50 to-gray-800/30 hover:from-gray-700/50 hover:to-gray-700/30 border border-gray-700/50 hover:border-purple-500/30 transition-all duration-300 backdrop-blur-sm"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex items-center gap-6">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                    activity.type === 'sale' ? 'bg-gradient-to-br from-green-400/20 to-green-600/10 border border-green-400/20' :
+                    activity.type === 'listing' ? 'bg-gradient-to-br from-purple-500/20 to-purple-700/10 border border-purple-500/20' : 'bg-gradient-to-br from-red-400/20 to-red-600/10 border border-red-400/20'
                   }`}>
                     {activity.type === 'sale' ? (
-                      <Banknote className="w-5 h-5 text-green-400" />
+                      <Banknote className="w-6 h-6 text-green-400 group-hover:scale-110 transition-transform" />
                     ) : activity.type === 'listing' ? (
-                      <PlusCircle className="w-5 h-5 text-purple-500" />
+                      <PlusCircle className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
                     ) : (
-                      <TrendingUp className="w-5 h-5 text-red-400" />
+                      <TrendingUp className="w-6 h-6 text-red-400 group-hover:scale-110 transition-transform" />
                     )}
                   </div>
-                  <div>
-                    <div className={`${headingClasses} text-sm mb-1`}>{activity.item}</div>
-                    <div className={`${subheadingClasses} text-xs`}>
+                  <div className="space-micro">
+                    <div className="label mb-1">{activity.item}</div>
+                    <div className="caption">
                       {activity.brand} • {activity.time}
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className={`${headingClasses} text-sm mb-1`}>€{activity.amount}</div>
-                  <div className={`${subheadingClasses} text-xs`}>
+                <div className="text-right space-micro">
+                  <div className="label mb-1">€{activity.amount}</div>
+                  <div className="caption">
                     Profit: €{activity.profit.toFixed(2)}
                   </div>
                 </div>
               </div>
             )) : (
-              <div className="text-center py-8">
-                <Activity className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-                <p className={`${headingClasses} text-lg mb-2`}>No Recent Activity</p>
-                <p className={`${subheadingClasses} text-sm`}>
+              <div className="text-center p-12 md:p-16 space-element">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-gray-700/30 to-gray-800/30 border border-gray-600/30 flex items-center justify-center">
+                  <Activity className="w-10 h-10 text-gray-500" />
+                </div>
+                <h3 className="heading-sm mb-3">No Recent Activity</h3>
+                <p className="body-md">
                   Transaction data will appear here once sales are recorded in the system.
                 </p>
               </div>
@@ -249,68 +283,74 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions & Performance Summary */}
-        <div className="flex flex-col gap-6">
-          <div className={cardClasses}>
-            <h2 className={`${headingClasses} text-xl mb-6`}>Quick Actions</h2>
-            
-            <div className="flex flex-col gap-4">
-              <button className="modern-button w-full flex items-center justify-center space-x-2">
-                <PlusCircle className="w-4 h-4" />
-                <span>Add Product</span>
+        {/* Enhanced Quick Actions & Performance Summary */}
+        <div className="space-component">
+          <div className="frosted-glass space-element responsive-p-lg">
+            <div className="space-tight mb-6 sm:mb-8">
+              <h2 className="responsive-text-xl font-semibold" style={{ color: '#fffffe' }}>Quick Actions</h2>
+              <p className="responsive-text-sm uppercase tracking-wider font-medium" style={{ color: '#72757e' }}>Common tasks and shortcuts</p>
+            </div>
+
+            <div className="space-element">
+              <button className="youtube-button w-full flex items-center justify-center space-x-3 group micro-bounce">
+                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-90 reactive-icon" />
+                <span className="responsive-text-sm">Add Product</span>
               </button>
-              
-              <button className="modern-button-secondary w-full flex items-center justify-center space-x-2">
-                <TrendingUp className="w-4 h-4" />
-                <span>Update Prices</span>
+
+              <button className="modern-button-secondary w-full flex items-center justify-center space-x-3 group micro-bounce">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 reactive-icon" />
+                <span className="responsive-text-sm">Update Prices</span>
               </button>
-              
-              <button className="modern-button-outline w-full flex items-center justify-center space-x-2">
-                <Activity className="w-4 h-4" />
-                <span>View Analytics</span>
+
+              <button className="modern-button-outline w-full flex items-center justify-center space-x-3 group micro-bounce">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 reactive-icon" />
+                <span className="responsive-text-sm">View Analytics</span>
               </button>
             </div>
           </div>
 
-          {/* Performance Summary */}
-          <div className={cardClasses}>
-            <h2 className={`${headingClasses} text-xl mb-6`}>This Week</h2>
-            
-            <div className="flex flex-col gap-4">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className={subheadingClasses}>Sales</span>
-                  <span className={headingClasses}>{metrics.weekly_stats.sales_count}</span>
+          {/* Enhanced Performance Summary */}
+          <div className="frosted-glass space-element responsive-p-lg">
+            <div className="space-tight mb-6 sm:mb-8">
+              <h2 className="responsive-text-xl font-semibold" style={{ color: '#fffffe' }}>This Week</h2>
+              <p className="responsive-text-sm uppercase tracking-wider font-medium" style={{ color: '#72757e' }}>Performance metrics overview</p>
+            </div>
+
+            <div className="space-element">
+              <div className="space-tight">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="label-secondary">Sales</span>
+                  <span className="heading-sm">{metrics.weekly_stats.sales_count}</span>
                 </div>
-                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
-                  <div 
-                    className="h-full bg-purple-500 rounded transition-all duration-300" 
+                <div className="w-full h-3 rounded-full overflow-hidden bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600/30">
+                  <div
+                    className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-700 ease-out shadow-lg"
                     style={{ width: `${Math.min(100, (metrics.weekly_stats.sales_count / 50) * 100)}%` }}
                   />
                 </div>
               </div>
-              
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className={subheadingClasses}>Revenue</span>
-                  <span className={headingClasses}>€{metrics.weekly_stats.revenue.toLocaleString()}</span>
+
+              <div className="space-tight">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="label-secondary">Revenue</span>
+                  <span className="heading-sm">€{metrics.weekly_stats.revenue.toLocaleString()}</span>
                 </div>
-                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
-                  <div 
-                    className="h-full bg-green-400 rounded transition-all duration-300" 
+                <div className="w-full h-3 rounded-full overflow-hidden bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600/30">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-700 ease-out shadow-lg"
                     style={{ width: `${Math.min(100, (metrics.weekly_stats.revenue / 5000) * 100)}%` }}
                   />
                 </div>
               </div>
-              
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className={subheadingClasses}>New Listings</span>
-                  <span className={headingClasses}>{metrics.weekly_stats.new_listings}</span>
+
+              <div className="space-tight">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="label-secondary">New Listings</span>
+                  <span className="heading-sm">{metrics.weekly_stats.new_listings}</span>
                 </div>
-                <div className="w-full h-2 rounded overflow-hidden bg-gray-800">
-                  <div 
-                    className="h-full bg-red-400 rounded transition-all duration-300" 
+                <div className="w-full h-3 rounded-full overflow-hidden bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600/30">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out shadow-lg"
                     style={{ width: `${Math.min(100, (metrics.weekly_stats.new_listings / 20) * 100)}%` }}
                   />
                 </div>

@@ -10,7 +10,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-# from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast  # Temporarily disabled
+from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast
 from shared.database.models import Product, Transaction
 
 

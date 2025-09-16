@@ -163,9 +163,10 @@ app = FastAPI(
     title=settings.api.title,
     version=settings.api.version,
     description=settings.api.description,
-    openapi_url=settings.api.openapi_url,
-    docs_url=settings.api.docs_url,
-    redoc_url=settings.api.redoc_url,
+    # Production security: Disable API docs
+    openapi_url=None if settings.environment == "production" else settings.api.openapi_url,
+    docs_url=None if settings.environment == "production" else settings.api.docs_url,
+    redoc_url=None if settings.environment == "production" else settings.api.redoc_url,
     lifespan=lifespan,
 )
 
@@ -245,8 +246,8 @@ app.add_exception_handler(ValidationException, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
-from domains.admin.api.router import router as admin_router
-# from domains.analytics.api.router import router as analytics_router  # Temporarily disabled
+# from domains.admin.api.router import router as admin_router  # REMOVED: Security risk in production
+from domains.analytics.api.router import router as analytics_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.upload_router import router as upload_router
@@ -262,7 +263,7 @@ from domains.products.api.router import router as products_router
 
 # Monitoring routers
 from shared.monitoring.prometheus import router as prometheus_router
-from shared.monitoring.batch_monitor_router import router as batch_monitor_router
+# from shared.monitoring.batch_monitor_router import router as batch_monitor_router  # REMOVED: Development-only
 
 # Authentication routes (public)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -274,17 +275,15 @@ app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
-app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
+# app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
 app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
-# app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])  # Temporarily disabled
+app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
-app.include_router(batch_monitor_router, tags=["Batch Monitoring"])
+# app.include_router(batch_monitor_router, tags=["Batch Monitoring"])  # REMOVED: Development-only
 
 
-@app.get("/", response_model=APIInfo, tags=["System"])
-async def root():
-    return APIInfo(name=settings.api.title, version=settings.api.version)
+# Root endpoint removed for production security
 
 
 @app.get("/health", tags=["System"])
@@ -330,20 +329,10 @@ async def health_check():
     }
 
 
-@app.get("/metrics", tags=["System"])
-async def get_metrics():
-    """Get application metrics"""
-    from shared.monitoring.metrics import get_metrics_registry
-
-    registry = get_metrics_registry()
-    return {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "metrics": registry.get_metrics_summary(),
-    }
+# Metrics endpoint moved to Prometheus router only
 
 
-@app.get("/metrics/apm", tags=["System"])
-async def get_apm_metrics():
+# APM metrics endpoint removed - use external APM tools
     """Get detailed APM metrics and performance insights"""
     from shared.monitoring.apm import get_apm_collector
     
@@ -384,7 +373,7 @@ async def get_apm_metrics():
     }
 
 
-@app.get("/alerts", tags=["System"])
+# @app.get("/alerts", tags=["System"])  # REMOVED: Development-only
 async def get_alerts():
     """Get current system alerts and alerting statistics"""
     from shared.monitoring.alerting import get_alert_manager
@@ -409,7 +398,7 @@ async def get_alerts():
     }
 
 
-@app.get("/alerts/history", tags=["System"])
+# @app.get("/alerts/history", tags=["System"])  # REMOVED: Development-only
 async def get_alert_history(hours: int = 24):
     """Get alert history for the specified time period"""
     from shared.monitoring.alerting import get_alert_manager

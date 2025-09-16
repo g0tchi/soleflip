@@ -32,59 +32,123 @@ const Layout = ({ children }: LayoutProps) => {
   ];
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#16161a' }}>
-      {/* Modern Sidebar */}
-      <div className="w-64 relative" style={{ backgroundColor: '#242629', borderRight: '1px solid #3a3d42' }}>
-        <div className="p-8" style={{ borderBottom: '1px solid #3a3d42' }}>
-          <h1 
-            className="text-2xl font-bold" 
-            style={{ color: '#94a1b2', textAlign: 'center' }}
-          >
+    <div className="flex flex-col lg:flex-row min-h-screen modern-typography" style={{ backgroundColor: '#16161a' }}>
+      {/* Responsive Sidebar with Enhanced YouTube-style Effects */}
+      <div className="w-full lg:w-80 xl:w-96 min-h-auto lg:min-h-screen lg:sticky lg:top-0 frosted-glass-intense" style={{
+        backgroundColor: '#242629',
+        borderRight: '1px solid #3a3d42'
+      }}>
+        <div className="p-4 md:p-6" style={{ borderBottom: '1px solid #3a3d42' }}>
+          <h1 className="text-lg md:text-xl lg:text-2xl text-center font-bold" style={{ color: '#fffffe' }}>
             SoleFlipper
           </h1>
+          <div className="w-12 h-1 rounded-full mx-auto mt-3" style={{
+            background: 'linear-gradient(90deg, #7f5af0 0%, #2cb67d 100%)'
+          }}></div>
         </div>
-        
-        <nav className="mt-4 px-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center px-4 py-3 mb-2 rounded-lg transition-all duration-200 group ${
-                  isActive 
-                    ? 'modern-nav-active' 
-                    : 'modern-nav-item'
-                }`}
-              >
-                <Icon className="w-5 h-5 mr-3" />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
+
+        <nav className="p-3 md:p-4">
+          <div className="space-y-2">
+            {navItems.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center p-3 md:p-4 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+                    isActive
+                      ? 'scale-105'
+                      : ''
+                  }`}
+                  style={{
+                    backgroundColor: isActive
+                      ? 'rgba(127, 90, 240, 0.15)'
+                      : 'transparent',
+                    borderColor: isActive
+                      ? 'rgba(127, 90, 240, 0.3)'
+                      : 'transparent',
+                    border: '1px solid',
+                    animationDelay: `${index * 0.1}s`
+                  }}
+                >
+                  <div className="flex items-center space-x-3 relative z-10">
+                    <div
+                      className="p-2 rounded-xl transition-all duration-300"
+                      style={{
+                        backgroundColor: isActive
+                          ? 'rgba(127, 90, 240, 0.2)'
+                          : 'rgba(114, 117, 126, 0.1)',
+                        transform: isActive ? 'scale(1.1)' : 'scale(1)'
+                      }}
+                    >
+                      <Icon
+                        className="w-4 h-4 md:w-5 md:h-5 transition-all duration-300"
+                        style={{
+                          color: isActive ? '#7f5af0' : '#94a1b2'
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-sm md:text-base font-semibold transition-all duration-300 hidden md:block"
+                      style={{
+                        color: isActive ? '#fffffe' : '#94a1b2'
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                  {isActive && (
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-1 rounded-l-full"
+                      style={{
+                        background: 'linear-gradient(180deg, #7f5af0 0%, #2cb67d 100%)'
+                      }}
+                    ></div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
-        
-        {/* Status Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <div 
-            className="p-3 rounded-lg text-sm"
-            style={{ backgroundColor: '#2d3036', color: '#94a1b2' }}
+
+        {/* Enhanced Responsive Status Section */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+          <div
+            className="frosted-glass p-3 md:p-4"
+            style={{
+              backgroundColor: '#2e2f33',
+              border: '1px solid #3a3d42',
+              borderRadius: '16px'
+            }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span>Status</span>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs uppercase tracking-wider font-medium" style={{ color: '#94a1b2' }}>
+                Status
+              </span>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#2cb67d' }}></div>
+                <span className="text-xs" style={{ color: '#2cb67d' }}>Online</span>
+              </div>
             </div>
-            <div className="text-xs opacity-75">
-              {currentTime.toLocaleTimeString()}
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: '#94a1b2' }}>
+                {currentTime.toLocaleTimeString()}
+              </span>
+              <div
+                className="w-1 h-4 rounded-full"
+                style={{
+                  background: 'linear-gradient(180deg, #7f5af0 0%, #2cb67d 100%)'
+                }}
+              ></div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      {/* Responsive Main Content with Page Transitions */}
+      <div className="flex-1 w-full overflow-y-auto p-4 md:p-6 lg:p-8" style={{ backgroundColor: '#16161a' }}>
         {children}
       </div>
     </div>

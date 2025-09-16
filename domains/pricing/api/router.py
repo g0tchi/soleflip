@@ -446,11 +446,7 @@ async def get_profit_forecast(
         raise HTTPException(status_code=500, detail=f"Forecast failed: {str(e)}")
 
 
-@router.get(
-    "/rules",
-    summary="Get Pricing Rules",
-    description="Get all active pricing rules and brand multipliers",
-)
+# Pricing rules endpoint removed - use external configuration
 async def get_pricing_rules(pricing_repo: PricingRepository = Depends(get_pricing_repository)):
     """Get active pricing rules"""
     try:
@@ -487,11 +483,7 @@ async def get_pricing_rules(pricing_repo: PricingRepository = Depends(get_pricin
         raise HTTPException(status_code=500, detail=f"Failed to fetch pricing rules: {str(e)}")
 
 
-@router.get(
-    "/insights",
-    summary="Get Pricing Insights",
-    description="Get overall pricing performance and insights",
-)
+# Pricing insights endpoint removed - redundant with Analytics
 async def get_pricing_insights(
     pricing_repo: PricingRepository = Depends(get_pricing_repository),
     db: AsyncSession = Depends(get_db_session),

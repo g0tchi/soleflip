@@ -362,12 +362,7 @@ async def get_enrichment_status(
         raise HTTPException(status_code=500, detail="Failed to fetch enrichment status")
 
 
-@router.get(
-    "/stats",
-    summary="Get Product Statistics",
-    description="Get comprehensive product and brand statistics from the local database",
-    response_model=Dict[str, Any],
-)
+# Stats endpoint removed - redundant with Dashboard
 async def get_product_stats(
     inventory_service: InventoryService = Depends(get_inventory_service),
     db: AsyncSession = Depends(get_db_session),
