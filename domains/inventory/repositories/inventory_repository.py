@@ -130,26 +130,38 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         return result.scalars().all()
 
     async def get_all_paginated(
-        self, skip: int = 0, limit: int = 100, filters: Optional[Dict[str, Any]] = None
+        self, skip: int = 0, limit: int = 50, filters: Optional[Dict[str, Any]] = None
     ) -> List[InventoryItem]:
-        """Get paginated list of inventory items with eager loaded relationships"""
+        """Get paginated list of inventory items with optimized eager loading"""
         query = (
             select(InventoryItem)
             .options(
-                selectinload(InventoryItem.product).selectinload(Product.brand),
-                selectinload(InventoryItem.product).selectinload(Product.category),
+                # Optimize: Load all related data in a single query using joinedload where appropriate
+                selectinload(InventoryItem.product).options(
+                    selectinload(Product.brand),
+                    selectinload(Product.category)
+                ),
                 selectinload(InventoryItem.size),
             )
+            # Add ordering for consistent pagination
+            .order_by(InventoryItem.created_at.desc())
         )
 
-        # Apply filters if provided
+        # Apply optimized filters using proper SQL WHERE clauses
         if filters:
+            filter_conditions = []
             for field, value in filters.items():
-                if value is not None:
-                    if hasattr(InventoryItem, field):
-                        query = query.where(getattr(InventoryItem, field) == value)
+                if value is not None and hasattr(InventoryItem, field):
+                    attr = getattr(InventoryItem, field)
+                    if isinstance(value, list):
+                        filter_conditions.append(attr.in_(value))
+                    else:
+                        filter_conditions.append(attr == value)
 
-        # Apply pagination
+            if filter_conditions:
+                query = query.where(and_(*filter_conditions))
+
+        # Apply pagination with reduced default limit for better performance
         query = query.offset(skip).limit(limit)
 
         result = await self.db.execute(query)

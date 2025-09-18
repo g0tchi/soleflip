@@ -765,11 +765,35 @@ class InventoryService:
         Get paginated inventory items with optional filters
         Returns (items, total_count)
         """
+        import time
+
         try:
+            # Performance monitoring: Track query execution time
+            query_start = time.time()
+
+            # Execute optimized database queries
             items = await self.inventory_repo.get_all_paginated(skip, limit, filters)
+            query_time = (time.time() - query_start) * 1000
+
+            count_start = time.time()
             total_count = await self.inventory_repo.count_all(filters)
+            count_time = (time.time() - count_start) * 1000
+
+            # Log query performance metrics
+            self.logger.info(
+                "Inventory pagination query performance",
+                skip=skip,
+                limit=limit,
+                items_returned=len(items),
+                total_count=total_count,
+                query_time_ms=round(query_time, 2),
+                count_time_ms=round(count_time, 2),
+                total_time_ms=round(query_time + count_time, 2),
+                filters=filters
+            )
 
             # Convert to dictionaries with related data
+            transform_start = time.time()
             result_items = []
             for item in items:
                 item_dict = item.to_dict()
@@ -785,13 +809,22 @@ class InventoryService:
                     item_dict["product_name"] = "Unknown Product"
                     item_dict["brand_name"] = "Unknown Brand"
                     item_dict["category_name"] = "Unknown Category"
-                
+
                 # Add size information
                 if item.size:
                     item_dict["size_value"] = item.size.value
                 else:
                     item_dict["size_value"] = "N/A"
                 result_items.append(item_dict)
+
+            transform_time = (time.time() - transform_start) * 1000
+
+            # Log data transformation performance
+            self.logger.debug(
+                "Inventory data transformation performance",
+                transform_time_ms=round(transform_time, 2),
+                items_processed=len(result_items)
+            )
 
             return result_items, total_count
 
