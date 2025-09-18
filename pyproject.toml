@@ -52,6 +52,9 @@ dependencies = [
     # Utilities
     "python-dotenv>=1.0.0",
     "cryptography>=41.0.0",
+
+    # Redis
+    "redis[hiredis]>=5.0.0",
 ]
 
 [project.optional-dependencies]

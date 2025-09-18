@@ -495,6 +495,47 @@ class EventStore(Base, TimestampMixin):
     version = Column(Integer, default=1)
 
 
+class MarketPrice(Base, TimestampMixin):
+    """External market prices for QuickFlip detection"""
+    __tablename__ = "market_prices"
+    __table_args__ = {"schema": "integration"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+    )
+    source = Column(String(100), nullable=False, comment="Data source: awin, webgains, scraping, etc.")
+    supplier_name = Column(String(100), nullable=False, comment="Retailer/supplier name")
+    external_id = Column(String(255), nullable=True, comment="External product ID from source")
+    buy_price = Column(Numeric(10, 2), nullable=False)
+    currency = Column(String(3), nullable=False, default="EUR")
+    availability = Column(String(50), nullable=True)
+    stock_qty = Column(Integer, nullable=True)
+    product_url = Column(Text, nullable=True)
+    last_updated = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    raw_data = Column(JSONB, nullable=True, comment="Complete source data")
+
+    # Relationships
+    product = relationship("Product", back_populates="market_prices")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": str(self.id),
+            "product_id": str(self.product_id),
+            "source": self.source,
+            "supplier_name": self.supplier_name,
+            "external_id": self.external_id,
+            "buy_price": float(self.buy_price) if self.buy_price else None,
+            "currency": self.currency,
+            "availability": self.availability,
+            "stock_qty": self.stock_qty,
+            "product_url": self.product_url,
+            "last_updated": self.last_updated.isoformat() if self.last_updated else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 # Import pricing models to register them with SQLAlchemy
 # This ensures the relationships defined above are properly linked
 from domains.pricing.models import *  # noqa: F401,F403

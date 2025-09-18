@@ -45,7 +45,13 @@
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_resize",
       "Bash(rm:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "mcp__playwright__browser_press_key",
+      "WebSearch",
+      "Bash(make:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(playwright --version)",
+      "Read(//c/**)"
     ],
     "deny": [],
     "ask": []

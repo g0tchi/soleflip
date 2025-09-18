@@ -1,11 +1,12 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  BarChart3, 
-  Package, 
-  Database, 
+import {
+  BarChart3,
+  Package,
+  Database,
   Monitor,
-  Brain
+  Brain,
+  Zap
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -26,6 +27,7 @@ const Layout = ({ children }: LayoutProps) => {
   const navItems = [
     { path: '/', icon: Monitor, label: 'Dashboard' },
     { path: '/inventory', icon: Package, label: 'Inventory' },
+    { path: '/quickflip', icon: Zap, label: 'QuickFlip' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/pricing-forecast', icon: Brain, label: 'AI Pricing' },
     { path: '/commerce-intelligence', icon: Database, label: 'Commerce Intel' },
@@ -34,10 +36,15 @@ const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen modern-typography" style={{ backgroundColor: '#16161a' }}>
       {/* Responsive Sidebar with Enhanced YouTube-style Effects */}
-      <div className="w-full lg:w-80 xl:w-96 min-h-auto lg:min-h-screen lg:sticky lg:top-0 frosted-glass-intense" style={{
-        backgroundColor: '#242629',
-        borderRight: '1px solid #3a3d42'
-      }}>
+      <aside
+        className="w-full lg:w-80 xl:w-96 min-h-auto lg:min-h-screen lg:sticky lg:top-0 frosted-glass-intense"
+        style={{
+          backgroundColor: '#242629',
+          borderRight: '1px solid #3a3d42'
+        }}
+        role="navigation"
+        aria-label="Main navigation"
+      >
         <div className="p-4 md:p-6" style={{ borderBottom: '1px solid #3a3d42' }}>
           <h1 className="text-lg md:text-xl lg:text-2xl text-center font-bold" style={{ color: '#fffffe' }}>
             SoleFlipper
@@ -47,21 +54,23 @@ const Layout = ({ children }: LayoutProps) => {
           }}></div>
         </div>
 
-        <nav className="p-3 md:p-4">
-          <div className="space-y-2">
+        <nav className="p-3 md:p-4" role="navigation" aria-label="Main menu">
+          <ul className="space-y-2" role="list">
             {navItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
 
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center p-3 md:p-4 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
-                    isActive
-                      ? 'scale-105'
-                      : ''
-                  }`}
+                <li key={item.path} role="listitem">
+                  <Link
+                    to={item.path}
+                    className={`flex items-center p-3 md:p-4 rounded-2xl transition-all duration-300 group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                      isActive
+                        ? 'scale-105'
+                        : ''
+                    }`}
+                    aria-current={isActive ? 'page' : undefined}
+                    aria-label={`Navigate to ${item.label} page`}
                   style={{
                     backgroundColor: isActive
                       ? 'rgba(127, 90, 240, 0.15)'
@@ -88,6 +97,7 @@ const Layout = ({ children }: LayoutProps) => {
                         style={{
                           color: isActive ? '#7f5af0' : '#94a1b2'
                         }}
+                        aria-hidden="true"
                       />
                     </div>
                     <span
@@ -105,12 +115,14 @@ const Layout = ({ children }: LayoutProps) => {
                       style={{
                         background: 'linear-gradient(180deg, #7f5af0 0%, #2cb67d 100%)'
                       }}
+                      aria-hidden="true"
                     ></div>
                   )}
-                </Link>
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </nav>
 
         {/* Enhanced Responsive Status Section */}
@@ -122,30 +134,42 @@ const Layout = ({ children }: LayoutProps) => {
               border: '1px solid #3a3d42',
               borderRadius: '16px'
             }}
+            role="status"
+            aria-label="Application status information"
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs uppercase tracking-wider font-medium" style={{ color: '#94a1b2' }}>
                 Status
               </span>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#2cb67d' }}></div>
-                <span className="text-xs" style={{ color: '#2cb67d' }}>Online</span>
+                <div
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: '#2cb67d' }}
+                  aria-hidden="true"
+                ></div>
+                <span className="text-xs" style={{ color: '#2cb67d' }} aria-live="polite">Online</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: '#94a1b2' }}>
+              <time
+                className="text-xs"
+                style={{ color: '#94a1b2' }}
+                dateTime={currentTime.toISOString()}
+                aria-label={`Current time: ${currentTime.toLocaleTimeString()}`}
+              >
                 {currentTime.toLocaleTimeString()}
-              </span>
+              </time>
               <div
                 className="w-1 h-4 rounded-full"
                 style={{
                   background: 'linear-gradient(180deg, #7f5af0 0%, #2cb67d 100%)'
                 }}
+                aria-hidden="true"
               ></div>
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* Responsive Main Content with Page Transitions */}
       <div className="flex-1 w-full overflow-y-auto p-4 md:p-6 lg:p-8" style={{ backgroundColor: '#16161a' }}>

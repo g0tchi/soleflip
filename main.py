@@ -113,7 +113,6 @@ async def lifespan(app: FastAPI):
     # Initialize performance optimizations
     from shared.performance import initialize_cache, get_database_optimizer
     from shared.auth.token_blacklist import initialize_token_blacklist
-    import os
     
     # Initialize cache system
     redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
@@ -254,6 +253,7 @@ from domains.integration.api.upload_router import router as upload_router
 
 # Include API routers
 from domains.integration.api.webhooks import router as webhook_router
+from domains.integration.api.quickflip_router import router as quickflip_router
 from domains.inventory.api.router import router as inventory_router
 from domains.orders.api.router import router as orders_router
 
@@ -271,6 +271,7 @@ app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integrat
 app.include_router(
     upload_router, prefix="/api/v1/integration", tags=["Integration"]
 )  # Prefix is the same
+app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFlip"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
@@ -333,44 +334,6 @@ async def health_check():
 
 
 # APM metrics endpoint removed - use external APM tools
-    """Get detailed APM metrics and performance insights"""
-    from shared.monitoring.apm import get_apm_collector
-    
-    apm_collector = get_apm_collector()
-    
-    # Get performance summaries for different time windows
-    current_5min = apm_collector.get_performance_summary(minutes=5)
-    current_15min = apm_collector.get_performance_summary(minutes=15)
-    current_60min = apm_collector.get_performance_summary(minutes=60)
-    
-    # Get recent alerts (last 10)
-    recent_alerts = apm_collector.performance_alerts[-10:] if apm_collector.performance_alerts else []
-    
-    return {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "time_windows": {
-            "last_5_minutes": current_5min,
-            "last_15_minutes": current_15min,
-            "last_60_minutes": current_60min
-        },
-        "recent_alerts": recent_alerts,
-        "thresholds": {
-            "slow_request_ms": apm_collector.slow_request_threshold_ms,
-            "slow_query_ms": apm_collector.slow_query_threshold_ms,
-            "high_cpu_percent": apm_collector.high_cpu_threshold,
-            "high_memory_percent": apm_collector.high_memory_threshold
-        },
-        "error_tracking": dict(apm_collector.error_tracking),
-        "slow_queries": [
-            {
-                "query_type": sq.query_type,
-                "execution_time_ms": sq.execution_time_ms,
-                "table_name": sq.table_name,
-                "timestamp": sq.timestamp.isoformat() + "Z"
-            }
-            for sq in list(apm_collector.slow_queries)[-10:]  # Last 10 slow queries
-        ]
-    }
 
 
 # @app.get("/alerts", tags=["System"])  # REMOVED: Development-only
