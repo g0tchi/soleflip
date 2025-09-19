@@ -8,7 +8,7 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -54,6 +54,37 @@ class TimestampMixin:
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class EncryptedFieldMixin:
+    """Mixin for models that need encrypted field support"""
+
+    def get_encrypted_field(self, field_name: str) -> str:
+        """Get decrypted field value"""
+        encrypted_value = getattr(self, field_name, None)
+        if not encrypted_value:
+            return ""
+
+        try:
+            fernet = Fernet(ENCRYPTION_KEY.encode())
+            return fernet.decrypt(encrypted_value.encode()).decode()
+        except Exception:
+            # Return empty string if decryption fails
+            return ""
+
+    def set_encrypted_field(self, field_name: str, value: str):
+        """Set encrypted field value"""
+        if not value:
+            setattr(self, field_name, None)
+            return
+
+        try:
+            fernet = Fernet(ENCRYPTION_KEY.encode())
+            encrypted_value = fernet.encrypt(value.encode()).decode()
+            setattr(self, field_name, encrypted_value)
+        except Exception:
+            # Set to None if encryption fails
+            setattr(self, field_name, None)
 
 
 # =====================================================
@@ -495,7 +526,7 @@ class EventStore(Base, TimestampMixin):
     version = Column(Integer, default=1)
 
 
-class MarketPrice(Base, TimestampMixin):
+class IntegrationMarketPrice(Base, TimestampMixin):
     """External market prices for QuickFlip detection"""
     __tablename__ = "market_prices"
     __table_args__ = {"schema": "integration"} if IS_POSTGRES else None
@@ -534,6 +565,363 @@ class MarketPrice(Base, TimestampMixin):
             "last_updated": self.last_updated.isoformat() if self.last_updated else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# --- Selling & Order Management Models ---
+
+class StockXListing(Base, TimestampMixin):
+    """
+    StockX listing management for automated selling
+    Tracks listings created from QuickFlip opportunities
+    """
+    __tablename__ = "stockx_listings"
+    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+    )
+    stockx_listing_id = Column(String(100), unique=True, nullable=False, comment="StockX API listing ID")
+    stockx_product_id = Column(String(100), nullable=False, comment="StockX product identifier")
+    variant_id = Column(String(100), nullable=True, comment="Size/color variant ID")
+
+    # Listing Details
+    ask_price = Column(Numeric(10, 2), nullable=False, comment="Current asking price")
+    original_ask_price = Column(Numeric(10, 2), nullable=True, comment="Initial asking price")
+    buy_price = Column(Numeric(10, 2), nullable=True, comment="Original purchase price")
+    expected_profit = Column(Numeric(10, 2), nullable=True, comment="Expected profit amount")
+    expected_margin = Column(Numeric(5, 2), nullable=True, comment="Expected profit margin %")
+
+    # Status Management
+    status = Column(String(20), nullable=False, default="active",
+                   comment="Listing status: active, inactive, sold, expired, cancelled")
+    is_active = Column(Boolean, nullable=False, default=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Market Data
+    current_lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Current market lowest ask")
+    current_highest_bid = Column(Numeric(10, 2), nullable=True, comment="Current market highest bid")
+    last_price_update = Column(DateTime(timezone=True), nullable=True)
+
+    # Source Tracking
+    source_opportunity_id = Column(UUID(as_uuid=True), nullable=True, comment="Original QuickFlip opportunity")
+    created_from = Column(String(50), nullable=True, default="manual", comment="Creation source: quickflip, manual, bulk")
+
+    # Timeline
+    listed_at = Column(DateTime(timezone=True), nullable=True, comment="When listed on StockX")
+    delisted_at = Column(DateTime(timezone=True), nullable=True, comment="When removed from StockX")
+
+    # Relationships
+    product = relationship("Product", backref="stockx_listings")
+    orders = relationship("StockXOrder", back_populates="listing", cascade="all, delete-orphan")
+    pricing_history = relationship("PricingHistory", back_populates="listing", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": str(self.id),
+            "product_id": str(self.product_id),
+            "stockx_listing_id": self.stockx_listing_id,
+            "stockx_product_id": self.stockx_product_id,
+            "variant_id": self.variant_id,
+            "ask_price": float(self.ask_price) if self.ask_price else None,
+            "original_ask_price": float(self.original_ask_price) if self.original_ask_price else None,
+            "buy_price": float(self.buy_price) if self.buy_price else None,
+            "expected_profit": float(self.expected_profit) if self.expected_profit else None,
+            "expected_margin": float(self.expected_margin) if self.expected_margin else None,
+            "status": self.status,
+            "is_active": self.is_active,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "current_lowest_ask": float(self.current_lowest_ask) if self.current_lowest_ask else None,
+            "current_highest_bid": float(self.current_highest_bid) if self.current_highest_bid else None,
+            "last_price_update": self.last_price_update.isoformat() if self.last_price_update else None,
+            "source_opportunity_id": str(self.source_opportunity_id) if self.source_opportunity_id else None,
+            "created_from": self.created_from,
+            "listed_at": self.listed_at.isoformat() if self.listed_at else None,
+            "delisted_at": self.delisted_at.isoformat() if self.delisted_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class StockXOrder(Base, TimestampMixin):
+    """
+    StockX order/sale tracking for profit calculation
+    Represents completed sales from listings
+    """
+    __tablename__ = "stockx_orders"
+    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(get_schema_ref("stockx_listings.id", "selling")),
+        nullable=False
+    )
+    stockx_order_number = Column(String(100), unique=True, nullable=False, comment="StockX order number")
+
+    # Sale Details
+    sale_price = Column(Numeric(10, 2), nullable=False, comment="Final sale price")
+    buyer_premium = Column(Numeric(10, 2), nullable=True, comment="StockX buyer premium")
+    seller_fee = Column(Numeric(10, 2), nullable=True, comment="StockX seller fee")
+    processing_fee = Column(Numeric(10, 2), nullable=True, comment="StockX processing fee")
+    net_proceeds = Column(Numeric(10, 2), nullable=True, comment="Net amount received")
+
+    # Profit Calculation
+    original_buy_price = Column(Numeric(10, 2), nullable=True, comment="Original purchase price")
+    gross_profit = Column(Numeric(10, 2), nullable=True, comment="Sale price - buy price")
+    net_profit = Column(Numeric(10, 2), nullable=True, comment="Net proceeds - buy price")
+    actual_margin = Column(Numeric(5, 2), nullable=True, comment="Actual profit margin %")
+    roi = Column(Numeric(5, 2), nullable=True, comment="Return on investment %")
+
+    # Status & Tracking
+    order_status = Column(String(20), nullable=True, comment="Order status from StockX")
+    shipping_status = Column(String(20), nullable=True, comment="Shipping status")
+    tracking_number = Column(String(100), nullable=True, comment="Shipping tracking number")
+
+    # Timeline
+    sold_at = Column(DateTime(timezone=True), nullable=False, comment="When the sale occurred")
+    shipped_at = Column(DateTime(timezone=True), nullable=True, comment="When item was shipped")
+    completed_at = Column(DateTime(timezone=True), nullable=True, comment="When order was completed")
+
+    # Relationships
+    listing = relationship("StockXListing", back_populates="orders")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": str(self.id),
+            "listing_id": str(self.listing_id),
+            "stockx_order_number": self.stockx_order_number,
+            "sale_price": float(self.sale_price) if self.sale_price else None,
+            "buyer_premium": float(self.buyer_premium) if self.buyer_premium else None,
+            "seller_fee": float(self.seller_fee) if self.seller_fee else None,
+            "processing_fee": float(self.processing_fee) if self.processing_fee else None,
+            "net_proceeds": float(self.net_proceeds) if self.net_proceeds else None,
+            "original_buy_price": float(self.original_buy_price) if self.original_buy_price else None,
+            "gross_profit": float(self.gross_profit) if self.gross_profit else None,
+            "net_profit": float(self.net_profit) if self.net_profit else None,
+            "actual_margin": float(self.actual_margin) if self.actual_margin else None,
+            "roi": float(self.roi) if self.roi else None,
+            "order_status": self.order_status,
+            "shipping_status": self.shipping_status,
+            "tracking_number": self.tracking_number,
+            "sold_at": self.sold_at.isoformat() if self.sold_at else None,
+            "shipped_at": self.shipped_at.isoformat() if self.shipped_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PricingHistory(Base, TimestampMixin):
+    """
+    Track pricing changes for listings to analyze pricing strategy performance
+    """
+    __tablename__ = "pricing_history"
+    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    listing_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(get_schema_ref("stockx_listings.id", "selling")),
+        nullable=False
+    )
+
+    old_price = Column(Numeric(10, 2), nullable=True, comment="Previous price")
+    new_price = Column(Numeric(10, 2), nullable=False, comment="New price")
+    change_reason = Column(String(100), nullable=True, comment="Reason for price change")
+    market_lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Market lowest ask at time of change")
+    market_highest_bid = Column(Numeric(10, 2), nullable=True, comment="Market highest bid at time of change")
+
+    # Relationships
+    listing = relationship("StockXListing", back_populates="pricing_history")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": str(self.id),
+            "listing_id": str(self.listing_id),
+            "old_price": float(self.old_price) if self.old_price else None,
+            "new_price": float(self.new_price) if self.new_price else None,
+            "change_reason": self.change_reason,
+            "market_lowest_ask": float(self.market_lowest_ask) if self.market_lowest_ask else None,
+            "market_highest_bid": float(self.market_highest_bid) if self.market_highest_bid else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# Supplier Account Management Models
+class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
+    __tablename__ = "supplier_accounts"
+    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id" if IS_POSTGRES else "suppliers.id"), nullable=False)
+
+    # Account credentials
+    email = Column(String(150), nullable=False)
+    password_hash = Column(Text(), nullable=True)  # Encrypted password
+    proxy_config = Column(Text(), nullable=True)  # Proxy configuration
+
+    # Personal information
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+
+    # Address information
+    address_line_1 = Column(String(200), nullable=True)
+    address_line_2 = Column(String(200), nullable=True)
+    city = Column(String(100), nullable=True)
+    country_code = Column(String(5), nullable=True)
+    zip_code = Column(String(20), nullable=True)
+    state_code = Column(String(10), nullable=True)
+    phone_number = Column(String(50), nullable=True)
+
+    # Payment information (encrypted)
+    cc_number_encrypted = Column(Text(), nullable=True)
+    expiry_month = Column(Integer(), nullable=True)
+    expiry_year = Column(Integer(), nullable=True)
+    cvv_encrypted = Column(Text(), nullable=True)
+
+    # Account preferences
+    browser_preference = Column(String(50), nullable=True)
+    list_name = Column(String(100), nullable=True)
+
+    # Account status and metadata
+    account_status = Column(String(30), nullable=False, default="active")
+    is_verified = Column(Boolean(), nullable=False, default=False)
+    last_used_at = Column(DateTime(), nullable=True)
+
+    # Statistics (computed fields)
+    total_purchases = Column(Integer(), nullable=False, default=0)
+    total_spent = Column(Numeric(12, 2), nullable=False, default=0.00)
+    success_rate = Column(Numeric(5, 2), nullable=False, default=0.00)
+    average_order_value = Column(Numeric(10, 2), nullable=False, default=0.00)
+
+    # Additional notes
+    notes = Column(Text(), nullable=True)
+
+    # Relationships
+    supplier = relationship("Supplier", back_populates="accounts")
+    purchase_history = relationship("AccountPurchaseHistory", back_populates="account", cascade="all, delete-orphan")
+
+    # Unique constraint for supplier + email
+    __table_args__ = (
+        UniqueConstraint('supplier_id', 'email', name='uq_supplier_account_email'),
+        {"schema": "core"} if IS_POSTGRES else {}
+    )
+
+    def get_encrypted_password(self) -> str:
+        """Get encrypted password"""
+        return self.get_encrypted_field('password_hash')
+
+    def set_encrypted_password(self, password: str):
+        """Set encrypted password"""
+        self.set_encrypted_field('password_hash', password)
+
+    def get_encrypted_cc_number(self) -> str:
+        """Get encrypted credit card number"""
+        return self.get_encrypted_field('cc_number_encrypted')
+
+    def set_encrypted_cc_number(self, cc_number: str):
+        """Set encrypted credit card number"""
+        self.set_encrypted_field('cc_number_encrypted', cc_number)
+
+    def get_encrypted_cvv(self) -> str:
+        """Get encrypted CVV"""
+        return self.get_encrypted_field('cvv_encrypted')
+
+    def set_encrypted_cvv(self, cvv: str):
+        """Set encrypted CVV"""
+        self.set_encrypted_field('cvv_encrypted', cvv)
+
+    def to_dict(self, include_sensitive: bool = False):
+        """Convert to dictionary for API responses"""
+        data = {
+            "id": str(self.id),
+            "supplier_id": str(self.supplier_id),
+            "email": self.email,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "address_line_1": self.address_line_1,
+            "address_line_2": self.address_line_2,
+            "city": self.city,
+            "country_code": self.country_code,
+            "zip_code": self.zip_code,
+            "state_code": self.state_code,
+            "phone_number": self.phone_number,
+            "browser_preference": self.browser_preference,
+            "list_name": self.list_name,
+            "account_status": self.account_status,
+            "is_verified": self.is_verified,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "total_purchases": self.total_purchases,
+            "total_spent": float(self.total_spent),
+            "success_rate": float(self.success_rate),
+            "average_order_value": float(self.average_order_value),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+        if include_sensitive:
+            data.update({
+                "proxy_config": self.proxy_config,
+                "expiry_month": self.expiry_month,
+                "expiry_year": self.expiry_year,
+                # Note: Never include actual decrypted sensitive data in API responses
+            })
+
+        return data
+
+
+class AccountPurchaseHistory(Base, TimestampMixin):
+    __tablename__ = "account_purchase_history"
+    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("core.supplier_accounts.id" if IS_POSTGRES else "supplier_accounts.id"), nullable=False)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id" if IS_POSTGRES else "suppliers.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.products.id" if IS_POSTGRES else "products.id"), nullable=True)
+
+    # Purchase details
+    order_reference = Column(String(100), nullable=True)
+    purchase_amount = Column(Numeric(12, 2), nullable=False)
+    purchase_date = Column(DateTime(), nullable=False)
+    purchase_status = Column(String(30), nullable=False)  # 'pending', 'completed', 'failed', 'cancelled'
+    success = Column(Boolean(), nullable=False, default=False)
+    failure_reason = Column(Text(), nullable=True)
+
+    # Performance metrics
+    response_time_ms = Column(Integer(), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+
+    # Relationships
+    account = relationship("SupplierAccount", back_populates="purchase_history")
+    supplier = relationship("Supplier")
+    product = relationship("Product")
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": str(self.id),
+            "account_id": str(self.account_id),
+            "supplier_id": str(self.supplier_id),
+            "product_id": str(self.product_id) if self.product_id else None,
+            "order_reference": self.order_reference,
+            "purchase_amount": float(self.purchase_amount),
+            "purchase_date": self.purchase_date.isoformat() if self.purchase_date else None,
+            "purchase_status": self.purchase_status,
+            "success": self.success,
+            "failure_reason": self.failure_reason,
+            "response_time_ms": self.response_time_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# Update Supplier model to include accounts relationship
+Supplier.accounts = relationship("SupplierAccount", back_populates="supplier", cascade="all, delete-orphan")
 
 
 # Import pricing models to register them with SQLAlchemy

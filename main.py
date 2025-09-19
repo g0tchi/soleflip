@@ -228,6 +228,14 @@ async def apm_middleware(request: Request, call_next):
         
         get_apm_collector().record_request(metrics)
 
+# Add security middleware for selling APIs
+from shared.security.api_security import security_middleware
+
+@app.middleware("http")
+async def security_middleware_wrapper(request: Request, call_next):
+    """Security middleware for enhanced API protection"""
+    return await security_middleware(request, call_next)
+
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
@@ -240,6 +248,29 @@ app.add_middleware(
 )
 
 # Add exception handlers
+from shared.error_handling.selling_exceptions import (
+    SellingBaseException,
+    ListingCreationError,
+    PriceUpdateError,
+    ListingNotFoundError,
+    OpportunityNotFoundError,
+    StockXAPIError,
+    BulkOperationError,
+    ConfigurationError,
+    ValidationError as SellingValidationError,
+    DatabaseError,
+    RateLimitExceededError
+)
+
+@app.exception_handler(SellingBaseException)
+async def selling_exception_handler(request: Request, exc: SellingBaseException):
+    """Handle selling domain exceptions with security-aware responses"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+        headers=exc.headers
+    )
+
 app.add_exception_handler(SoleFlipException, soleflip_exception_handler)
 app.add_exception_handler(ValidationException, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -256,6 +287,11 @@ from domains.integration.api.webhooks import router as webhook_router
 from domains.integration.api.quickflip_router import router as quickflip_router
 from domains.inventory.api.router import router as inventory_router
 from domains.orders.api.router import router as orders_router
+from domains.selling.api.selling_router import router as selling_router
+from domains.selling.api.order_management_router import router as order_management_router
+
+# Supplier account management
+from domains.suppliers.api.account_router import router as account_router
 
 # Using real router for production-ready pricing features
 from domains.pricing.api.router import router as pricing_router
@@ -274,6 +310,9 @@ app.include_router(
 app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFlip"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(selling_router, prefix="/api/v1/selling", tags=["Selling"])
+app.include_router(order_management_router, prefix="/api/v1/order-management", tags=["Order Management"])
+app.include_router(account_router, prefix="/api/v1/suppliers/accounts", tags=["Supplier Accounts"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
