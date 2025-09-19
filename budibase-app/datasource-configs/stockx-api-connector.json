@@ -1,0 +1,139 @@
+{
+  "name": "StockX REST API Connector",
+  "type": "rest",
+  "config": {
+    "url": "https://gateway.stockx.com/api",
+    "defaultHeaders": {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "SoleFlipper-Budibase/1.0"
+    },
+    "authentication": {
+      "type": "bearer",
+      "bearer": "{{ env.STOCKX_API_TOKEN }}",
+      "description": "StockX API Bearer Token - Set in environment variables"
+    },
+    "timeout": 30000,
+    "retries": 3
+  },
+  "queries": {
+    "searchProducts": {
+      "name": "Search StockX Products",
+      "method": "GET",
+      "path": "/catalog/search",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "required": true,
+          "description": "Search term for products"
+        },
+        "limit": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of results to return"
+        },
+        "page": {
+          "type": "number",
+          "default": 1,
+          "description": "Page number for pagination"
+        }
+      },
+      "headers": {},
+      "transformer": "return data.products || data.results || data"
+    },
+    "getProductDetails": {
+      "name": "Get Product Details",
+      "method": "GET",
+      "path": "/catalog/products/{{ product_id }}",
+      "parameters": {
+        "product_id": {
+          "type": "string",
+          "required": true,
+          "description": "StockX Product ID"
+        }
+      },
+      "transformer": "return data.product || data"
+    },
+    "getProductMarketData": {
+      "name": "Get Product Market Data",
+      "method": "GET",
+      "path": "/catalog/products/{{ product_id }}/market",
+      "parameters": {
+        "product_id": {
+          "type": "string",
+          "required": true,
+          "description": "StockX Product ID"
+        },
+        "currency": {
+          "type": "string",
+          "default": "EUR",
+          "description": "Currency for pricing"
+        }
+      },
+      "transformer": "return data.market || data"
+    },
+    "getProductHistory": {
+      "name": "Get Price History",
+      "method": "GET",
+      "path": "/catalog/products/{{ product_id }}/activity",
+      "parameters": {
+        "product_id": {
+          "type": "string",
+          "required": true
+        },
+        "state": {
+          "type": "string",
+          "default": "sold",
+          "description": "Activity state filter"
+        },
+        "limit": {
+          "type": "number",
+          "default": 50
+        }
+      },
+      "transformer": "return data.activity || data.history || data"
+    },
+    "searchByBrand": {
+      "name": "Search by Brand",
+      "method": "GET",
+      "path": "/catalog/search",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "required": true
+        },
+        "brand": {
+          "type": "string",
+          "required": true,
+          "description": "Brand filter"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category filter (sneakers, streetwear, etc.)"
+        },
+        "sort": {
+          "type": "string",
+          "default": "featured",
+          "description": "Sort order (featured, price-low, price-high, newest)"
+        }
+      },
+      "transformer": "return data.products || data.results || data"
+    }
+  },
+  "testQueries": {
+    "healthCheck": {
+      "method": "GET",
+      "path": "/health",
+      "description": "Test API connectivity"
+    }
+  },
+  "errorHandling": {
+    "retryOn": [500, 502, 503, 504],
+    "retryDelay": 1000,
+    "maxRetries": 3
+  },
+  "rateLimit": {
+    "requestsPerMinute": 100,
+    "burstLimit": 20
+  }
+}
