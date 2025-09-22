@@ -12,7 +12,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Product, Brand, Category, MarketPrice
+from shared.database.models import Product, Brand, Category, SourcePrice
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +26,7 @@ class MarketPriceImportService:
         self.product_repo = BaseRepository(Product, db_session)
         self.brand_repo = BaseRepository(Brand, db_session)
         self.category_repo = BaseRepository(Category, db_session)
-        self.market_price_repo = BaseRepository(MarketPrice, db_session)
+        self.market_price_repo = BaseRepository(SourcePrice, db_session)
         self.logger = logger.bind(service="market_price_import")
 
     async def import_csv_file(self, file_path: str, source: str = "awin") -> Dict[str, int]:

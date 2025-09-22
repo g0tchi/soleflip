@@ -252,13 +252,23 @@ class AccountImportService(TransactionMixin):
             if password:
                 account.set_encrypted_password(password)
 
-            cc_number = account_data.get('CC_NUMBER', '')
-            if cc_number and len(cc_number) >= 13:  # Basic CC number validation
-                account.set_encrypted_cc_number(cc_number)
+            # REMOVED: Direct credit card storage - PCI compliance violation
+            # Payment information must be tokenized through payment provider
+            # cc_number = account_data.get('CC_NUMBER', '')  # SECURITY RISK - REMOVED
+            # cvv = account_data.get('CVV', '')              # PCI VIOLATION - REMOVED
 
-            cvv = account_data.get('CVV', '')
-            if cvv and cvv.isdigit():
-                account.set_encrypted_cvv(cvv)
+            # For existing data: Extract last 4 digits for display only (if needed)
+            cc_number = account_data.get('CC_NUMBER', '')
+            if cc_number and len(cc_number) >= 13:
+                # Store only last 4 digits for display purposes
+                last4 = cc_number[-4:] if len(cc_number) >= 4 else None
+                # Set placeholder values until payment provider integration
+                account.set_payment_method(
+                    provider="manual_import",  # Temporary during migration
+                    token=f"legacy_import_{uuid.uuid4().hex[:8]}",  # Temporary token
+                    last4=last4,
+                    brand="unknown"  # Will be determined by payment provider
+                )
 
             # Handle expiry dates
             try:

@@ -285,6 +285,7 @@ class Product(Base, TimestampMixin):
     # Pricing relationships
     price_history = relationship("PriceHistory", back_populates="product")
     market_prices = relationship("MarketPrice", back_populates="product")
+    source_prices = relationship("SourcePrice", back_populates="product")
     sales_forecasts = relationship("SalesForecast", back_populates="product")
     demand_patterns = relationship("DemandPattern", back_populates="product")
     pricing_kpis = relationship("PricingKPI", back_populates="product")
@@ -526,9 +527,9 @@ class EventStore(Base, TimestampMixin):
     version = Column(Integer, default=1)
 
 
-class IntegrationMarketPrice(Base, TimestampMixin):
-    """External market prices for QuickFlip detection"""
-    __tablename__ = "market_prices"
+class SourcePrice(Base, TimestampMixin):
+    """Source prices from retailers and affiliate platforms for arbitrage detection"""
+    __tablename__ = "source_prices"
     __table_args__ = {"schema": "integration"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -547,7 +548,7 @@ class IntegrationMarketPrice(Base, TimestampMixin):
     raw_data = Column(JSONB, nullable=True, comment="Complete source data")
 
     # Relationships
-    product = relationship("Product", back_populates="market_prices")
+    product = relationship("Product", back_populates="source_prices")
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -754,7 +755,6 @@ class PricingHistory(Base, TimestampMixin):
 # Supplier Account Management Models
 class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     __tablename__ = "supplier_accounts"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id" if IS_POSTGRES else "suppliers.id"), nullable=False)
@@ -777,11 +777,18 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     state_code = Column(String(10), nullable=True)
     phone_number = Column(String(50), nullable=True)
 
-    # Payment information (encrypted)
-    cc_number_encrypted = Column(Text(), nullable=True)
-    expiry_month = Column(Integer(), nullable=True)
-    expiry_year = Column(Integer(), nullable=True)
-    cvv_encrypted = Column(Text(), nullable=True)
+    # Payment information (PCI-compliant tokenization)
+    # REMOVED: Direct credit card storage violates PCI DSS
+    # cc_number_encrypted = Column(Text(), nullable=True)  # SECURITY RISK - REMOVED
+    # cvv_encrypted = Column(Text(), nullable=True)        # PCI VIOLATION - REMOVED
+
+    # PCI-compliant payment method storage
+    payment_provider = Column(String(50), nullable=True, comment="Payment provider: stripe, paypal, etc")
+    payment_method_token = Column(String(255), nullable=True, comment="Tokenized payment method ID")
+    payment_method_last4 = Column(String(4), nullable=True, comment="Last 4 digits for display only")
+    payment_method_brand = Column(String(20), nullable=True, comment="Card brand: visa, mastercard, etc")
+    expiry_month = Column(Integer(), nullable=True, comment="Expiry month for display/validation")
+    expiry_year = Column(Integer(), nullable=True, comment="Expiry year for display/validation")
 
     # Account preferences
     browser_preference = Column(String(50), nullable=True)
@@ -805,7 +812,7 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     supplier = relationship("Supplier", back_populates="accounts")
     purchase_history = relationship("AccountPurchaseHistory", back_populates="account", cascade="all, delete-orphan")
 
-    # Unique constraint for supplier + email
+    # Combined table args: schema and constraints
     __table_args__ = (
         UniqueConstraint('supplier_id', 'email', name='uq_supplier_account_email'),
         {"schema": "core"} if IS_POSTGRES else {}
@@ -819,21 +826,29 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
         """Set encrypted password"""
         self.set_encrypted_field('password_hash', password)
 
-    def get_encrypted_cc_number(self) -> str:
-        """Get encrypted credit card number"""
-        return self.get_encrypted_field('cc_number_encrypted')
+    # REMOVED: Credit card encryption methods - PCI compliance violation
+    # def get_encrypted_cc_number(self) -> str:
+    # def set_encrypted_cc_number(self, cc_number: str):
+    # def get_encrypted_cvv(self) -> str:
+    # def set_encrypted_cvv(self, cvv: str):
 
-    def set_encrypted_cc_number(self, cc_number: str):
-        """Set encrypted credit card number"""
-        self.set_encrypted_field('cc_number_encrypted', cc_number)
+    def set_payment_method(self, provider: str, token: str, last4: str = None, brand: str = None):
+        """Set PCI-compliant payment method using tokenization"""
+        self.payment_provider = provider
+        self.payment_method_token = token
+        self.payment_method_last4 = last4
+        self.payment_method_brand = brand
 
-    def get_encrypted_cvv(self) -> str:
-        """Get encrypted CVV"""
-        return self.get_encrypted_field('cvv_encrypted')
-
-    def set_encrypted_cvv(self, cvv: str):
-        """Set encrypted CVV"""
-        self.set_encrypted_field('cvv_encrypted', cvv)
+    def get_payment_display_info(self) -> dict:
+        """Get safe payment info for display (no sensitive data)"""
+        return {
+            "provider": self.payment_provider,
+            "last4": self.payment_method_last4,
+            "brand": self.payment_method_brand,
+            "expiry_month": self.expiry_month,
+            "expiry_year": self.expiry_year,
+            "has_payment_method": bool(self.payment_method_token)
+        }
 
     def to_dict(self, include_sensitive: bool = False):
         """Convert to dictionary for API responses"""
@@ -867,9 +882,10 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
         if include_sensitive:
             data.update({
                 "proxy_config": self.proxy_config,
-                "expiry_month": self.expiry_month,
-                "expiry_year": self.expiry_year,
-                # Note: Never include actual decrypted sensitive data in API responses
+                "payment_provider": self.payment_provider,
+                "payment_method_last4": self.payment_method_last4,
+                "payment_method_brand": self.payment_method_brand,
+                # Note: payment_method_token is never exposed - it's a secure token
             })
 
         return data

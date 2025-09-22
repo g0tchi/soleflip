@@ -48,14 +48,22 @@ class DatabaseManager:
             "echo_pool": False,
         }
         if "sqlite" not in self.database_url:
+            # Optimized for NAS network environment
             engine_args.update(
                 {
-                    "pool_size": 5,
-                    "max_overflow": 10,
-                    "pool_timeout": 30,
-                    "pool_recycle": 1800,
-                    "pool_pre_ping": True,
+                    "pool_size": 15,  # Increased from 5 for NAS environment
+                    "max_overflow": 20,  # Increased from 10 for burst capacity
+                    "pool_timeout": 45,  # Increased from 30 for network latency
+                    "pool_recycle": 1800,  # Keep connections fresh
+                    "pool_pre_ping": True,  # Essential for network resilience
                     "pool_reset_on_return": "commit",
+                    "connect_args": {
+                        "command_timeout": 60,  # Increase command timeout for NAS
+                        "server_settings": {
+                            "application_name": "soleflip_backend",
+                            "jit": "off"  # Disable JIT for stable performance
+                        }
+                    }
                 }
             )
 

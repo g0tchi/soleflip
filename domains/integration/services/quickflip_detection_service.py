@@ -13,7 +13,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.database.models import Product, MarketPrice
+from shared.database.models import Product, SourcePrice
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)
@@ -75,7 +75,7 @@ class QuickFlipDetectionService:
 
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-        self.market_price_repo = BaseRepository(MarketPrice, db_session)
+        self.market_price_repo = BaseRepository(SourcePrice, db_session)
         self.product_repo = BaseRepository(Product, db_session)
         self.logger = logger.bind(service="quickflip_detection")
 
@@ -108,11 +108,11 @@ class QuickFlipDetectionService:
 
         # Build the main query with JOINs
         query = (
-            select(MarketPrice)
+            select(SourcePrice)
             .options(
-                selectinload(MarketPrice.product).selectinload(Product.brand)
+                selectinload(SourcePrice.product).selectinload(Product.brand)
             )
-            .join(Product, MarketPrice.product_id == Product.id)
+            .join(Product, SourcePrice.product_id == Product.id)
         )
 
         # Apply filters
@@ -124,18 +124,18 @@ class QuickFlipDetectionService:
 
         # Source filter
         if sources:
-            conditions.append(MarketPrice.source.in_(sources))
+            conditions.append(SourcePrice.source.in_(sources))
 
         # Max buy price filter
         if max_buy_price:
-            conditions.append(MarketPrice.buy_price <= max_buy_price)
+            conditions.append(SourcePrice.buy_price <= max_buy_price)
 
         # Apply all conditions
         if conditions:
             query = query.where(and_(*conditions))
 
         # Order by most recent prices first
-        query = query.order_by(desc(MarketPrice.last_updated))
+        query = query.order_by(desc(SourcePrice.last_updated))
 
         # Execute query
         result = await self.db_session.execute(query)
@@ -172,8 +172,8 @@ class QuickFlipDetectionService:
 
         return opportunities
 
-    async def _calculate_opportunity(self, market_price: MarketPrice) -> QuickFlipOpportunity:
-        """Calculate opportunity metrics from MarketPrice object"""
+    async def _calculate_opportunity(self, market_price: SourcePrice) -> QuickFlipOpportunity:
+        """Calculate opportunity metrics from SourcePrice object"""
 
         product = market_price.product
         if not product or not product.avg_resale_price:
