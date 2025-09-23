@@ -1,0 +1,626 @@
+{
+  "name": "SoleFlipper StockX API App",
+  "description": "Comprehensive StockX integration for product monitoring, price tracking, and QuickFlip opportunities",
+  "version": "1.0.0",
+  "type": "app",
+  "icon": "TrendingUp",
+  "theme": "midnight",
+  "navigation": {
+    "title": "SoleFlipper StockX",
+    "hideTitle": false
+  },
+  "datasources": {
+    "postgres": {
+      "name": "SoleFlipper Database",
+      "type": "postgres",
+      "config": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "soleflip",
+        "schema": "public",
+        "ssl": false
+      },
+      "tables": [
+        "products.products",
+        "integration.market_prices",
+        "sales.transactions",
+        "inventory.stock_levels"
+      ]
+    },
+    "stockx_api": {
+      "name": "StockX REST API",
+      "type": "rest",
+      "config": {
+        "url": "https://gateway.stockx.com/api",
+        "defaultHeaders": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        "authentication": {
+          "type": "bearer",
+          "bearer": "{{ env.STOCKX_API_TOKEN }}"
+        }
+      },
+      "queries": {
+        "searchProducts": {
+          "method": "GET",
+          "path": "/catalog/search?query={{ search_term }}",
+          "headers": {},
+          "parameters": {
+            "search_term": "string"
+          }
+        },
+        "getProductDetails": {
+          "method": "GET",
+          "path": "/catalog/products/{{ product_id }}",
+          "parameters": {
+            "product_id": "string"
+          }
+        },
+        "getMarketData": {
+          "method": "GET",
+          "path": "/catalog/products/{{ product_id }}/market",
+          "parameters": {
+            "product_id": "string"
+          }
+        }
+      }
+    },
+    "soleflip_api": {
+      "name": "SoleFlipper Backend API",
+      "type": "rest",
+      "config": {
+        "url": "http://127.0.0.1:8000/api/v1",
+        "defaultHeaders": {
+          "Content-Type": "application/json"
+        }
+      },
+      "queries": {
+        "getQuickFlipOpportunities": {
+          "method": "GET",
+          "path": "/quickflip/opportunities",
+          "parameters": {
+            "min_profit_margin": "number",
+            "limit": "number"
+          }
+        },
+        "getOpportunitySummary": {
+          "method": "GET",
+          "path": "/quickflip/opportunities/summary"
+        },
+        "getInventorySummary": {
+          "method": "GET",
+          "path": "/inventory/summary"
+        }
+      }
+    }
+  },
+  "screens": {
+    "home": {
+      "name": "Dashboard",
+      "route": "/",
+      "layout": "basic",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "heading",
+              "props": {
+                "text": "SoleFlipper StockX Dashboard",
+                "size": "L"
+              }
+            },
+            {
+              "type": "container",
+              "props": {
+                "direction": "row",
+                "gap": "M"
+              },
+              "children": [
+                {
+                  "type": "card",
+                  "props": {
+                    "title": "QuickFlip Opportunities",
+                    "width": "33%"
+                  },
+                  "children": [
+                    {
+                      "type": "dataprovider",
+                      "props": {
+                        "datasource": "soleflip_api",
+                        "query": "getOpportunitySummary"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "props": {
+                            "text": "{{ data.total_opportunities }} Opportunities"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "props": {
+                            "text": "Avg Margin: {{ data.avg_profit_margin }}%"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "card",
+                  "props": {
+                    "title": "Inventory Status",
+                    "width": "33%"
+                  },
+                  "children": [
+                    {
+                      "type": "dataprovider",
+                      "props": {
+                        "datasource": "soleflip_api",
+                        "query": "getInventorySummary"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "props": {
+                            "text": "{{ data.total_products }} Products"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "props": {
+                            "text": "Value: €{{ data.total_value }}"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "card",
+                  "props": {
+                    "title": "Market Prices",
+                    "width": "33%"
+                  },
+                  "children": [
+                    {
+                      "type": "dataprovider",
+                      "props": {
+                        "datasource": "postgres",
+                        "table": "integration.market_prices"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "props": {
+                            "text": "{{ data.length }} Price Sources"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stockx_search": {
+      "name": "StockX Product Search",
+      "route": "/stockx-search",
+      "layout": "basic",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "heading",
+              "props": {
+                "text": "StockX Product Search",
+                "size": "L"
+              }
+            },
+            {
+              "type": "form",
+              "props": {
+                "title": "Search Products"
+              },
+              "children": [
+                {
+                  "type": "fieldgroup",
+                  "children": [
+                    {
+                      "type": "stringfield",
+                      "props": {
+                        "field": "search_term",
+                        "label": "Search Term",
+                        "placeholder": "Enter product name, brand, or SKU"
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "props": {
+                        "text": "Search StockX",
+                        "type": "cta",
+                        "onClick": [
+                          {
+                            "type": "RefreshDatasource",
+                            "parameters": {
+                              "datasource": "stockx_api",
+                              "query": "searchProducts"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "dataprovider",
+              "props": {
+                "datasource": "stockx_api",
+                "query": "searchProducts"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "stockx_api",
+                    "columns": [
+                      {
+                        "name": "title",
+                        "displayName": "Product Name",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "brand",
+                        "displayName": "Brand",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "retail_price",
+                        "displayName": "Retail Price",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "market_price",
+                        "displayName": "Market Price",
+                        "width": "auto"
+                      }
+                    ],
+                    "showAutoColumns": false,
+                    "rowCount": 50
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "quickflip_opportunities": {
+      "name": "QuickFlip Opportunities",
+      "route": "/quickflip",
+      "layout": "basic",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "heading",
+              "props": {
+                "text": "QuickFlip Opportunities",
+                "size": "L"
+              }
+            },
+            {
+              "type": "form",
+              "props": {
+                "title": "Filter Options"
+              },
+              "children": [
+                {
+                  "type": "fieldgroup",
+                  "children": [
+                    {
+                      "type": "numberfield",
+                      "props": {
+                        "field": "min_profit_margin",
+                        "label": "Min Profit Margin (%)",
+                        "defaultValue": 15
+                      }
+                    },
+                    {
+                      "type": "numberfield",
+                      "props": {
+                        "field": "limit",
+                        "label": "Max Results",
+                        "defaultValue": 50
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "props": {
+                        "text": "Update Results",
+                        "type": "cta",
+                        "onClick": [
+                          {
+                            "type": "RefreshDatasource",
+                            "parameters": {
+                              "datasource": "soleflip_api",
+                              "query": "getQuickFlipOpportunities"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "dataprovider",
+              "props": {
+                "datasource": "soleflip_api",
+                "query": "getQuickFlipOpportunities"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "soleflip_api",
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "displayName": "Product",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "brand_name",
+                        "displayName": "Brand",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "buy_price",
+                        "displayName": "Buy Price",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "sell_price",
+                        "displayName": "Sell Price",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "gross_profit",
+                        "displayName": "Profit",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "profit_margin",
+                        "displayName": "Margin %",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "buy_source",
+                        "displayName": "Source",
+                        "width": "auto"
+                      }
+                    ],
+                    "showAutoColumns": false,
+                    "rowCount": 100
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "price_monitor": {
+      "name": "Price Monitor",
+      "route": "/price-monitor",
+      "layout": "basic",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "heading",
+              "props": {
+                "text": "Price Monitor",
+                "size": "L"
+              }
+            },
+            {
+              "type": "dataprovider",
+              "props": {
+                "datasource": "postgres",
+                "table": "integration.market_prices"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "postgres",
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "displayName": "Product",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "source",
+                        "displayName": "Source",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "supplier_name",
+                        "displayName": "Supplier",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "buy_price",
+                        "displayName": "Price",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "availability",
+                        "displayName": "Available",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "last_updated",
+                        "displayName": "Last Updated",
+                        "width": "auto"
+                      }
+                    ],
+                    "showAutoColumns": false,
+                    "rowCount": 100,
+                    "sortColumn": "last_updated",
+                    "sortOrder": "descending"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "inventory": {
+      "name": "Inventory Management",
+      "route": "/inventory",
+      "layout": "basic",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "heading",
+              "props": {
+                "text": "Inventory Management",
+                "size": "L"
+              }
+            },
+            {
+              "type": "dataprovider",
+              "props": {
+                "datasource": "postgres",
+                "table": "products.products"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "postgres",
+                    "columns": [
+                      {
+                        "name": "name",
+                        "displayName": "Product Name",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "sku",
+                        "displayName": "SKU",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "brand",
+                        "displayName": "Brand",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "category",
+                        "displayName": "Category",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "stockx_product_id",
+                        "displayName": "StockX ID",
+                        "width": "auto"
+                      },
+                      {
+                        "name": "created_at",
+                        "displayName": "Added",
+                        "width": "auto"
+                      }
+                    ],
+                    "showAutoColumns": false,
+                    "rowCount": 100,
+                    "sortColumn": "created_at",
+                    "sortOrder": "descending"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "navigation_items": [
+    {
+      "text": "Dashboard",
+      "url": "/",
+      "type": "screen"
+    },
+    {
+      "text": "StockX Search",
+      "url": "/stockx-search",
+      "type": "screen"
+    },
+    {
+      "text": "QuickFlip",
+      "url": "/quickflip",
+      "type": "screen"
+    },
+    {
+      "text": "Price Monitor",
+      "url": "/price-monitor",
+      "type": "screen"
+    },
+    {
+      "text": "Inventory",
+      "url": "/inventory",
+      "type": "screen"
+    }
+  ],
+  "roles": [
+    {
+      "name": "Admin",
+      "permissions": ["read", "write", "admin"]
+    },
+    {
+      "name": "User",
+      "permissions": ["read", "write"]
+    },
+    {
+      "name": "Viewer",
+      "permissions": ["read"]
+    }
+  ]
+}

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from domains.integration.api.webhooks import get_stockx_service
 from domains.integration.services.stockx_service import StockXService
+from shared.auth.dependencies import require_authenticated_user
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -24,6 +25,7 @@ async def get_active_orders(
         None, description="Filter by shipment display IDs."
     ),
     stockx_service: StockXService = Depends(get_stockx_service),
+    current_user = Depends(require_authenticated_user),  # SECURITY: Critical - protect order data
 ):
     """
     Get all active orders from the StockX marketplace.

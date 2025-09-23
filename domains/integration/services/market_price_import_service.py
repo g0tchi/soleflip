@@ -12,7 +12,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Product, Brand, Category, MarketPrice
+from shared.database.models import Product, Brand, Category, SourcePrice
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +26,7 @@ class MarketPriceImportService:
         self.product_repo = BaseRepository(Product, db_session)
         self.brand_repo = BaseRepository(Brand, db_session)
         self.category_repo = BaseRepository(Category, db_session)
-        self.market_price_repo = BaseRepository(MarketPrice, db_session)
+        self.source_price_repo = BaseRepository(SourcePrice, db_session)
         self.logger = logger.bind(service="market_price_import")
 
     async def import_csv_file(self, file_path: str, source: str = "awin") -> Dict[str, int]:
@@ -124,7 +124,7 @@ class MarketPriceImportService:
             return
 
         # Check if market price already exists
-        existing_price = await self.market_price_repo.find_one(
+        existing_price = await self.source_price_repo.find_one(
             product_id=product.id,
             source=source,
             external_id=awin_id
@@ -132,7 +132,7 @@ class MarketPriceImportService:
 
         if existing_price:
             # Update existing price
-            await self.market_price_repo.update(
+            await self.source_price_repo.update(
                 existing_price.id,
                 buy_price=buy_price,
                 supplier_name=program_name,
@@ -144,7 +144,7 @@ class MarketPriceImportService:
             stats["updated"] += 1
         else:
             # Create new market price
-            await self.market_price_repo.create(
+            await self.source_price_repo.create(
                 product_id=product.id,
                 source=source,
                 supplier_name=program_name,
@@ -310,7 +310,7 @@ class MarketPriceImportService:
     async def get_import_stats(self, source: Optional[str] = None) -> Dict[str, int]:
         """Get statistics about imported market price data"""
         if source:
-            total_prices = await self.market_price_repo.count({"source": source})
+            total_prices = await self.source_price_repo.count({"source": source})
             return {
                 f"total_{source}_prices": total_prices,
             }
@@ -318,6 +318,6 @@ class MarketPriceImportService:
             # Get stats for all sources
             stats = {}
             # This would require a more sophisticated query to get counts by source
-            total_prices = await self.market_price_repo.count()
+            total_prices = await self.source_price_repo.count()
             stats["total_market_prices"] = total_prices
             return stats

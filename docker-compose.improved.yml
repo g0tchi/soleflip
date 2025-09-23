@@ -1,0 +1,472 @@
+# Optimized Docker Compose for Synology NAS - SoleFlip Platform
+# Includes: PostgreSQL, Redis, API, Metabase, Budibase, N8N, Adminer
+version: '3.8'
+
+networks:
+  soleflip-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/postgres_data
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/redis_data
+  metabase_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/metabase_data
+  budibase_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/budibase_data
+  n8n_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/n8n_data
+  api_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/soleflipper/api_logs
+
+services:
+  # =====================================================
+  # Core Database Service (PostgreSQL)
+  # =====================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: soleflip-postgres
+    hostname: soleflip-postgres
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init-scripts:/docker-entrypoint-initdb.d:ro
+      - /volume1/docker/soleflipper/backups:/backups
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Create multiple databases on startup
+      POSTGRES_MULTIPLE_DATABASES: soleflip,metabase,n8n,budibase
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    # Only expose if external access needed
+    # ports:
+    #   - "5432:5432"
+
+  # =====================================================
+  # Redis Cache Service
+  # =====================================================
+  redis:
+    image: redis:7-alpine
+    container_name: soleflip-redis
+    hostname: soleflip-redis
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.11
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+
+  # =====================================================
+  # SoleFlip API Service
+  # =====================================================
+  api:
+    build:
+      context: .
+      target: production
+      args:
+        - ENVIRONMENT=production
+    container_name: soleflip-api
+    hostname: soleflip-api
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "8000:8000"
+    volumes:
+      - api_logs:/app/logs
+      - /volume1/docker/soleflipper/api_uploads:/app/uploads
+    env_file:
+      - .env
+      - .env.api
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@soleflip-postgres:5432/soleflip
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@soleflip-redis:6379/0
+      # Application Settings
+      ENVIRONMENT: production
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: 4
+      # Logging
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      # File Upload Settings
+      UPLOAD_PATH: /app/uploads
+      MAX_UPLOAD_SIZE: 100MB
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # =====================================================
+  # Metabase Analytics Service
+  # =====================================================
+  metabase:
+    image: metabase/metabase:latest
+    container_name: soleflip-metabase
+    hostname: soleflip-metabase
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.30
+    ports:
+      - "6400:3000"
+    volumes:
+      - metabase_data:/metabase-data
+      - /volume1/docker/soleflipper/metabase/plugins:/plugins:rw
+    environment:
+      # Java Settings
+      JAVA_TOOL_OPTIONS: -Xmx2g
+      TZ: Europe/Berlin
+      JAVA_TIMEZONE: Europe/Berlin
+      # Database Settings
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER:-postgres}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: soleflip-postgres
+      # Email Settings
+      MB_EMAIL_FROM_ADDRESS: ${METABASE_EMAIL_FROM:-metabase@yourdomain.com}
+      MB_EMAIL_FROM_NAME: SoleFlip Analytics
+      MB_EMAIL_REPLY_TO: "true"
+      MB_EMAIL_SMTP_USERNAME: ${METABASE_SMTP_USER}
+      MB_EMAIL_SMTP_PASSWORD: ${METABASE_SMTP_PASS}
+      MB_EMAIL_SMTP_HOST: ${METABASE_SMTP_HOST:-mail.infomaniak.com}
+      MB_EMAIL_SMTP_SECURITY: ssl
+      MB_EMAIL_SMTP_PORT: 465
+      # Site URL
+      MB_SITE_URL: https://metabase.${DOMAIN_NAME}
+      # Performance Settings
+      MB_APPLICATION_DB_MAX_CONNECTION_POOL_SIZE: 20
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =====================================================
+  # Budibase Low-Code Platform
+  # =====================================================
+  budibase:
+    image: budibase/budibase:latest
+    container_name: soleflip-budibase
+    hostname: soleflip-budibase
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.40
+    ports:
+      - "10000:10000"
+    volumes:
+      - budibase_data:/data
+    environment:
+      # Core Settings
+      BUDIBASE_ENVIRONMENT: production
+      PORT: 10000
+      # Database Settings
+      BUDIBASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@soleflip-postgres:5432/budibase
+      # Redis Settings
+      REDIS_URL: redis://:${REDIS_PASSWORD}@soleflip-redis:6379/1
+      # JWT Settings
+      JWT_SECRET: ${BUDIBASE_JWT_SECRET}
+      INTERNAL_API_KEY: ${BUDIBASE_INTERNAL_API_KEY}
+      # External API Integration
+      EXTERNAL_API_BASE_URL: http://soleflip-api:8000
+      # Email Settings (Optional)
+      EMAIL_SMTP_HOST: ${METABASE_SMTP_HOST}
+      EMAIL_SMTP_PORT: 465
+      EMAIL_SMTP_USER: ${METABASE_SMTP_USER}
+      EMAIL_SMTP_PASSWORD: ${METABASE_SMTP_PASS}
+      # File Storage
+      ENABLE_ANALYTICS: "true"
+      SELF_HOSTED: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  # =====================================================
+  # N8N Automation Service
+  # =====================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: soleflip-n8n
+    hostname: soleflip-n8n
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.50
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - /volume1/docker/soleflipper/n8n/files:/files:rw
+    environment:
+      # Core Settings
+      NODE_ENV: production
+      N8N_HOST: ${DOMAIN_NAME}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN_NAME}
+      # Timezone
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+      # Database Settings
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: soleflip-postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-postgres}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      # Security
+      N8N_BASIC_AUTH_ACTIVE: true
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      # Performance
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: soleflip-redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_BULL_REDIS_DB: 2
+      # Functions
+      NODE_FUNCTION_ALLOW_EXTERNAL: axios,crypto,moment
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # =====================================================
+  # Adminer Database Management
+  # =====================================================
+  adminer:
+    image: adminer:latest
+    container_name: soleflip-adminer
+    hostname: soleflip-adminer
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.60
+    ports:
+      - "8220:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: soleflip-postgres
+      ADMINER_DESIGN: pepa-linha
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      - postgres
+
+  # =====================================================
+  # Database Backup Service
+  # =====================================================
+  db-backup:
+    image: postgres:17-alpine
+    container_name: soleflip-backup
+    hostname: soleflip-backup
+    networks:
+      - soleflip-network
+    volumes:
+      - /volume1/docker/soleflipper/backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    environment:
+      PGHOST: soleflip-postgres
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_RETENTION_DAYS: 30
+    command: |
+      sh -c 'while true; do
+        echo "Starting backup at $$(date)"
+        for db in soleflip metabase n8n budibase; do
+          pg_dump -h soleflip-postgres -U ${POSTGRES_USER:-postgres} $$db > /backups/$${db}_backup_$$(date +%Y%m%d_%H%M%S).sql
+          echo "Backup completed for $$db"
+        done
+        find /backups -name "*_backup_*.sql" -mtime +30 -delete
+        echo "Cleanup completed. Sleeping for 24 hours..."
+        sleep 86400
+      done'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =====================================================
+  # Nginx Reverse Proxy (Optional)
+  # =====================================================
+  nginx:
+    image: nginx:alpine
+    container_name: soleflip-nginx
+    hostname: soleflip-nginx
+    networks:
+      soleflip-network:
+        ipv4_address: 172.20.0.70
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /volume1/docker/soleflipper/ssl:/etc/nginx/ssl:ro
+      - /volume1/docker/soleflipper/nginx_logs:/var/log/nginx
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    depends_on:
+      - api
+      - metabase
+      - budibase
+      - n8n

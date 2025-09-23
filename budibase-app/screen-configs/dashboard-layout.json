@@ -1,0 +1,331 @@
+{
+  "screen": "dashboard",
+  "layout": {
+    "type": "container",
+    "direction": "column",
+    "gap": "L",
+    "padding": "L",
+    "children": [
+      {
+        "type": "header",
+        "props": {
+          "title": "SoleFlipper StockX Dashboard",
+          "subtitle": "Arbitrage Opportunities & Market Intelligence",
+          "size": "XL"
+        }
+      },
+      {
+        "type": "stats_row",
+        "layout": {
+          "type": "container",
+          "direction": "row",
+          "gap": "M",
+          "children": [
+            {
+              "type": "stat_card",
+              "props": {
+                "title": "Active Opportunities",
+                "value": "{{ quickflip_summary.total_opportunities }}",
+                "subtitle": "QuickFlip Arbitrage",
+                "trend": "up",
+                "color": "success",
+                "icon": "TrendingUp"
+              },
+              "datasource": "soleflip_api",
+              "query": "getOpportunitySummary"
+            },
+            {
+              "type": "stat_card",
+              "props": {
+                "title": "Average Margin",
+                "value": "{{ quickflip_summary.avg_profit_margin }}%",
+                "subtitle": "Profit Percentage",
+                "trend": "neutral",
+                "color": "info",
+                "icon": "Percent"
+              }
+            },
+            {
+              "type": "stat_card",
+              "props": {
+                "title": "Total Products",
+                "value": "{{ inventory_summary.total_products }}",
+                "subtitle": "In Database",
+                "trend": "up",
+                "color": "primary",
+                "icon": "Package"
+              },
+              "datasource": "soleflip_api",
+              "query": "getInventorySummary"
+            },
+            {
+              "type": "stat_card",
+              "props": {
+                "title": "Market Sources",
+                "value": "{{ market_prices_count }}",
+                "subtitle": "Price Feeds",
+                "trend": "stable",
+                "color": "warning",
+                "icon": "Database"
+              },
+              "datasource": "postgres",
+              "query": "SELECT COUNT(DISTINCT source) as market_prices_count FROM integration.market_prices"
+            }
+          ]
+        }
+      },
+      {
+        "type": "content_row",
+        "layout": {
+          "type": "container",
+          "direction": "row",
+          "gap": "M",
+          "children": [
+            {
+              "type": "card",
+              "props": {
+                "title": "Top QuickFlip Opportunities",
+                "width": "60%"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "soleflip_api",
+                    "query": "getQuickFlipOpportunities",
+                    "parameters": {
+                      "min_profit_margin": 25,
+                      "limit": 10
+                    },
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "displayName": "Product",
+                        "width": "30%"
+                      },
+                      {
+                        "name": "buy_price",
+                        "displayName": "Buy €",
+                        "width": "15%",
+                        "format": "currency"
+                      },
+                      {
+                        "name": "sell_price",
+                        "displayName": "Sell €",
+                        "width": "15%",
+                        "format": "currency"
+                      },
+                      {
+                        "name": "gross_profit",
+                        "displayName": "Profit €",
+                        "width": "15%",
+                        "format": "currency"
+                      },
+                      {
+                        "name": "profit_margin",
+                        "displayName": "Margin %",
+                        "width": "15%",
+                        "format": "percentage"
+                      },
+                      {
+                        "name": "buy_source",
+                        "displayName": "Source",
+                        "width": "10%"
+                      }
+                    ],
+                    "rowActions": [
+                      {
+                        "type": "button",
+                        "text": "View Details",
+                        "action": "navigate",
+                        "url": "/quickflip?product={{ product_id }}"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "card",
+              "props": {
+                "title": "Recent Price Updates",
+                "width": "40%"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "datasource": "postgres",
+                    "table": "integration.market_prices",
+                    "filter": "last_updated >= NOW() - INTERVAL '24 hours'",
+                    "sort": {
+                      "column": "last_updated",
+                      "direction": "desc"
+                    },
+                    "limit": 8,
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "displayName": "Product",
+                        "width": "40%"
+                      },
+                      {
+                        "name": "buy_price",
+                        "displayName": "Price",
+                        "width": "25%",
+                        "format": "currency"
+                      },
+                      {
+                        "name": "source",
+                        "displayName": "Source",
+                        "width": "20%"
+                      },
+                      {
+                        "name": "last_updated",
+                        "displayName": "Updated",
+                        "width": "15%",
+                        "format": "time_ago"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "charts_row",
+        "layout": {
+          "type": "container",
+          "direction": "row",
+          "gap": "M",
+          "children": [
+            {
+              "type": "card",
+              "props": {
+                "title": "Profit Margin Distribution",
+                "width": "50%"
+              },
+              "children": [
+                {
+                  "type": "chart",
+                  "props": {
+                    "type": "bar",
+                    "datasource": "soleflip_api",
+                    "query": "getQuickFlipOpportunities",
+                    "xAxis": "profit_margin_range",
+                    "yAxis": "count",
+                    "groupBy": "profit_margin",
+                    "transformer": `
+                      // Group opportunities by profit margin ranges
+                      const ranges = {
+                        '10-25%': 0, '25-50%': 0, '50-75%': 0, '75-100%': 0, '100%+': 0
+                      };
+                      data.forEach(item => {
+                        const margin = item.profit_margin;
+                        if (margin < 25) ranges['10-25%']++;
+                        else if (margin < 50) ranges['25-50%']++;
+                        else if (margin < 75) ranges['50-75%']++;
+                        else if (margin < 100) ranges['75-100%']++;
+                        else ranges['100%+']++;
+                      });
+                      return Object.entries(ranges).map(([range, count]) => ({
+                        profit_margin_range: range,
+                        count: count
+                      }));
+                    `
+                  }
+                }
+              ]
+            },
+            {
+              "type": "card",
+              "props": {
+                "title": "Source Performance",
+                "width": "50%"
+              },
+              "children": [
+                {
+                  "type": "chart",
+                  "props": {
+                    "type": "doughnut",
+                    "datasource": "postgres",
+                    "query": "SELECT source, COUNT(*) as count FROM integration.market_prices GROUP BY source",
+                    "labelColumn": "source",
+                    "valueColumn": "count"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "actions_row",
+        "layout": {
+          "type": "container",
+          "direction": "row",
+          "gap": "M",
+          "justify": "center",
+          "children": [
+            {
+              "type": "button",
+              "props": {
+                "text": "Search StockX Products",
+                "size": "large",
+                "type": "primary",
+                "icon": "Search",
+                "onClick": {
+                  "type": "navigate",
+                  "url": "/stockx-search"
+                }
+              }
+            },
+            {
+              "type": "button",
+              "props": {
+                "text": "View All Opportunities",
+                "size": "large",
+                "type": "secondary",
+                "icon": "TrendingUp",
+                "onClick": {
+                  "type": "navigate",
+                  "url": "/quickflip"
+                }
+              }
+            },
+            {
+              "type": "button",
+              "props": {
+                "text": "Monitor Prices",
+                "size": "large",
+                "type": "secondary",
+                "icon": "BarChart",
+                "onClick": {
+                  "type": "navigate",
+                  "url": "/price-monitor"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "refresh": {
+    "auto": true,
+    "interval": 300000,
+    "datasources": ["soleflip_api", "postgres"]
+  },
+  "responsive": {
+    "mobile": {
+      "stats_row": "column",
+      "content_row": "column",
+      "charts_row": "column"
+    },
+    "tablet": {
+      "content_row": "column"
+    }
+  }
+}
