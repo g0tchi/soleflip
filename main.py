@@ -113,7 +113,6 @@ async def lifespan(app: FastAPI):
     # Initialize performance optimizations
     from shared.performance import initialize_cache, get_database_optimizer
     from shared.auth.token_blacklist import initialize_token_blacklist
-    import os
     
     # Initialize cache system
     redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
@@ -229,6 +228,14 @@ async def apm_middleware(request: Request, call_next):
         
         get_apm_collector().record_request(metrics)
 
+# Add security middleware for selling APIs
+from shared.security.api_security import security_middleware
+
+@app.middleware("http")
+async def security_middleware_wrapper(request: Request, call_next):
+    """Security middleware for enhanced API protection"""
+    return await security_middleware(request, call_next)
+
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
@@ -241,6 +248,29 @@ app.add_middleware(
 )
 
 # Add exception handlers
+from shared.error_handling.selling_exceptions import (
+    SellingBaseException,
+    ListingCreationError,
+    PriceUpdateError,
+    ListingNotFoundError,
+    OpportunityNotFoundError,
+    StockXAPIError,
+    BulkOperationError,
+    ConfigurationError,
+    ValidationError as SellingValidationError,
+    DatabaseError,
+    RateLimitExceededError
+)
+
+@app.exception_handler(SellingBaseException)
+async def selling_exception_handler(request: Request, exc: SellingBaseException):
+    """Handle selling domain exceptions with security-aware responses"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+        headers=exc.headers
+    )
+
 app.add_exception_handler(SoleFlipException, soleflip_exception_handler)
 app.add_exception_handler(ValidationException, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -254,8 +284,14 @@ from domains.integration.api.upload_router import router as upload_router
 
 # Include API routers
 from domains.integration.api.webhooks import router as webhook_router
+from domains.integration.api.quickflip_router import router as quickflip_router
 from domains.inventory.api.router import router as inventory_router
 from domains.orders.api.router import router as orders_router
+from domains.selling.api.selling_router import router as selling_router
+from domains.selling.api.order_management_router import router as order_management_router
+
+# Supplier account management
+from domains.suppliers.api.account_router import router as account_router
 
 # Using real router for production-ready pricing features
 from domains.pricing.api.router import router as pricing_router
@@ -271,8 +307,12 @@ app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integrat
 app.include_router(
     upload_router, prefix="/api/v1/integration", tags=["Integration"]
 )  # Prefix is the same
+app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFlip"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(selling_router, prefix="/api/v1/selling", tags=["Selling"])
+app.include_router(order_management_router, prefix="/api/v1/order-management", tags=["Order Management"])
+app.include_router(account_router, prefix="/api/v1/suppliers/accounts", tags=["Supplier Accounts"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
@@ -333,44 +373,6 @@ async def health_check():
 
 
 # APM metrics endpoint removed - use external APM tools
-    """Get detailed APM metrics and performance insights"""
-    from shared.monitoring.apm import get_apm_collector
-    
-    apm_collector = get_apm_collector()
-    
-    # Get performance summaries for different time windows
-    current_5min = apm_collector.get_performance_summary(minutes=5)
-    current_15min = apm_collector.get_performance_summary(minutes=15)
-    current_60min = apm_collector.get_performance_summary(minutes=60)
-    
-    # Get recent alerts (last 10)
-    recent_alerts = apm_collector.performance_alerts[-10:] if apm_collector.performance_alerts else []
-    
-    return {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "time_windows": {
-            "last_5_minutes": current_5min,
-            "last_15_minutes": current_15min,
-            "last_60_minutes": current_60min
-        },
-        "recent_alerts": recent_alerts,
-        "thresholds": {
-            "slow_request_ms": apm_collector.slow_request_threshold_ms,
-            "slow_query_ms": apm_collector.slow_query_threshold_ms,
-            "high_cpu_percent": apm_collector.high_cpu_threshold,
-            "high_memory_percent": apm_collector.high_memory_threshold
-        },
-        "error_tracking": dict(apm_collector.error_tracking),
-        "slow_queries": [
-            {
-                "query_type": sq.query_type,
-                "execution_time_ms": sq.execution_time_ms,
-                "table_name": sq.table_name,
-                "timestamp": sq.timestamp.isoformat() + "Z"
-            }
-            for sq in list(apm_collector.slow_queries)[-10:]  # Last 10 slow queries
-        ]
-    }
 
 
 # @app.get("/alerts", tags=["System"])  # REMOVED: Development-only

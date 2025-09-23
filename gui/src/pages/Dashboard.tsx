@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { 
-  TrendingUp, 
-  Package, 
-  Banknote, 
+import {
+  TrendingUp,
+  Package,
+  Banknote,
   Activity,
   ShoppingCart,
   PlusCircle,
   RefreshCw
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { Button, Card, Heading, Text } from '../components/ui';
+import { QuickFlipWidget } from '../components/Dashboard/QuickFlipWidget';
 
 interface DashboardMetrics {
   total_inventory_value: number;
@@ -59,12 +61,13 @@ const Dashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Enhanced modern theme styles
-  const containerClasses = 'min-h-screen padding-section space-section fade-in';
-  const cardClasses = 'modern-card-elevated';
-  const metricCardClasses = 'modern-card-metric slide-up';
-  const headingClasses = 'heading-lg';
-  const subheadingClasses = 'body-md';
+  // These variables were used in the old design but are now replaced by the new UI components
+  // Keeping them for reference but they're no longer used
+  // const containerClasses = 'min-h-screen padding-section space-section fade-in';
+  // const cardClasses = 'modern-card-elevated';
+  // const metricCardClasses = 'modern-card-metric slide-up';
+  // const headingClasses = 'heading-lg';
+  // const subheadingClasses = 'body-md';
 
   const fetchMetrics = async () => {
     try {
@@ -150,10 +153,15 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+      <div
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading dashboard data"
+      >
         <div className="text-center space-element">
           <div className="pulse-glow rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-gradient-to-r from-purple-500/20 to-green-500/20">
-            <RefreshCw className="w-12 h-12 animate-spin text-purple-400" />
+            <RefreshCw className="w-12 h-12 animate-spin text-purple-400" aria-hidden="true" />
           </div>
           <h2 className="heading-md mb-2">Loading Dashboard...</h2>
           <p className="body-lg">Fetching your latest metrics</p>
@@ -165,27 +173,37 @@ const Dashboard = () => {
   return (
     <div className="responsive-p-lg space-section fade-in">
       {/* Enhanced Responsive Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-8 sm:mb-12 space-y-4 sm:space-y-0">
+      <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-8 sm:mb-12 space-y-4 sm:space-y-0">
         <div className="space-tight">
-          <h1 className="responsive-text-4xl font-bold mb-2" style={{ color: '#fffffe' }}>Dashboard</h1>
-          <p className="responsive-text-lg" style={{ color: '#94a1b2' }}>Real-time insights into your business performance</p>
+          <Heading level={1} variant="display" gradient>
+            Dashboard
+          </Heading>
+          <Text variant="body" color="secondary" size="lg">
+            Real-time insights into your business performance
+          </Text>
         </div>
         <button
           onClick={fetchMetrics}
           disabled={isLoading}
-          className="youtube-button flex items-center space-x-3 micro-bounce self-start"
+          className="youtube-button flex items-center space-x-3 micro-bounce self-start focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          aria-label={isLoading ? 'Refreshing dashboard data' : 'Refresh dashboard data'}
+          type="button"
         >
-          <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`w-4 h-4 sm:w-5 sm:h-5 ${isLoading ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
           <span className="responsive-text-sm">Refresh Data</span>
         </button>
-      </div>
+      </header>
 
       {/* Enhanced Responsive Stats Grid */}
-      <div className="responsive-grid mb-8 sm:mb-12 lg:mb-16">
+      <section aria-labelledby="metrics-heading" className="responsive-grid mb-8 sm:mb-12 lg:mb-16">
+        <h2 id="metrics-heading" className="sr-only">Key Performance Metrics</h2>
         {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <div
+            <article
               key={card.title}
               className="frosted-glass reactive-card group micro-pulse"
               style={{
@@ -193,12 +211,14 @@ const Dashboard = () => {
                 padding: '1.5rem',
                 borderRadius: '16px'
               }}
+              role="article"
+              aria-labelledby={`metric-${index}-title`}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="metric-icon group-hover:scale-110 reactive-icon">
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" aria-hidden="true" />
                 </div>
-                <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-purple-500 to-transparent rounded-full opacity-60" />
+                <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-purple-500 to-transparent rounded-full opacity-60" aria-hidden="true" />
               </div>
               <div className="space-tight">
                 <div className="responsive-text-2xl font-bold tracking-tight mb-2" style={{
@@ -209,38 +229,56 @@ const Dashboard = () => {
                 }}>
                   {card.value}
                 </div>
-                <div className="responsive-text-sm font-medium uppercase tracking-wider" style={{
-                  color: '#94a1b2',
-                  letterSpacing: '0.1em'
-                }}>
+                <h3
+                  id={`metric-${index}-title`}
+                  className="responsive-text-sm font-medium uppercase tracking-wider"
+                  style={{
+                    color: '#94a1b2',
+                    letterSpacing: '0.1em'
+                  }}
+                >
                   {card.title}
-                </div>
+                </h3>
               </div>
-            </div>
+            </article>
           );
         })}
-      </div>
+      </section>
 
       {/* Enhanced Responsive Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12">
+        {/* QuickFlip Opportunities Widget */}
+        <div className="lg:col-span-1">
+          <QuickFlipWidget />
+        </div>
+
         {/* Enhanced Recent Activity */}
-        <div className="frosted-glass lg:col-span-2 space-element responsive-p-lg">
+        <section
+          className="frosted-glass lg:col-span-2 space-element responsive-p-lg"
+          aria-labelledby="recent-activity-heading"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-2 sm:space-y-0">
             <div className="space-tight">
-              <h2 className="responsive-text-2xl font-semibold" style={{ color: '#fffffe' }}>Recent Activity</h2>
+              <h2 id="recent-activity-heading" className="responsive-text-2xl font-semibold" style={{ color: '#fffffe' }}>Recent Activity</h2>
               <p className="responsive-text-sm uppercase tracking-wider font-medium" style={{ color: '#72757e' }}>Latest transactions and updates</p>
             </div>
-            <button className="youtube-button text-sm self-start sm:self-auto">
+            <button
+              className="youtube-button text-sm self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+              aria-label="View all recent activity"
+              type="button"
+            >
               View all →
             </button>
           </div>
           
-          <div className="space-element">
+          <div className="space-element" role="list" aria-label="Recent transactions">
             {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
-              <div
+              <article
                 key={activity.id}
                 className="group flex items-center justify-between p-6 md:p-8 rounded-2xl bg-gradient-to-r from-gray-800/50 to-gray-800/30 hover:from-gray-700/50 hover:to-gray-700/30 border border-gray-700/50 hover:border-purple-500/30 transition-all duration-300 backdrop-blur-sm"
                 style={{ animationDelay: `${index * 0.1}s` }}
+                role="listitem"
+                aria-labelledby={`activity-${activity.id}-title`}
               >
                 <div className="flex items-center gap-6">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
@@ -248,18 +286,18 @@ const Dashboard = () => {
                     activity.type === 'listing' ? 'bg-gradient-to-br from-purple-500/20 to-purple-700/10 border border-purple-500/20' : 'bg-gradient-to-br from-red-400/20 to-red-600/10 border border-red-400/20'
                   }`}>
                     {activity.type === 'sale' ? (
-                      <Banknote className="w-6 h-6 text-green-400 group-hover:scale-110 transition-transform" />
+                      <Banknote className="w-6 h-6 text-green-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
                     ) : activity.type === 'listing' ? (
-                      <PlusCircle className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
+                      <PlusCircle className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" aria-hidden="true" />
                     ) : (
-                      <TrendingUp className="w-6 h-6 text-red-400 group-hover:scale-110 transition-transform" />
+                      <TrendingUp className="w-6 h-6 text-red-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
                     )}
                   </div>
                   <div className="space-micro">
-                    <div className="label mb-1">{activity.item}</div>
-                    <div className="caption">
-                      {activity.brand} • {activity.time}
-                    </div>
+                    <h4 id={`activity-${activity.id}-title`} className="label mb-1">{activity.item}</h4>
+                    <p className="caption">
+                      {activity.brand} • <time dateTime={new Date().toISOString()}>{activity.time}</time>
+                    </p>
                   </div>
                 </div>
                 <div className="text-right space-micro">
@@ -268,11 +306,11 @@ const Dashboard = () => {
                     Profit: €{activity.profit.toFixed(2)}
                   </div>
                 </div>
-              </div>
+              </article>
             )) : (
-              <div className="text-center p-12 md:p-16 space-element">
+              <div className="text-center p-12 md:p-16 space-element" role="status">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-gray-700/30 to-gray-800/30 border border-gray-600/30 flex items-center justify-center">
-                  <Activity className="w-10 h-10 text-gray-500" />
+                  <Activity className="w-10 h-10 text-gray-500" aria-hidden="true" />
                 </div>
                 <h3 className="heading-sm mb-3">No Recent Activity</h3>
                 <p className="body-md">
@@ -281,7 +319,7 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Enhanced Quick Actions & Performance Summary */}
         <div className="space-component">

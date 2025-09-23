@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
+from shared.auth.dependencies import require_admin_role
 
 from ..repositories.import_repository import ImportRepository
 from ..services.import_processor import ImportProcessor, ImportStatus, SourceType
@@ -76,6 +77,7 @@ async def stockx_import_orders_webhook(
     background_tasks: BackgroundTasks,
     stockx_service: StockXService = Depends(get_stockx_service),
     import_processor: ImportProcessor = Depends(get_import_processor),
+    current_user = Depends(require_admin_role),  # SECURITY: Critical - require admin for StockX import
 ):
     """
     Triggers a background task to import historical orders from the StockX API

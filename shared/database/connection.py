@@ -25,14 +25,31 @@ class DatabaseManager:
     """Central database connection manager"""
 
     def __init__(self):
-        # Use SQLite for demo/development (switch to PostgreSQL for production)
+        # SECURITY: Require explicit DATABASE_URL configuration
         import os
+        from shared.config.settings import get_settings
 
-        if os.getenv("DATABASE_URL"):
-            self.database_url = os.getenv("DATABASE_URL")
-        else:
-            # Demo mode with SQLite
-            self.database_url = "sqlite+aiosqlite:///./soleflip_demo.db"
+        settings = get_settings()
+
+        # CRITICAL: Fail fast if DATABASE_URL not configured in production
+        if settings.is_production() and not os.getenv("DATABASE_URL"):
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: DATABASE_URL must be configured in production environment. "
+                "SQLite fallback is disabled for security reasons."
+            )
+
+        self.database_url = os.getenv("DATABASE_URL")
+
+        # Only allow SQLite in development/testing
+        if not self.database_url:
+            if settings.is_development() or settings.is_testing():
+                self.database_url = "sqlite+aiosqlite:///./soleflip_dev.db"
+                logger.warning("Using SQLite for development - NOT suitable for production")
+            else:
+                raise RuntimeError(
+                    "DATABASE_URL environment variable is required. "
+                    "Set DATABASE_URL=postgresql+asyncpg://user:pass@host/db"
+                )
 
         self.engine = None
         self.session_factory = None
@@ -48,14 +65,22 @@ class DatabaseManager:
             "echo_pool": False,
         }
         if "sqlite" not in self.database_url:
+            # Optimized for NAS network environment
             engine_args.update(
                 {
-                    "pool_size": 5,
-                    "max_overflow": 10,
-                    "pool_timeout": 30,
-                    "pool_recycle": 1800,
-                    "pool_pre_ping": True,
+                    "pool_size": 15,  # Increased from 5 for NAS environment
+                    "max_overflow": 20,  # Increased from 10 for burst capacity
+                    "pool_timeout": 45,  # Increased from 30 for network latency
+                    "pool_recycle": 1800,  # Keep connections fresh
+                    "pool_pre_ping": True,  # Essential for network resilience
                     "pool_reset_on_return": "commit",
+                    "connect_args": {
+                        "command_timeout": 60,  # Increase command timeout for NAS
+                        "server_settings": {
+                            "application_name": "soleflip_backend",
+                            "jit": "off"  # Disable JIT for stable performance
+                        }
+                    }
                 }
             )
 

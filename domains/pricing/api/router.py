@@ -484,55 +484,7 @@ async def get_pricing_rules(pricing_repo: PricingRepository = Depends(get_pricin
 
 
 # Pricing insights endpoint removed - redundant with Analytics
-async def get_pricing_insights(
-    pricing_repo: PricingRepository = Depends(get_pricing_repository),
-    db: AsyncSession = Depends(get_db_session),
-):
-    """Get pricing performance insights"""
-    try:
-        from sqlalchemy import text
-
-        # Get pricing performance metrics
-        insights_query = text(
-            """
-            SELECT 
-                COUNT(DISTINCT p.id) as total_products_analyzed,
-                AVG(ph.price) as avg_price,
-                AVG(CASE 
-                    WHEN i.purchase_price IS NOT NULL AND i.purchase_price > 0 
-                    THEN ((ph.price - i.purchase_price) / i.purchase_price) * 100 
-                END) as avg_margin_percent,
-                COUNT(ph.id) as total_price_updates,
-                COUNT(CASE WHEN ph.created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as recent_updates
-            FROM pricing.price_history ph
-            LEFT JOIN products.products p ON ph.product_id = p.id
-            LEFT JOIN products.inventory i ON p.id = i.product_id
-            WHERE ph.created_at >= NOW() - INTERVAL '90 days'
-        """
-        )
-
-        result = await db.execute(insights_query)
-        metrics = result.fetchone()
-
-        return {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "summary": {
-                "total_products_analyzed": metrics.total_products_analyzed or 0,
-                "average_price": float(metrics.avg_price or 0),
-                "average_margin_percent": float(metrics.avg_margin_percent or 0),
-                "total_price_updates": metrics.total_price_updates or 0,
-                "recent_updates_30d": metrics.recent_updates or 0,
-            },
-            "recommendations": [
-                "Monitor margin trends weekly",
-                "Update pricing rules based on market conditions",
-                "Consider dynamic pricing for high-value items",
-            ],
-        }
-
-    except Exception as e:
-        logger.error("Failed to fetch pricing insights", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch pricing insights: {str(e)}")
+# Function removed - redundant with Analytics
 
 
 # Smart Pricing Auto-Repricing Status and Control Endpoints

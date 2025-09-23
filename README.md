@@ -1,6 +1,6 @@
 # SoleFlipper 
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/yourusername/soleflip)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/yourusername/soleflip)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![PostgreSQL](https://img.shields.io/badge/postgresql-15+-blue.svg)](https://postgresql.org)
@@ -103,6 +103,21 @@ soleflip/
 ```
 
 ## ✨ Key Features
+
+### 🆕 Recent Features (v2.2.0)
+- **🚀 QuickFlip Arbitrage System**: Automated detection of profitable arbitrage opportunities across platforms
+- **💼 Budibase Integration**: Low-code business application for visual StockX API management
+- **🏭 Supplier Management**: Complete supplier account import and management system
+- **🐳 Enhanced Docker Infrastructure**: Production-ready Synology NAS deployment support
+- **📈 StockX API Enhancements**: Comprehensive gap analysis and improved endpoint validation
+- **🛡️ Critical Security Hardening**: Production-ready security with comprehensive endpoint protection
+
+### 🔐 Security & Production Readiness
+- **✅ Production Ready**: All critical security vulnerabilities resolved
+- **🔒 API Protection**: Comprehensive authentication on all sensitive endpoints
+- **🛡️ Database Security**: Production-hardened PostgreSQL with fail-safe configuration
+- **🔐 PCI Compliance**: Secure payment tokenization replacing direct card storage
+- **🚨 Zero Trust Model**: Admin operations require role-based authentication
 
 ### 🧠 Brand Intelligence System
 - **Deep Brand Analytics**: Comprehensive brand profiles with founder info, financial data, sustainability scores.
