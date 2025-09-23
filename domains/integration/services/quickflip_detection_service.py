@@ -75,7 +75,7 @@ class QuickFlipDetectionService:
 
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
-        self.market_price_repo = BaseRepository(SourcePrice, db_session)
+        self.source_price_repo = BaseRepository(SourcePrice, db_session)
         self.product_repo = BaseRepository(Product, db_session)
         self.logger = logger.bind(service="quickflip_detection")
 

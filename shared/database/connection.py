@@ -25,14 +25,31 @@ class DatabaseManager:
     """Central database connection manager"""
 
     def __init__(self):
-        # Use SQLite for demo/development (switch to PostgreSQL for production)
+        # SECURITY: Require explicit DATABASE_URL configuration
         import os
+        from shared.config.settings import get_settings
 
-        if os.getenv("DATABASE_URL"):
-            self.database_url = os.getenv("DATABASE_URL")
-        else:
-            # Demo mode with SQLite
-            self.database_url = "sqlite+aiosqlite:///./soleflip_demo.db"
+        settings = get_settings()
+
+        # CRITICAL: Fail fast if DATABASE_URL not configured in production
+        if settings.is_production() and not os.getenv("DATABASE_URL"):
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: DATABASE_URL must be configured in production environment. "
+                "SQLite fallback is disabled for security reasons."
+            )
+
+        self.database_url = os.getenv("DATABASE_URL")
+
+        # Only allow SQLite in development/testing
+        if not self.database_url:
+            if settings.is_development() or settings.is_testing():
+                self.database_url = "sqlite+aiosqlite:///./soleflip_dev.db"
+                logger.warning("Using SQLite for development - NOT suitable for production")
+            else:
+                raise RuntimeError(
+                    "DATABASE_URL environment variable is required. "
+                    "Set DATABASE_URL=postgresql+asyncpg://user:pass@host/db"
+                )
 
         self.engine = None
         self.session_factory = None
