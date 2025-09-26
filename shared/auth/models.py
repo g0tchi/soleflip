@@ -14,6 +14,7 @@ from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from shared.database.models import Base
+from shared.database.utils import IS_POSTGRES
 
 
 class UserRole(str, Enum):
@@ -28,7 +29,7 @@ class User(Base):
     """User model for authentication"""
 
     __tablename__ = "users"
-    __table_args__ = {"schema": "auth"}
+    __table_args__ = {"schema": "auth"} if IS_POSTGRES else None
 
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)

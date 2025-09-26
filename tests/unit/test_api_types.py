@@ -1,0 +1,340 @@
+"""
+Unit tests for API types
+Testing Pydantic models and utility methods for 100% coverage
+"""
+
+import pytest
+from datetime import datetime, timezone
+from pydantic import ValidationError
+from shared.types.api_types import (
+    PaginationInfo,
+    PaginatedResponse,
+    ValidationErrorResponse,
+    BulkOperationResponse,
+    SyncOperationResponse,
+    HealthCheckResponse,
+    BaseResponse,
+    SuccessResponse,
+    ErrorResponse
+)
+
+
+class TestPaginationInfo:
+    """Test PaginationInfo model and create method edge cases"""
+
+    def test_pagination_info_direct_creation(self):
+        """Test direct PaginationInfo creation with validation"""
+        pagination = PaginationInfo(
+            skip=10,
+            limit=20,
+            total=100,
+            has_more=True,
+            page=1,
+            total_pages=5
+        )
+
+        assert pagination.skip == 10
+        assert pagination.limit == 20
+        assert pagination.total == 100
+        assert pagination.has_more is True
+        assert pagination.page == 1
+        assert pagination.total_pages == 5
+
+    def test_pagination_create_zero_skip_zero_limit_edge_case(self):
+        """Test edge case: zero skip, minimum limit"""
+        pagination = PaginationInfo.create(skip=0, limit=1, total=10)
+
+        assert pagination.page == 1  # (0 // 1) + 1 = 1
+        assert pagination.total_pages == 10  # max(1, (10 + 1 - 1) // 1) = 10
+        assert pagination.has_more is True  # 0 + 1 < 10
+
+    def test_pagination_create_large_skip_calculations(self):
+        """Test edge case: large skip values for page calculation"""
+        pagination = PaginationInfo.create(skip=99, limit=10, total=100)
+
+        assert pagination.page == 10  # (99 // 10) + 1 = 10
+        assert pagination.total_pages == 10  # max(1, (100 + 10 - 1) // 10) = 10
+        assert pagination.has_more is False  # 99 + 10 >= 100
+
+    def test_pagination_create_total_pages_edge_cases(self):
+        """Test total pages calculation edge cases"""
+        # Case 1: total=0 should give total_pages=1
+        pagination = PaginationInfo.create(skip=0, limit=10, total=0)
+        assert pagination.total_pages == 1  # max(1, (0 + 10 - 1) // 10) = max(1, 0) = 1
+
+        # Case 2: total=1, limit=1 should give total_pages=1
+        pagination = PaginationInfo.create(skip=0, limit=1, total=1)
+        assert pagination.total_pages == 1  # max(1, (1 + 1 - 1) // 1) = 1
+
+        # Case 3: total slightly over limit boundary
+        pagination = PaginationInfo.create(skip=0, limit=10, total=11)
+        assert pagination.total_pages == 2  # max(1, (11 + 10 - 1) // 10) = 2
+
+    def test_pagination_create_has_more_boundary_conditions(self):
+        """Test has_more calculation boundary conditions"""
+        # Case 1: exactly at boundary (skip + limit == total)
+        pagination = PaginationInfo.create(skip=90, limit=10, total=100)
+        assert pagination.has_more is False  # 90 + 10 == 100, so not < 100
+
+        # Case 2: one less than boundary
+        pagination = PaginationInfo.create(skip=89, limit=10, total=100)
+        assert pagination.has_more is True  # 89 + 10 < 100
+
+        # Case 3: one more than boundary
+        pagination = PaginationInfo.create(skip=91, limit=10, total=100)
+        assert pagination.has_more is False  # 91 + 10 > 100
+
+    def test_pagination_info_field_validation(self):
+        """Test PaginationInfo field validation"""
+        # Test negative skip
+        with pytest.raises(ValidationError):
+            PaginationInfo(skip=-1, limit=10, total=100, has_more=True, page=1, total_pages=10)
+
+        # Test zero limit
+        with pytest.raises(ValidationError):
+            PaginationInfo(skip=0, limit=0, total=100, has_more=True, page=1, total_pages=10)
+
+        # Test negative total
+        with pytest.raises(ValidationError):
+            PaginationInfo(skip=0, limit=10, total=-1, has_more=True, page=1, total_pages=10)
+
+        # Test zero page
+        with pytest.raises(ValidationError):
+            PaginationInfo(skip=0, limit=10, total=100, has_more=True, page=0, total_pages=10)
+
+        # Test zero total_pages
+        with pytest.raises(ValidationError):
+            PaginationInfo(skip=0, limit=10, total=100, has_more=True, page=1, total_pages=0)
+
+
+class TestPaginatedResponse:
+    """Test PaginatedResponse model"""
+
+    def test_paginated_response_basic(self):
+        """Test basic paginated response"""
+        pagination = PaginationInfo.create(skip=0, limit=10, total=25)
+        data = [{"id": 1}, {"id": 2}]
+
+        response = PaginatedResponse[dict](
+            data=data,
+            pagination=pagination,
+            success=True
+        )
+
+        assert response.data == data
+        assert response.pagination == pagination
+        assert response.success is True
+        assert response.message is None
+        assert response.request_id is None
+
+    def test_paginated_response_with_optional_fields(self):
+        """Test paginated response with optional fields"""
+        pagination = PaginationInfo.create(skip=10, limit=5, total=50)
+        data = ["item1", "item2"]
+
+        response = PaginatedResponse[str](
+            data=data,
+            pagination=pagination,
+            success=False,
+            message="Partial results",
+            request_id="req-123"
+        )
+
+        assert response.data == data
+        assert response.success is False
+        assert response.message == "Partial results"
+        assert response.request_id == "req-123"
+
+
+class TestBaseResponse:
+    """Test BaseResponse model"""
+
+    def test_base_response_success(self):
+        """Test basic successful response"""
+        response = BaseResponse(
+            success=True,
+            message="Operation completed"
+        )
+
+        assert response.success is True
+        assert response.message == "Operation completed"
+        assert response.request_id is None
+        assert response.timestamp is not None
+
+    def test_base_response_with_request_id(self):
+        """Test base response with request ID"""
+        response = BaseResponse(
+            success=False,
+            message="Operation failed",
+            request_id="req-123"
+        )
+
+        assert response.success is False
+        assert response.message == "Operation failed"
+        assert response.request_id == "req-123"
+
+
+class TestSuccessResponse:
+    """Test SuccessResponse model"""
+
+    def test_success_response_basic(self):
+        """Test basic success response"""
+        response = SuccessResponse(
+            success=True,
+            message="Operation completed",
+            data={"id": 123}
+        )
+
+        assert response.success is True
+        assert response.message == "Operation completed"
+        assert response.data == {"id": 123}
+
+    def test_success_response_without_data(self):
+        """Test success response without data"""
+        response = SuccessResponse(
+            success=True,
+            message="Delete completed"
+        )
+
+        assert response.success is True
+        assert response.data is None
+
+
+class TestErrorResponse:
+    """Test ErrorResponse model"""
+
+    def test_error_response_basic(self):
+        """Test basic error response"""
+        response = ErrorResponse(
+            success=False,
+            message="Something went wrong",
+            error_code="ERR_001"
+        )
+
+        assert response.success is False
+        assert response.message == "Something went wrong"
+        assert response.error_code == "ERR_001"
+        assert response.details == {}
+
+    def test_error_response_with_details(self):
+        """Test error response with details"""
+        details = {"field": "email", "value": "invalid"}
+        response = ErrorResponse(
+            success=False,
+            message="Validation error",
+            error_code="VALIDATION_FAILED",
+            details=details
+        )
+
+        assert response.details == details
+
+
+class TestValidationErrorResponse:
+    """Test ValidationErrorResponse model"""
+
+    def test_validation_error_response(self):
+        """Test validation error response"""
+        errors = [
+            {"field": "name", "message": "Required field"},
+            {"field": "email", "message": "Invalid format"}
+        ]
+
+        response = ValidationErrorResponse(
+            success=False,
+            message="Validation failed",
+            errors=errors
+        )
+
+        assert response.success is False
+        assert response.message == "Validation failed"
+        assert len(response.errors) == 2
+        assert response.errors[0]["field"] == "name"
+        assert response.errors[1]["field"] == "email"
+
+
+class TestBulkOperationResponse:
+    """Test BulkOperationResponse model"""
+
+    def test_bulk_operation_response_basic(self):
+        """Test basic bulk operation response"""
+        response = BulkOperationResponse(
+            success=True,
+            operation="import_products",
+            total_items=100,
+            successful_items=95,
+            failed_items=5
+        )
+
+        assert response.success is True
+        assert response.operation == "import_products"
+        assert response.total_items == 100
+        assert response.successful_items == 95
+        assert response.failed_items == 5
+        assert response.errors == []
+        assert response.processing_time_seconds == 0.0
+
+    def test_bulk_operation_response_with_errors(self):
+        """Test bulk operation response with errors"""
+        errors = [{"row": 5, "error": "Invalid data"}]
+
+        response = BulkOperationResponse(
+            success=False,
+            operation="import_orders",
+            total_items=50,
+            successful_items=40,
+            failed_items=10,
+            errors=errors,
+            processing_time_seconds=25.5,
+            request_id="bulk-123"
+        )
+
+        assert response.success is False
+        assert response.errors == errors
+        assert response.processing_time_seconds == 25.5
+        assert response.request_id == "bulk-123"
+
+
+class TestSyncOperationResponse:
+    """Test SyncOperationResponse model"""
+
+    def test_sync_operation_response(self):
+        """Test sync operation response"""
+        stats = {"synced": 100, "created": 20, "updated": 80}
+        next_sync = datetime.now(timezone.utc)
+
+        response = SyncOperationResponse(
+            success=True,
+            operation="stockx_sync",
+            service_name="StockX API",
+            sync_stats=stats,
+            next_sync_time=next_sync
+        )
+
+        assert response.success is True
+        assert response.operation == "stockx_sync"
+        assert response.service_name == "StockX API"
+        assert response.sync_stats == stats
+        assert response.next_sync_time == next_sync
+        assert response.processing_time_seconds == 0.0
+
+
+class TestHealthCheckResponse:
+    """Test HealthCheckResponse model"""
+
+    def test_health_check_response(self):
+        """Test health check response"""
+        checks = {
+            "database": {"status": "healthy", "latency_ms": 5},
+            "redis": {"status": "healthy", "latency_ms": 2}
+        }
+
+        response = HealthCheckResponse(
+            status="healthy",
+            checks=checks,
+            version="2.2.0"
+        )
+
+        assert response.status == "healthy"
+        assert response.checks == checks
+        assert response.version == "2.2.0"
+        assert response.timestamp is not None

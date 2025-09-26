@@ -2,7 +2,7 @@ SoleFlipper Design Principles
 Mastering Efficiency: A World-Class Design System for High-Volume Sneaker Resale Management
 
 🎯 Design Philosophy
-SoleFlipper’s design philosophy is an unapologetic dedication to precision, performance, and user mastery. We believe that the most powerful tools are those that disappear into the workflow, allowing our users—the most demanding sneaker resellers—to operate with speed and confidence. Our modern dark UI isn't just a trend; it's a deliberate choice to reduce eye strain and highlight mission-critical data, transforming a functional tool into a professional command center.
+SoleFlipper's design philosophy is an unapologetic dedication to precision, performance, and user mastery. We believe that the most powerful tools are those that disappear into the workflow, allowing our users—the most demanding sneaker resellers—to operate with speed and confidence. Our modern dark UI isn't just a trend; it's a deliberate choice to reduce eye strain and highlight mission-critical data, transforming a functional tool into a professional command center.
 
 Core Values
 Clarity Over Cleverness: Every pixel has a purpose. We strip away the non-essential to reveal the signal in the noise, ensuring that key actions and data are instantly recognizable.
@@ -18,15 +18,15 @@ Color Palette
 Our palette is not just a collection of colors; it's a visual language built for a data-driven environment.
 
 Primary & Accent Colors
-CSS
-
+```css
 --primary: #7f5af0     /* Purple - Trust & Authority. For primary actions and key system moments. */
 --secondary: #2cb67d   /* Green - Success & Profit. The color of growth and positive outcomes. */
 --tertiary: #f2757e    /* Coral - Alert & Focus. Reserved for urgent warnings or moments requiring immediate attention. */
 --accent: #fffffe      /* White - Clean & Crisp. The pure white for highlighting critical data points and headings. */
-Surface & Text Hierarchy
-CSS
+```
 
+Surface & Text Hierarchy
+```css
 --background: #16161a      /* The Canvas: A deep, rich charcoal that minimizes eye strain. */
 --surface-primary: #1e2023  /* Elevated Stage: Subtle elevation for cards and components to create visual hierarchy. */
 --surface-secondary: #2a2d30 /* Interactive Plane: Slightly lighter for interactive and elevated elements. */
@@ -35,6 +35,8 @@ CSS
 --text-primary: #fffffe    /* The Voice: High-contrast text for mission-critical information and headlines. */
 --text-secondary: #94a1b2  /* The Guide: Our go-to for body text and descriptions, providing comfortable readability. */
 --text-muted: #72757e      /* The Whisper: For captions and metadata, providing context without visual noise. */
+```
+
 Typography
 We use typography as a tool for communication and hierarchy, not just decoration.
 
@@ -46,13 +48,14 @@ JetBrains Mono: A monospaced font engineered for code, numbers, and data tables 
 Scale & Hierarchy
 Our responsive scale ensures content is always legible and scannable, regardless of screen size. The scale is a precise tool for setting the information hierarchy.
 
-CSS
-
+```css
 .heading-display: text-3xl md:text-5xl lg:text-6xl  /* The boldest statement. For page titles that demand attention. */
 .heading-title:   text-2xl md:text-3xl            /* The header for a new thought. Divides content into logical sections. */
 .body-large:      text-lg md:text-xl              /* The highlight. Used to draw attention to important paragraphs. */
 .body-default:    text-base                         /* The foundation. Standard text for all primary content. */
 .body-small:      text-sm                           /* The detail. For supporting text and fine print. */
+```
+
 🧩 Component Architecture
 Design Principles
 We follow an Atomic Design Methodology to build components that are not just reusable but also infinitely composable and predictable.
@@ -69,13 +72,14 @@ Templates & Pages: The final, concrete interfaces, assembled from the organisms 
 2. Component Composition
 Our components are built to be flexible and composable, allowing designers and developers to construct complex interfaces from a shared toolkit. This enables rapid prototyping and consistent experiences.
 
-TypeScript
-
+```typescript
 // Flexibility is key. We compose powerful components from simpler ones.
 <Card variant="elevated" padding="lg">
   <Heading level={2} variant="title">Profit & Loss</Heading>
   <Text variant="body" color="secondary">Detailed monthly breakdown</Text>
 </Card>
+```
+
 📱 Responsive Design Strategy
 We design with a mobile-first mentality, ensuring the core functionality is perfect on the smallest screen before adding complexity for larger ones. Our responsive design is not an afterthought; it's the core of our single-product experience.
 

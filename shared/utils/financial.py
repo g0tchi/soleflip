@@ -3,6 +3,7 @@ Financial Utilities
 Safe financial calculations using Decimal for precision
 """
 
+import decimal
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional, Union
 
@@ -42,7 +43,7 @@ class FinancialCalculator:
         try:
             # Convert to string first to avoid float precision issues
             return Decimal(str(value))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, decimal.InvalidOperation):
             return Decimal('0')
 
     @classmethod

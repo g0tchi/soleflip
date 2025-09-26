@@ -285,6 +285,7 @@ class Product(Base, TimestampMixin):
     # Pricing relationships
     price_history = relationship("PriceHistory", back_populates="product")
     source_prices = relationship("SourcePrice", back_populates="product")
+    market_prices = relationship("MarketPrice", back_populates="product")
     sales_forecasts = relationship("SalesForecast", back_populates="product")
     demand_patterns = relationship("DemandPattern", back_populates="product")
     pricing_kpis = relationship("PricingKPI", back_populates="product")

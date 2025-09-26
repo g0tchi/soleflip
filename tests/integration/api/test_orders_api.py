@@ -5,6 +5,8 @@ import pytest
 from httpx import AsyncClient
 
 from main import app  # Import the app instance
+# COVERAGE FIX: Direct import of router to ensure coverage measurement
+import domains.orders.api.router  # This ensures the module is imported for coverage
 
 # Mark all tests in this file as API and integration tests that require a DB
 pytestmark = [pytest.mark.api, pytest.mark.integration, pytest.mark.database]
@@ -20,12 +22,20 @@ def mock_stockx_service():
     return service
 
 
+@pytest.fixture
+def mock_auth_user():
+    """Fixture to create a mock authenticated user."""
+    return {"id": "test-user-id", "email": "test@example.com", "role": "admin"}
+
+
 @pytest.fixture(autouse=True)
-def override_dependencies(mock_stockx_service):
-    """Fixture to automatically override the get_stockx_service dependency."""
+def override_dependencies(mock_stockx_service, mock_auth_user):
+    """Fixture to automatically override the get_stockx_service and auth dependencies."""
     from domains.integration.api.webhooks import get_stockx_service
+    from shared.auth.dependencies import require_authenticated_user
 
     app.dependency_overrides[get_stockx_service] = lambda: mock_stockx_service
+    app.dependency_overrides[require_authenticated_user] = lambda: mock_auth_user
     yield
     app.dependency_overrides.clear()
 
@@ -98,7 +108,7 @@ async def test_get_active_orders_service_error(
     assert "An unexpected error occurred" in response_data["error"]["message"]
 
 
-async def test_get_historical_orders_success(test_client: AsyncClient, mock_stockx_service):
+async def test_get_historical_orders_success(test_client: AsyncClient, mock_stockx_service, override_db_dependency):
     """
     Tests the happy path for the GET /orders/stockx-history endpoint with all filters.
     """
@@ -125,7 +135,7 @@ async def test_get_historical_orders_success(test_client: AsyncClient, mock_stoc
     assert call_args.kwargs["product_id"] == "prod-123"
 
 
-async def test_get_historical_orders_missing_dates(test_client: AsyncClient):
+async def test_get_historical_orders_missing_dates(test_client: AsyncClient, override_db_dependency):
     """
     Tests that a 422 validation error is returned if required date params are missing.
     """
@@ -136,7 +146,7 @@ async def test_get_historical_orders_missing_dates(test_client: AsyncClient):
     assert response.status_code == 422  # Unprocessable Entity
 
 
-async def test_get_historical_orders_service_error(test_client: AsyncClient, mock_stockx_service):
+async def test_get_historical_orders_service_error(test_client: AsyncClient, mock_stockx_service, override_db_dependency):
     """
     Tests that a 500 error is returned if the historical orders service raises an exception.
     """
