@@ -62,7 +62,9 @@
       "Bash(pytest:*)",
       "Bash(git rm:*)",
       "Bash(echo \"\n-- Schaue alle user_role Enums mit Schema\nSELECT n.nspname as schema_name, t.typname as enum_name, e.enumlabel as enum_value\nFROM pg_type t \nJOIN pg_enum e ON t.oid = e.enumtypid  \nJOIN pg_namespace n ON t.typnamespace = n.oid\nWHERE t.typname = ''user_role''\nORDER BY n.nspname, e.enumsortorder;\n\n-- Oder einfacher: Was steht in der users Tabelle?\nSELECT username, role, pg_typeof(role) as role_type FROM users;\n\")",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "mcp__notion__notion-fetch",
+      "mcp__notion__notion-search"
     ],
     "deny": [],
     "ask": []

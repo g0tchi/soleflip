@@ -278,6 +278,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # from domains.admin.api.router import router as admin_router  # REMOVED: Security risk in production
 from domains.analytics.api.router import router as analytics_router
+from domains.analytics.api.business_intelligence_api import router as business_intelligence_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.upload_router import router as upload_router
@@ -292,6 +293,7 @@ from domains.selling.api.order_management_router import router as order_manageme
 
 # Supplier account management
 from domains.suppliers.api.account_router import router as account_router
+from domains.suppliers.api.supplier_intelligence_api import router as supplier_intelligence_router
 
 # Using real router for production-ready pricing features
 from domains.pricing.api.router import router as pricing_router
@@ -313,11 +315,13 @@ app.include_router(products_router, prefix="/api/v1/products", tags=["Products"]
 app.include_router(selling_router, prefix="/api/v1/selling", tags=["Selling"])
 app.include_router(order_management_router, prefix="/api/v1/order-management", tags=["Order Management"])
 app.include_router(account_router, prefix="/api/v1/suppliers/accounts", tags=["Supplier Accounts"])
+app.include_router(supplier_intelligence_router, tags=["Supplier Intelligence"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
 app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(business_intelligence_router, tags=["Business Intelligence"])
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
 # app.include_router(batch_monitor_router, tags=["Batch Monitoring"])  # REMOVED: Development-only

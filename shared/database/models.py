@@ -8,7 +8,7 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -212,7 +212,15 @@ class Supplier(Base, TimestampMixin):
     notes = Column(Text)
     internal_notes = Column(Text)
     tags = Column(JSONB)
+
+    # Supplier Intelligence Fields (from Notion Analysis)
+    supplier_category = Column(String(50), nullable=True)
+    vat_rate = Column(Numeric(4, 2), nullable=True)
+    return_policy = Column(Text, nullable=True)
+    default_email = Column(String(255), nullable=True)
+
     inventory_items = relationship("InventoryItem", back_populates="supplier_obj")
+    performance_records = relationship("SupplierPerformance", back_populates="supplier")
 
 
 class Platform(Base, TimestampMixin):
@@ -324,6 +332,24 @@ class InventoryItem(Base, TimestampMixin):
     status = Column(String(50), nullable=False, default="in_stock")
     notes = Column(Text)
     external_ids = Column(JSONB, nullable=True, default=dict)
+
+    # Business Intelligence Fields (from Notion Analysis)
+    shelf_life_days = Column(Integer, nullable=True)
+    profit_per_shelf_day = Column(Numeric(10, 2), nullable=True)
+    roi_percentage = Column(Numeric(5, 2), nullable=True)
+    sale_overview = Column(Text, nullable=True)
+
+    # Multi-Platform Operations Fields
+    location = Column(String(50), nullable=True)
+    listed_stockx = Column(Boolean, nullable=True, default=False)
+    listed_alias = Column(Boolean, nullable=True, default=False)
+    listed_local = Column(Boolean, nullable=True, default=False)
+
+    # Advanced Status Tracking
+    detailed_status = Column(Enum('incoming', 'available', 'consigned', 'need_shipping',
+                                'packed', 'outgoing', 'sale_completed', 'cancelled',
+                                name='inventory_status'), nullable=True)
+
     product = relationship("Product", back_populates="inventory_items")
     size = relationship("Size", back_populates="inventory_items")
     supplier_obj = relationship("Supplier", back_populates="inventory_items")
@@ -932,6 +958,36 @@ class AccountPurchaseHistory(Base, TimestampMixin):
             "success": self.success,
             "failure_reason": self.failure_reason,
             "response_time_ms": self.response_time_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class SupplierPerformance(Base):
+    """Monthly supplier performance metrics from Notion intelligence system"""
+    __tablename__ = "supplier_performance"
+    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+
+    id = Column(Integer, primary_key=True)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("suppliers.id", "core")), nullable=False)
+    month_year = Column(DateTime(timezone=True), nullable=False)
+    total_orders = Column(Integer, nullable=True, default=0)
+    avg_delivery_time = Column(Numeric(4, 1), nullable=True)
+    return_rate = Column(Numeric(5, 2), nullable=True)
+    avg_roi = Column(Numeric(5, 2), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    supplier = relationship("Supplier", back_populates="performance_records")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "supplier_id": str(self.supplier_id),
+            "month_year": self.month_year.isoformat() if self.month_year else None,
+            "total_orders": self.total_orders,
+            "avg_delivery_time": float(self.avg_delivery_time) if self.avg_delivery_time else None,
+            "return_rate": float(self.return_rate) if self.return_rate else None,
+            "avg_roi": float(self.avg_roi) if self.avg_roi else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
