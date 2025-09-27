@@ -379,7 +379,7 @@ class InventoryItem(Base, TimestampMixin):
 
 class Transaction(Base, TimestampMixin):
     __tablename__ = "transactions"
-    __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "transactions"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_id = Column(
@@ -427,7 +427,7 @@ class Listing(Base, TimestampMixin):
 
 class Order(Base, TimestampMixin):
     __tablename__ = "orders"
-    __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "transactions"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_item_id = Column(
@@ -602,7 +602,7 @@ class StockXListing(Base, TimestampMixin):
     Tracks listings created from QuickFlip opportunities
     """
     __tablename__ = "stockx_listings"
-    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
@@ -677,12 +677,12 @@ class StockXOrder(Base, TimestampMixin):
     Represents completed sales from listings
     """
     __tablename__ = "stockx_orders"
-    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     listing_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("stockx_listings.id", "selling")),
+        ForeignKey(get_schema_ref("stockx_listings.id", "platforms")),
         nullable=False
     )
     stockx_order_number = Column(String(100), unique=True, nullable=False, comment="StockX order number")
@@ -746,12 +746,12 @@ class PricingHistory(Base, TimestampMixin):
     Track pricing changes for listings to analyze pricing strategy performance
     """
     __tablename__ = "pricing_history"
-    __table_args__ = {"schema": "selling"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     listing_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("stockx_listings.id", "selling")),
+        ForeignKey(get_schema_ref("stockx_listings.id", "platforms")),
         nullable=False
     )
 
