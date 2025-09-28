@@ -1,0 +1,151 @@
+{
+  "screens": [
+    {
+      "name": "Dashboard",
+      "route": "/",
+      "layout": "basic",
+      "access_level": "public",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "text",
+              "props": {
+                "text": "SoleFlipper Dashboard v2.2.1",
+                "size": "L",
+                "weight": "bold"
+              },
+              "children": [],
+              "conditions": null
+            },
+            {
+              "type": "card",
+              "props": {
+                "title": "QuickFlip Opportunities",
+                "width": "50%"
+              },
+              "children": [
+                {
+                  "type": "dataprovider",
+                  "props": {
+                    "datasource": "SoleFlipper Backend API",
+                    "query": "getOpportunitySummary"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "props": {
+                        "text": "{{ data.total_opportunities }} Opportunities"
+                      },
+                      "children": [],
+                      "conditions": null
+                    }
+                  ],
+                  "conditions": null
+                }
+              ],
+              "conditions": null
+            },
+            {
+              "type": "card",
+              "props": {
+                "title": "API Status",
+                "width": "50%"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "props": {
+                    "text": "\u26a0\ufe0f 2 endpoints need fixing",
+                    "color": "warning"
+                  },
+                  "children": [],
+                  "conditions": null
+                }
+              ],
+              "conditions": null
+            }
+          ],
+          "conditions": null
+        }
+      ],
+      "data_sources": [
+        "SoleFlipper Backend API"
+      ]
+    },
+    {
+      "name": "QuickFlip Opportunities",
+      "route": "/quickflip",
+      "layout": "basic",
+      "access_level": "public",
+      "components": [
+        {
+          "type": "container",
+          "props": {
+            "direction": "column",
+            "gap": "M"
+          },
+          "children": [
+            {
+              "type": "text",
+              "props": {
+                "text": "QuickFlip Opportunities",
+                "size": "L"
+              },
+              "children": [],
+              "conditions": null
+            },
+            {
+              "type": "dataprovider",
+              "props": {
+                "datasource": "SoleFlipper Backend API",
+                "query": "getQuickFlipOpportunities"
+              },
+              "children": [
+                {
+                  "type": "table",
+                  "props": {
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "displayName": "Product"
+                      },
+                      {
+                        "name": "buy_price",
+                        "displayName": "Buy Price"
+                      },
+                      {
+                        "name": "sell_price",
+                        "displayName": "Sell Price"
+                      },
+                      {
+                        "name": "gross_profit",
+                        "displayName": "Profit"
+                      },
+                      {
+                        "name": "profit_margin",
+                        "displayName": "Margin %"
+                      }
+                    ]
+                  },
+                  "children": [],
+                  "conditions": null
+                }
+              ],
+              "conditions": null
+            }
+          ],
+          "conditions": null
+        }
+      ],
+      "data_sources": [
+        "SoleFlipper Backend API"
+      ]
+    }
+  ]
+}

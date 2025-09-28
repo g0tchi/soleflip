@@ -1,0 +1,35 @@
+{
+  "automations": [
+    {
+      "name": "QuickFlip Alert Monitor",
+      "description": "Monitor for new high-profit opportunities (realistic version)",
+      "trigger": "schedule",
+      "trigger_config": {
+        "interval": "*/30 * * * *",
+        "description": "Check every 30 minutes"
+      },
+      "steps": [
+        {
+          "name": "fetch_opportunities",
+          "type": "query",
+          "datasource": "SoleFlipper Backend API",
+          "query": "getOpportunitySummary"
+        },
+        {
+          "name": "check_threshold",
+          "type": "conditional",
+          "condition": "{{ data.total_opportunities > 10 }}",
+          "true_steps": [
+            {
+              "name": "log_alert",
+              "type": "log",
+              "message": "High opportunity count detected: {{ data.total_opportunities }}"
+            }
+          ]
+        }
+      ],
+      "enabled": true,
+      "environment": "development"
+    }
+  ]
+}

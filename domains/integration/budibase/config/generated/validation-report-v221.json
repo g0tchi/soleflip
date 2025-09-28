@@ -1,0 +1,23 @@
+{
+  "validation_timestamp": "is_valid=True errors=[] warnings=[] api_compatibility={} missing_endpoints=['/quickflip/opportunities', '/quickflip/opportunities/summary', '/inventory/items'] deprecated_features=[]",
+  "summary": {
+    "total_data_sources": 2,
+    "total_screens": 2,
+    "total_automations": 1,
+    "is_valid": true,
+    "error_count": 0,
+    "warning_count": 0
+  },
+  "details": {
+    "is_valid": true,
+    "errors": [],
+    "warnings": [],
+    "api_compatibility": {},
+    "missing_endpoints": [
+      "/quickflip/opportunities",
+      "/quickflip/opportunities/summary",
+      "/inventory/items"
+    ],
+    "deprecated_features": []
+  }
+}

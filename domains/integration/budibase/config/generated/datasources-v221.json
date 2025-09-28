@@ -1,0 +1,67 @@
+{
+  "datasources": [
+    {
+      "name": "SoleFlipper Backend API",
+      "type": "rest",
+      "config": {
+        "url": "http://127.0.0.1:8000/api/v1",
+        "defaultHeaders": {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        "timeout": 10000
+      },
+      "queries": {
+        "getQuickFlipOpportunities": {
+          "method": "GET",
+          "path": "/quickflip/opportunities",
+          "parameters": {
+            "min_profit_margin": {
+              "type": "number",
+              "default": 15.0
+            },
+            "limit": {
+              "type": "number",
+              "default": 50
+            }
+          }
+        },
+        "getOpportunitySummary": {
+          "method": "GET",
+          "path": "/quickflip/opportunities/summary"
+        },
+        "getInventoryItems": {
+          "method": "GET",
+          "path": "/inventory/items",
+          "parameters": {
+            "limit": {
+              "type": "number",
+              "default": 10
+            }
+          }
+        }
+      },
+      "enabled": true
+    },
+    {
+      "name": "SoleFlipper Database",
+      "type": "postgres",
+      "config": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "soleflip",
+        "schema": "public",
+        "ssl": false
+      },
+      "queries": {
+        "getProducts": {
+          "sql": "SELECT id, name, brand, sku FROM products.products LIMIT 100"
+        },
+        "getOrdersCount": {
+          "sql": "SELECT COUNT(*) as total_orders FROM orders.transactions WHERE created_at >= NOW() - INTERVAL '30 days'"
+        }
+      },
+      "enabled": true
+    }
+  ]
+}

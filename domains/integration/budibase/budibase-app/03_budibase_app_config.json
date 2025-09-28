@@ -1,0 +1,721 @@
+{
+  "name": "SoleFlipper Business Intelligence",
+  "description": "Complete business intelligence dashboard for SoleFlipper sneaker resale management - Direct PostgreSQL Access",
+  "version": "2.2.1",
+  "environment": "production",
+  "appId": "app_soleflip_bi_001",
+  "createdAt": "2025-09-28T12:00:00Z",
+  "theme": "midnight",
+  "navigation": {
+    "title": "SoleFlipper BI",
+    "hideTitle": false,
+    "logo": "/assets/soleflip-logo.png",
+    "logoHeight": "32px"
+  },
+  "roles": [
+    {
+      "id": "role_admin",
+      "name": "Administrator",
+      "permissions": ["read", "write", "admin", "delete"],
+      "description": "Full access to all features and data"
+    },
+    {
+      "id": "role_manager",
+      "name": "Manager",
+      "permissions": ["read", "write"],
+      "description": "Can view and modify inventory data"
+    },
+    {
+      "id": "role_viewer",
+      "name": "Viewer",
+      "permissions": ["read"],
+      "description": "Read-only access to dashboards and reports"
+    }
+  ],
+  "datasources": [
+    {
+      "id": "ds_soleflip_postgres",
+      "name": "SoleFlipper Database",
+      "type": "postgres",
+      "config": {
+        "host": "postgres",
+        "port": 5432,
+        "database": "soleflip",
+        "user": "soleflip_user",
+        "password": "{{ env.POSTGRES_PASSWORD }}",
+        "schema": "public",
+        "ssl": false,
+        "connectionTimeout": 30000,
+        "maxConnections": 10
+      },
+      "queries": {
+        "inventory_overview": {
+          "name": "Inventory Overview KPIs",
+          "sql": "SELECT COUNT(*) as total_items, COUNT(CASE WHEN status = 'listed' THEN 1 END) as listed_items, COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold_items, COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_items, SUM(purchase_price * quantity) as total_inventory_value, AVG(purchase_price) as avg_item_price, COUNT(DISTINCT brand_name) as unique_brands, COUNT(DISTINCT size) as unique_sizes FROM inventory.items WHERE created_at >= CURRENT_DATE - INTERVAL '1 year'",
+          "parameters": []
+        },
+        "inventory_items_filtered": {
+          "name": "Inventory Items with Filters",
+          "sql": "SELECT i.id, i.product_name, i.brand_name, i.category_name, i.size, i.quantity, i.purchase_price, i.status, i.supplier, i.created_at, i.updated_at, EXTRACT(days FROM NOW() - i.created_at) as days_in_stock, CASE WHEN i.created_at > NOW() - INTERVAL '7 days' THEN 'New' WHEN i.created_at > NOW() - INTERVAL '30 days' THEN 'Recent' WHEN i.created_at > NOW() - INTERVAL '90 days' THEN 'Old' ELSE 'Dead Stock' END as stock_category FROM inventory.items i WHERE ($1::text IS NULL OR i.brand_name = $1) AND ($2::text IS NULL OR i.status = $2) AND ($3::text IS NULL OR i.size = $3) AND ($4::text IS NULL OR i.product_name ILIKE '%' || $4 || '%' OR i.brand_name ILIKE '%' || $4 || '%') ORDER BY i.created_at DESC LIMIT COALESCE($5::int, 50) OFFSET COALESCE($6::int, 0)",
+          "parameters": [
+            {"name": "brand_filter", "type": "string", "required": false},
+            {"name": "status_filter", "type": "string", "required": false},
+            {"name": "size_filter", "type": "string", "required": false},
+            {"name": "search_query", "type": "string", "required": false},
+            {"name": "limit_count", "type": "number", "default": 50},
+            {"name": "offset_count", "type": "number", "default": 0}
+          ]
+        },
+        "brand_analytics": {
+          "name": "Brand Performance Analytics",
+          "sql": "SELECT brand_name, COUNT(*) as total_items, COUNT(CASE WHEN status = 'listed' THEN 1 END) as listed_count, COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold_count, SUM(quantity) as total_quantity, AVG(purchase_price) as avg_purchase_price, MIN(purchase_price) as min_price, MAX(purchase_price) as max_price, SUM(purchase_price * quantity) as total_value, ROUND(AVG(EXTRACT(days FROM NOW() - created_at)), 1) as avg_days_in_stock FROM inventory.items GROUP BY brand_name HAVING COUNT(*) >= 5 ORDER BY total_value DESC",
+          "parameters": []
+        },
+        "size_distribution": {
+          "name": "Size Distribution Analysis",
+          "sql": "SELECT size, COUNT(*) as item_count, COUNT(CASE WHEN status = 'listed' THEN 1 END) as available_count, AVG(purchase_price) as avg_price, SUM(purchase_price * quantity) as total_value, ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage_of_total FROM inventory.items GROUP BY size ORDER BY CASE WHEN size ~ '^[0-9]+(\\.[0-9]+)?$' THEN size::numeric ELSE 999 END, size",
+          "parameters": []
+        },
+        "financial_trends": {
+          "name": "Daily Inventory Trends",
+          "sql": "SELECT DATE(created_at) as date, COUNT(*) as items_added, SUM(purchase_price * quantity) as daily_value_added, COUNT(DISTINCT brand_name) as brands_added, AVG(purchase_price) as avg_daily_price FROM inventory.items WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY DATE(created_at) ORDER BY date",
+          "parameters": []
+        },
+        "dead_stock_analysis": {
+          "name": "Dead Stock Analysis",
+          "sql": "SELECT product_name, brand_name, size, purchase_price, quantity, purchase_price * quantity as total_value, created_at, EXTRACT(days FROM NOW() - created_at) as days_in_stock, supplier, status FROM inventory.items WHERE status = 'listed' AND created_at < NOW() - INTERVAL '90 days' ORDER BY days_in_stock DESC, total_value DESC",
+          "parameters": []
+        },
+        "supplier_performance": {
+          "name": "Supplier Performance Analysis",
+          "sql": "SELECT supplier, COUNT(*) as total_items, COUNT(CASE WHEN status = 'listed' THEN 1 END) as active_items, COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold_items, SUM(purchase_price * quantity) as total_invested, AVG(purchase_price) as avg_price, MIN(created_at) as first_purchase, MAX(created_at) as last_purchase, COUNT(DISTINCT brand_name) as brands_supplied FROM inventory.items GROUP BY supplier ORDER BY total_invested DESC",
+          "parameters": []
+        },
+        "recent_activity": {
+          "name": "Recent Activity (24h)",
+          "sql": "SELECT product_name, brand_name, size, purchase_price, status, created_at, 'Added to inventory' as activity_type FROM inventory.items WHERE created_at >= NOW() - INTERVAL '24 hours' UNION ALL SELECT product_name, brand_name, size, purchase_price, status, updated_at as created_at, 'Status updated' as activity_type FROM inventory.items WHERE updated_at >= NOW() - INTERVAL '24 hours' AND updated_at != created_at ORDER BY created_at DESC LIMIT 50",
+          "parameters": []
+        },
+        "inventory_alerts": {
+          "name": "Inventory Alerts",
+          "sql": "SELECT 'Dead Stock Alert' as alert_type, COUNT(*) as count, 'Items older than 90 days' as description FROM inventory.items WHERE status = 'listed' AND created_at < NOW() - INTERVAL '90 days' UNION ALL SELECT 'Low Stock Alert' as alert_type, COUNT(*) as count, 'Items with quantity = 1' as description FROM inventory.items WHERE quantity = 1 AND status = 'listed' UNION ALL SELECT 'High Value Items' as alert_type, COUNT(*) as count, 'Items over $500' as description FROM inventory.items WHERE purchase_price > 500 AND status = 'listed'",
+          "parameters": []
+        },
+        "get_brands": {
+          "name": "Get Unique Brands",
+          "sql": "SELECT DISTINCT brand_name FROM inventory.items WHERE brand_name IS NOT NULL ORDER BY brand_name",
+          "parameters": []
+        },
+        "get_sizes": {
+          "name": "Get Unique Sizes",
+          "sql": "SELECT DISTINCT size FROM inventory.items WHERE size IS NOT NULL ORDER BY CASE WHEN size ~ '^[0-9]+(\\.[0-9]+)?$' THEN size::numeric ELSE 999 END, size",
+          "parameters": []
+        },
+        "get_statuses": {
+          "name": "Get Unique Statuses",
+          "sql": "SELECT DISTINCT status FROM inventory.items WHERE status IS NOT NULL ORDER BY status",
+          "parameters": []
+        }
+      }
+    }
+  ],
+  "screens": [
+    {
+      "id": "screen_dashboard",
+      "name": "Dashboard",
+      "route": "/",
+      "roleId": "role_viewer",
+      "layout": {
+        "type": "grid",
+        "columns": 12,
+        "gap": "16px"
+      },
+      "components": [
+        {
+          "id": "comp_header",
+          "type": "container",
+          "props": {
+            "direction": "row",
+            "gap": "M",
+            "justifyContent": "space-between",
+            "alignItems": "center",
+            "padding": "L"
+          },
+          "styles": {
+            "backgroundColor": "#1a1a1a",
+            "borderRadius": "8px",
+            "marginBottom": "16px"
+          },
+          "children": [
+            {
+              "id": "comp_title",
+              "type": "text",
+              "props": {
+                "text": "SoleFlipper Business Intelligence",
+                "size": "XL",
+                "weight": "bold",
+                "color": "#ffffff"
+              }
+            },
+            {
+              "id": "comp_refresh_info",
+              "type": "text",
+              "props": {
+                "text": "Last updated: {{ new Date().toLocaleString() }}",
+                "size": "S",
+                "color": "#cccccc"
+              }
+            }
+          ]
+        },
+        {
+          "id": "comp_kpi_cards",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "inventory_overview"
+          },
+          "children": [
+            {
+              "id": "comp_kpi_container",
+              "type": "container",
+              "props": {
+                "direction": "row",
+                "gap": "M",
+                "wrap": true
+              },
+              "children": [
+                {
+                  "id": "comp_kpi_total",
+                  "type": "statcard",
+                  "props": {
+                    "title": "Total Items",
+                    "value": "{{ data.total_items }}",
+                    "icon": "Package",
+                    "color": "blue",
+                    "width": "200px"
+                  }
+                },
+                {
+                  "id": "comp_kpi_listed",
+                  "type": "statcard",
+                  "props": {
+                    "title": "Listed Items",
+                    "value": "{{ data.listed_items }}",
+                    "icon": "ShoppingBag",
+                    "color": "green",
+                    "width": "200px"
+                  }
+                },
+                {
+                  "id": "comp_kpi_value",
+                  "type": "statcard",
+                  "props": {
+                    "title": "Total Value",
+                    "value": "${{ Math.round(data.total_inventory_value).toLocaleString() }}",
+                    "icon": "DollarSign",
+                    "color": "orange",
+                    "width": "200px"
+                  }
+                },
+                {
+                  "id": "comp_kpi_brands",
+                  "type": "statcard",
+                  "props": {
+                    "title": "Brands",
+                    "value": "{{ data.unique_brands }}",
+                    "icon": "Tag",
+                    "color": "purple",
+                    "width": "200px"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "comp_charts_row",
+          "type": "container",
+          "props": {
+            "direction": "row",
+            "gap": "L",
+            "wrap": true,
+            "padding": "M"
+          },
+          "children": [
+            {
+              "id": "comp_brand_chart",
+              "type": "dataprovider",
+              "props": {
+                "datasource": "ds_soleflip_postgres",
+                "query": "brand_analytics"
+              },
+              "children": [
+                {
+                  "id": "comp_brand_bar_chart",
+                  "type": "barchart",
+                  "props": {
+                    "title": "Top Brands by Value",
+                    "dataKey": "brand_name",
+                    "valueKey": "total_value",
+                    "height": "300px",
+                    "width": "48%",
+                    "limit": 10,
+                    "yAxisLabel": "Total Value ($)",
+                    "xAxisLabel": "Brand"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "comp_size_chart",
+              "type": "dataprovider",
+              "props": {
+                "datasource": "ds_soleflip_postgres",
+                "query": "size_distribution"
+              },
+              "children": [
+                {
+                  "id": "comp_size_pie_chart",
+                  "type": "piechart",
+                  "props": {
+                    "title": "Size Distribution",
+                    "dataKey": "size",
+                    "valueKey": "item_count",
+                    "height": "300px",
+                    "width": "48%",
+                    "limit": 8
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen_inventory",
+      "name": "Inventory Management",
+      "route": "/inventory",
+      "roleId": "role_viewer",
+      "layout": {
+        "type": "flex",
+        "direction": "column",
+        "gap": "16px"
+      },
+      "components": [
+        {
+          "id": "comp_inventory_header",
+          "type": "container",
+          "props": {
+            "direction": "row",
+            "gap": "M",
+            "alignItems": "center",
+            "padding": "M"
+          },
+          "children": [
+            {
+              "id": "comp_inventory_title",
+              "type": "text",
+              "props": {
+                "text": "Inventory Management",
+                "size": "L",
+                "weight": "bold"
+              }
+            }
+          ]
+        },
+        {
+          "id": "comp_inventory_filters",
+          "type": "container",
+          "props": {
+            "direction": "row",
+            "gap": "M",
+            "padding": "M",
+            "wrap": true
+          },
+          "styles": {
+            "backgroundColor": "#f5f5f5",
+            "borderRadius": "8px"
+          },
+          "children": [
+            {
+              "id": "comp_search_input",
+              "type": "textfield",
+              "props": {
+                "label": "Search Products",
+                "placeholder": "Search by product or brand name...",
+                "width": "300px"
+              }
+            },
+            {
+              "id": "comp_brand_filter",
+              "type": "dataprovider",
+              "props": {
+                "datasource": "ds_soleflip_postgres",
+                "query": "get_brands"
+              },
+              "children": [
+                {
+                  "id": "comp_brand_select",
+                  "type": "select",
+                  "props": {
+                    "label": "Brand",
+                    "placeholder": "All Brands",
+                    "optionsSource": "data",
+                    "valueColumn": "brand_name",
+                    "labelColumn": "brand_name",
+                    "width": "200px"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "comp_status_filter",
+              "type": "dataprovider",
+              "props": {
+                "datasource": "ds_soleflip_postgres",
+                "query": "get_statuses"
+              },
+              "children": [
+                {
+                  "id": "comp_status_select",
+                  "type": "select",
+                  "props": {
+                    "label": "Status",
+                    "placeholder": "All Statuses",
+                    "optionsSource": "data",
+                    "valueColumn": "status",
+                    "labelColumn": "status",
+                    "width": "150px"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "comp_inventory_table",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "inventory_items_filtered",
+            "queryParams": {
+              "brand_filter": "{{ comp_brand_select.value }}",
+              "status_filter": "{{ comp_status_select.value }}",
+              "search_query": "{{ comp_search_input.value }}",
+              "limit_count": 100,
+              "offset_count": 0
+            }
+          },
+          "children": [
+            {
+              "id": "comp_inventory_data_table",
+              "type": "table",
+              "props": {
+                "datasource": "data",
+                "pagination": true,
+                "pageSize": 25,
+                "sortable": true,
+                "searchable": false,
+                "columns": [
+                  {
+                    "name": "product_name",
+                    "displayName": "Product Name",
+                    "width": "25%"
+                  },
+                  {
+                    "name": "brand_name",
+                    "displayName": "Brand",
+                    "width": "12%"
+                  },
+                  {
+                    "name": "size",
+                    "displayName": "Size",
+                    "width": "8%"
+                  },
+                  {
+                    "name": "purchase_price",
+                    "displayName": "Price",
+                    "width": "10%",
+                    "template": "${{ value }}"
+                  },
+                  {
+                    "name": "quantity",
+                    "displayName": "Qty",
+                    "width": "8%"
+                  },
+                  {
+                    "name": "status",
+                    "displayName": "Status",
+                    "width": "10%"
+                  },
+                  {
+                    "name": "days_in_stock",
+                    "displayName": "Days in Stock",
+                    "width": "12%"
+                  },
+                  {
+                    "name": "stock_category",
+                    "displayName": "Category",
+                    "width": "15%"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen_analytics",
+      "name": "Analytics",
+      "route": "/analytics",
+      "roleId": "role_viewer",
+      "layout": {
+        "type": "grid",
+        "columns": 12,
+        "gap": "16px"
+      },
+      "components": [
+        {
+          "id": "comp_analytics_header",
+          "type": "text",
+          "props": {
+            "text": "Business Analytics",
+            "size": "L",
+            "weight": "bold",
+            "padding": "L"
+          }
+        },
+        {
+          "id": "comp_trends_chart",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "financial_trends"
+          },
+          "children": [
+            {
+              "id": "comp_trends_line_chart",
+              "type": "linechart",
+              "props": {
+                "title": "Daily Investment Trends (30 Days)",
+                "dataKey": "date",
+                "valueKey": "daily_value_added",
+                "height": "400px",
+                "yAxisLabel": "Investment ($)",
+                "xAxisLabel": "Date"
+              }
+            }
+          ]
+        },
+        {
+          "id": "comp_supplier_analytics",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "supplier_performance"
+          },
+          "children": [
+            {
+              "id": "comp_supplier_table",
+              "type": "table",
+              "props": {
+                "title": "Supplier Performance",
+                "datasource": "data",
+                "pagination": true,
+                "pageSize": 10,
+                "columns": [
+                  {
+                    "name": "supplier",
+                    "displayName": "Supplier"
+                  },
+                  {
+                    "name": "total_items",
+                    "displayName": "Total Items"
+                  },
+                  {
+                    "name": "total_invested",
+                    "displayName": "Total Investment",
+                    "template": "${{ Math.round(value).toLocaleString() }}"
+                  },
+                  {
+                    "name": "avg_price",
+                    "displayName": "Avg Price",
+                    "template": "${{ Math.round(value) }}"
+                  },
+                  {
+                    "name": "brands_supplied",
+                    "displayName": "Brands"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screen_alerts",
+      "name": "Alerts & Monitoring",
+      "route": "/alerts",
+      "roleId": "role_manager",
+      "layout": {
+        "type": "flex",
+        "direction": "column",
+        "gap": "16px"
+      },
+      "components": [
+        {
+          "id": "comp_alerts_header",
+          "type": "text",
+          "props": {
+            "text": "Alerts & Monitoring",
+            "size": "L",
+            "weight": "bold",
+            "padding": "L"
+          }
+        },
+        {
+          "id": "comp_alerts_data",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "inventory_alerts"
+          },
+          "children": [
+            {
+              "id": "comp_alerts_cards",
+              "type": "repeater",
+              "props": {
+                "datasource": "data",
+                "direction": "row",
+                "gap": "M"
+              },
+              "children": [
+                {
+                  "id": "comp_alert_card",
+                  "type": "card",
+                  "props": {
+                    "title": "{{ alert_type }}",
+                    "width": "300px",
+                    "padding": "M"
+                  },
+                  "children": [
+                    {
+                      "id": "comp_alert_count",
+                      "type": "text",
+                      "props": {
+                        "text": "{{ count }} items",
+                        "size": "L",
+                        "weight": "bold",
+                        "color": "{{ count > 50 ? '#e74c3c' : count > 20 ? '#f39c12' : '#27ae60' }}"
+                      }
+                    },
+                    {
+                      "id": "comp_alert_description",
+                      "type": "text",
+                      "props": {
+                        "text": "{{ description }}",
+                        "size": "S"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "comp_dead_stock_table",
+          "type": "dataprovider",
+          "props": {
+            "datasource": "ds_soleflip_postgres",
+            "query": "dead_stock_analysis"
+          },
+          "children": [
+            {
+              "id": "comp_dead_stock_data_table",
+              "type": "table",
+              "props": {
+                "title": "Dead Stock Items (90+ Days)",
+                "datasource": "data",
+                "pagination": true,
+                "pageSize": 20,
+                "columns": [
+                  {
+                    "name": "product_name",
+                    "displayName": "Product"
+                  },
+                  {
+                    "name": "brand_name",
+                    "displayName": "Brand"
+                  },
+                  {
+                    "name": "size",
+                    "displayName": "Size"
+                  },
+                  {
+                    "name": "total_value",
+                    "displayName": "Value",
+                    "template": "${{ Math.round(value) }}"
+                  },
+                  {
+                    "name": "days_in_stock",
+                    "displayName": "Days in Stock"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "automation": [
+    {
+      "id": "auto_daily_report",
+      "name": "Daily Inventory Report",
+      "description": "Generate daily inventory summary report",
+      "trigger": {
+        "type": "schedule",
+        "config": {
+          "cron": "0 9 * * *",
+          "timezone": "UTC"
+        }
+      },
+      "steps": [
+        {
+          "id": "step_fetch_overview",
+          "type": "query",
+          "datasource": "ds_soleflip_postgres",
+          "query": "inventory_overview"
+        },
+        {
+          "id": "step_log_report",
+          "type": "log",
+          "message": "Daily Report: {{ step_fetch_overview.total_items }} total items, ${{ Math.round(step_fetch_overview.total_inventory_value) }} total value"
+        }
+      ],
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "timezone": "UTC",
+    "dateFormat": "MM/DD/YYYY",
+    "numberFormat": "en-US",
+    "theme": {
+      "primaryColor": "#007bff",
+      "secondaryColor": "#6c757d",
+      "backgroundColor": "#ffffff",
+      "textColor": "#212529"
+    },
+    "features": {
+      "realTimeUpdates": true,
+      "exportData": true,
+      "advancedFiltering": true,
+      "customQueries": true
+    }
+  }
+}

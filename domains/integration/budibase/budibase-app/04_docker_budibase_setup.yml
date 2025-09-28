@@ -1,0 +1,182 @@
+# =====================================================
+# SoleFlipper Budibase Integration - Docker Setup
+# Direct PostgreSQL Access Configuration
+# =====================================================
+
+version: '3.8'
+
+services:
+  # Main Budibase application
+  budibase:
+    image: budibase/budibase:latest
+    container_name: soleflip_budibase
+    ports:
+      - "10000:10000"  # Budibase web interface
+    environment:
+      # Database connection
+      - BUDIBASE_DB_URL=postgresql://soleflip_user:${POSTGRES_PASSWORD}@postgres:5432/soleflip
+
+      # Redis connection (if using Redis for session management)
+      - REDIS_URL=redis://redis:6379
+
+      # Budibase configuration
+      - BUDIBASE_ENVIRONMENT=production
+      - ENABLE_ANALYTICS=false
+      - DISABLE_ACCOUNT_PORTAL=true
+      - TENANT_FEATURE_FLAGS=*:LICENSING,*:USER_GROUPS,*:ONBOARDING_TOUR
+
+      # Security settings
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-here}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-your-internal-api-key}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your-encryption-key-here}
+
+      # Email configuration (optional)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+
+      # Object storage (optional - for file uploads)
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+
+      # Platform configuration
+      - PLATFORM_URL=http://localhost:10000
+      - APPS_URL=http://localhost:10000
+      - WORKER_URL=http://localhost:10000
+
+    volumes:
+      # Persist Budibase data
+      - budibase_data:/data
+
+      # Mount our app configuration
+      - ./budibase-app:/opt/budibase/apps/soleflip
+
+      # Custom plugins or themes (optional)
+      - ./budibase-plugins:/opt/budibase/plugins
+
+    networks:
+      - soleflip_network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.budibase.rule=Host(`budibase.localhost`)"
+      - "traefik.http.services.budibase.loadbalancer.server.port=10000"
+
+  # MinIO for file storage (optional but recommended)
+  minio:
+    image: minio/minio:latest
+    container_name: soleflip_minio
+    ports:
+      - "9000:9000"    # API
+      - "9001:9001"    # Console
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - soleflip_network
+    restart: unless-stopped
+
+  # Nginx proxy for better performance (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: soleflip_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - soleflip_network
+    depends_on:
+      - budibase
+    restart: unless-stopped
+
+volumes:
+  budibase_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  soleflip_network:
+    external: true  # Use existing SoleFlipper network
+
+# =====================================================
+# Environment Variables (.env file template)
+# =====================================================
+
+# Copy this to .env and fill in your values:
+#
+# # PostgreSQL
+# POSTGRES_PASSWORD=your_postgres_password
+#
+# # Budibase Security
+# JWT_SECRET=your-jwt-secret-minimum-32-characters
+# INTERNAL_API_KEY=your-internal-api-key-here
+# ENCRYPTION_KEY=your-encryption-key-32-chars
+#
+# # MinIO (Optional)
+# MINIO_ACCESS_KEY=minioadmin
+# MINIO_SECRET_KEY=minioadmin
+#
+# # Email (Optional)
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USER=your-email@gmail.com
+# SMTP_PASSWORD=your-app-password
+
+# =====================================================
+# Quick Start Commands
+# =====================================================
+
+# 1. Create network (if not exists):
+# docker network create soleflip_network
+
+# 2. Start services:
+# docker-compose -f 04_docker_budibase_setup.yml up -d
+
+# 3. View logs:
+# docker-compose -f 04_docker_budibase_setup.yml logs -f budibase
+
+# 4. Access Budibase:
+# http://localhost:10000
+
+# 5. Stop services:
+# docker-compose -f 04_docker_budibase_setup.yml down
+
+# =====================================================
+# Networking Notes
+# =====================================================
+
+# In Budibase data source configuration use:
+# - Host: postgres (not localhost)
+# - Port: 5432
+# - Database: soleflip
+# - User: soleflip_user
+# - Password: ${POSTGRES_PASSWORD}
+
+# This setup assumes:
+# 1. PostgreSQL is running in container named 'postgres'
+# 2. Redis is running in container named 'redis'
+# 3. All containers are on 'soleflip_network'
+
+# =====================================================
+# Security Considerations
+# =====================================================
+
+# For production deployment:
+# 1. Use strong passwords and secrets
+# 2. Enable HTTPS with proper SSL certificates
+# 3. Configure firewall rules
+# 4. Enable Budibase user authentication
+# 5. Use environment-specific configurations
+# 6. Regular backups of Budibase data volume
