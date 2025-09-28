@@ -113,7 +113,7 @@ class APIConfig(BaseSettings):
     """API configuration"""
 
     title: str = Field(default="SoleFlipper API", env="API_TITLE")
-    version: str = Field(default="2.2.0", env="API_VERSION")
+    version: str = Field(default="2.2.1", env="API_VERSION")
     description: str = Field(
         default="Professional sneaker resale management system", env="API_DESCRIPTION"
     )

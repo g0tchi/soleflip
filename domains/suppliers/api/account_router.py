@@ -18,10 +18,9 @@ from shared.api.dependencies import get_db_session
 from shared.auth.dependencies import require_authenticated_user
 from shared.auth.models import User
 from shared.security.api_security import get_client_ip, AuditLogger
-from shared.error_handling.selling_exceptions import (
-    ValidationError,
-    DatabaseError,
-    ConfigurationError
+from shared.error_handling.exceptions import (
+    ValidationException,
+    SoleFlipException
 )
 
 from domains.suppliers.services.account_import_service import AccountImportService

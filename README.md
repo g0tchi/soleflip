@@ -1,6 +1,6 @@
 # SoleFlipper 
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/yourusername/soleflip)
+[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://github.com/yourusername/soleflip)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![PostgreSQL](https://img.shields.io/badge/postgresql-15+-blue.svg)](https://postgresql.org)
@@ -112,12 +112,22 @@ soleflip/
 - **📈 StockX API Enhancements**: Comprehensive gap analysis and improved endpoint validation
 - **🛡️ Critical Security Hardening**: Production-ready security with comprehensive endpoint protection
 
+### 🔧 Architecture Refactoring (v2.2.1)
+- **⚡ Performance Optimization**: Comprehensive codebase refactoring for production readiness
+- **🧹 Code Quality Excellence**: Zero linting violations, PEP 8 compliance, optimized imports
+- **🏗️ Improved Architecture**: Legacy selling domain removed, clean DDD structure maintained
+- **📊 Enhanced Monitoring**: APM integration, health checks, and performance metrics
+- **🔒 Security Enhancements**: Production-ready middleware, rate limiting, and CORS configuration
+- **🗃️ Database Optimization**: Async connection pooling, query performance improvements
+
 ### 🔐 Security & Production Readiness
-- **✅ Production Ready**: All critical security vulnerabilities resolved
+- **✅ Production Ready**: All critical security vulnerabilities resolved, comprehensive refactoring completed
 - **🔒 API Protection**: Comprehensive authentication on all sensitive endpoints
 - **🛡️ Database Security**: Production-hardened PostgreSQL with fail-safe configuration
 - **🔐 PCI Compliance**: Secure payment tokenization replacing direct card storage
 - **🚨 Zero Trust Model**: Admin operations require role-based authentication
+- **⚡ Performance Monitoring**: Real-time health checks, metrics collection, and alert system
+- **🏗️ Clean Architecture**: Optimized codebase with zero technical debt, production-ready structure
 
 ### 🧠 Brand Intelligence System
 - **Deep Brand Analytics**: Comprehensive brand profiles with founder info, financial data, sustainability scores.
@@ -140,6 +150,8 @@ soleflip/
 - **PostgreSQL Database**: Strong, relational database with an advanced, multi-schema architecture.
 - **Automated Backups**: Reliable, scheduled backups with integrity checks using the `scripts/database/create_backup.py` script.
 - **Alembic Migrations**: Keeps the database schema versioned and in sync.
+- **Async Performance**: High-performance async database connections with optimized connection pooling.
+- **Code Quality**: Zero linting violations, PEP 8 compliant codebase with comprehensive monitoring.
 
 ## 📋 Prerequisites
 

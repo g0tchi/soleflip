@@ -4,23 +4,40 @@ Production-ready FastAPI application with proper error handling,
 logging, and monitoring.
 """
 
+# Standard library imports
+import asyncio
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 
+# Third-party imports
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-load_dotenv()
+# Domain routers
+from domains.analytics.api.business_intelligence_api import router as business_intelligence_router
+from domains.analytics.api.router import router as analytics_router
+from domains.auth.api.router import router as auth_router
+from domains.dashboard.api.router import router as dashboard_router
+from domains.integration.api.quickflip_router import router as quickflip_router
+from domains.integration.api.upload_router import router as upload_router
+from domains.integration.api.webhooks import router as webhook_router
+from domains.integration.events import get_integration_event_handler
+from domains.inventory.api.router import router as inventory_router
+from domains.inventory.events import get_inventory_event_handler
+from domains.orders.api.router import router as orders_router
+from domains.pricing.api.router import router as pricing_router
+from domains.products.api.router import router as products_router
+from domains.products.events import get_product_event_handler
+from domains.suppliers.api.account_router import router as account_router
+from domains.suppliers.api.supplier_intelligence_api import router as supplier_intelligence_router
 
-from datetime import datetime
-
-from fastapi import HTTPException
-
-
-# Import centralized dependencies
+# Local application imports
+from shared.auth.token_blacklist import initialize_token_blacklist, shutdown_token_blacklist
 from shared.config.settings import get_settings
 from shared.database.connection import db_manager
 from shared.error_handling.exceptions import (
@@ -32,6 +49,22 @@ from shared.error_handling.exceptions import (
     validation_exception_handler,
 )
 from shared.logging.logger import RequestLoggingMiddleware
+from shared.middleware.compression import setup_compression_middleware
+from shared.middleware.etag import setup_etag_middleware
+from shared.monitoring.alerting import get_alert_manager, start_alert_monitoring
+from shared.monitoring.apm import RequestMetrics, collect_system_metrics, get_apm_collector
+from shared.monitoring.batch_monitor import get_batch_monitor
+from shared.monitoring.health import setup_default_health_checks
+from shared.monitoring.metrics import get_metrics_collector
+
+# Monitoring routers
+from shared.monitoring.prometheus import router as prometheus_router
+from shared.performance import initialize_cache
+from shared.security.api_security import security_middleware
+from shared.security.middleware import add_security_middleware
+
+# Load environment variables after imports
+load_dotenv()
 
 
 @asynccontextmanager
@@ -58,32 +91,25 @@ async def lifespan(app: FastAPI):
     logger.info("Database connection initialized and tables created")
 
     # Setup monitoring
-    from shared.monitoring.health import setup_default_health_checks
-    from shared.monitoring.metrics import get_metrics_collector
-    from shared.monitoring.batch_monitor import get_batch_monitor
-    from shared.monitoring.apm import get_apm_collector, collect_system_metrics
-    from shared.monitoring.alerting import get_alert_manager, start_alert_monitoring
-    import asyncio
-    import os
 
     await setup_default_health_checks(db_manager)
     metrics_collector = get_metrics_collector()
     metrics_collector.start_collection()
-    
+
     # Initialize APM system
-    apm_collector = get_apm_collector()
+    get_apm_collector()
     logger.info("APM system initialized")
-    
+
     # Advanced health monitoring temporarily disabled
     logger.info("Basic health monitoring active")
-    
+
     # Initialize alerting system
-    alert_manager = get_alert_manager()
+    get_alert_manager()
     logger.info("Alerting system initialized")
-    
+
     # Initialize batch monitoring
     batch_monitor = get_batch_monitor()
-    
+
     # Define system metrics collection task
     async def _start_system_metrics_collection():
         """Background task for collecting system metrics"""
@@ -94,57 +120,54 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error("System metrics collection failed", error=str(e))
                 await asyncio.sleep(60)  # Wait longer on error
-    
+
     # Start continuous monitoring tasks
     asyncio.create_task(batch_monitor.run_continuous_monitoring(interval_seconds=300))
     asyncio.create_task(_start_system_metrics_collection())
     asyncio.create_task(start_alert_monitoring(check_interval_seconds=60))
 
     # Initialize event-driven domain communication
-    from domains.integration.events import get_integration_event_handler
-    from domains.products.events import get_product_event_handler
-    from domains.inventory.events import get_inventory_event_handler
-    
     # Initialize all event handlers
     get_integration_event_handler()
-    get_product_event_handler() 
+    get_product_event_handler()
     get_inventory_event_handler()
 
     # Initialize performance optimizations
-    from shared.performance import initialize_cache, get_database_optimizer
-    from shared.auth.token_blacklist import initialize_token_blacklist
-    
+    import os
+
     # Initialize cache system
     redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
     await initialize_cache(redis_url)
-    
+
     # Initialize JWT token blacklist system
     try:
         # Try to reuse Redis connection for token blacklist
         redis_client = None
         if redis_url:
             import redis.asyncio as redis
+
             redis_client = redis.from_url(redis_url)
         await initialize_token_blacklist(redis_client)
     except ImportError:
         # Redis not available, use in-memory blacklist only
         await initialize_token_blacklist()
-    
+
     # Setup database performance indexes (temporarily disabled)
     # db_optimizer = get_database_optimizer()
     # async with db_manager.get_session() as session:
     #     await db_optimizer.create_performance_indexes(session)
 
-    logger.info("Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized")
+    logger.info(
+        "Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized"
+    )
 
     yield
 
     logger.info("SoleFlipper API shutting down...")
-    
+
     # Shutdown security systems
-    from shared.auth.token_blacklist import shutdown_token_blacklist
     await shutdown_token_blacklist()
-    
+
     metrics_collector.stop_collection()
     await db_manager.close()
     logger.info("Database connections closed, security systems shutdown")
@@ -170,41 +193,52 @@ app = FastAPI(
 )
 
 # Add security middleware
-from shared.security.middleware import add_security_middleware
-
 add_security_middleware(app, settings)
 
 # Add compression middleware for better bandwidth efficiency
-from shared.middleware.compression import setup_compression_middleware
-from shared.middleware.etag import setup_etag_middleware
 
 # First add compression middleware, then ETag middleware
 # This ensures ETags are calculated from compressed responses
-setup_compression_middleware(app, {
-    "minimum_size": 1000,  # Compress responses >= 1KB
-    "compression_level": 6,  # Balanced speed vs compression
-    "exclude_paths": ["/health", "/metrics", "/docs", "/openapi.json", "/health/ready", "/health/live"]
-})
+setup_compression_middleware(
+    app,
+    {
+        "minimum_size": 1000,  # Compress responses >= 1KB
+        "compression_level": 6,  # Balanced speed vs compression
+        "exclude_paths": [
+            "/health",
+            "/metrics",
+            "/docs",
+            "/openapi.json",
+            "/health/ready",
+            "/health/live",
+        ],
+    },
+)
 
-setup_etag_middleware(app, {
-    "weak_etags": True,  # Better performance
-    "exclude_paths": ["/health", "/metrics", "/docs", "/openapi.json", "/health/ready", "/health/live"]
-})
+setup_etag_middleware(
+    app,
+    {
+        "weak_etags": True,  # Better performance
+        "exclude_paths": [
+            "/health",
+            "/metrics",
+            "/docs",
+            "/openapi.json",
+            "/health/ready",
+            "/health/live",
+        ],
+    },
+)
+
 
 # Add APM request monitoring middleware
-from shared.monitoring.apm import monitor_request
-from fastapi import Request
-import time
-
 @app.middleware("http")
 async def apm_middleware(request: Request, call_next):
     """APM middleware to automatically track all HTTP requests"""
-    from shared.monitoring.apm import get_apm_collector, RequestMetrics
-    
     start_time = time.time()
     status_code = 200
     error_message = None
-    
+
     try:
         response = await call_next(request)
         status_code = response.status_code
@@ -215,7 +249,7 @@ async def apm_middleware(request: Request, call_next):
         raise
     finally:
         response_time_ms = (time.time() - start_time) * 1000
-        
+
         # Record request metrics
         metrics = RequestMetrics(
             method=request.method,
@@ -223,18 +257,18 @@ async def apm_middleware(request: Request, call_next):
             status_code=status_code,
             response_time_ms=response_time_ms,
             timestamp=datetime.utcnow(),
-            error_message=error_message
+            error_message=error_message,
         )
-        
+
         get_apm_collector().record_request(metrics)
 
-# Add security middleware for selling APIs
-from shared.security.api_security import security_middleware
 
+# Add security middleware for selling APIs
 @app.middleware("http")
 async def security_middleware_wrapper(request: Request, call_next):
     """Security middleware for enhanced API protection"""
     return await security_middleware(request, call_next)
+
 
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
@@ -248,59 +282,18 @@ app.add_middleware(
 )
 
 # Add exception handlers
-from shared.error_handling.selling_exceptions import (
-    SellingBaseException,
-    ListingCreationError,
-    PriceUpdateError,
-    ListingNotFoundError,
-    OpportunityNotFoundError,
-    StockXAPIError,
-    BulkOperationError,
-    ConfigurationError,
-    ValidationError as SellingValidationError,
-    DatabaseError,
-    RateLimitExceededError
-)
+# Legacy selling exceptions removed - use transaction/order exceptions instead
 
-@app.exception_handler(SellingBaseException)
-async def selling_exception_handler(request: Request, exc: SellingBaseException):
-    """Handle selling domain exceptions with security-aware responses"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail,
-        headers=exc.headers
-    )
+# Legacy selling exception handler removed - use transaction/order handlers instead
 
 app.add_exception_handler(SoleFlipException, soleflip_exception_handler)
 app.add_exception_handler(ValidationException, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
+# Router registration - routers imported at top of file
 # from domains.admin.api.router import router as admin_router  # REMOVED: Security risk in production
-from domains.analytics.api.router import router as analytics_router
-from domains.analytics.api.business_intelligence_api import router as business_intelligence_router
-from domains.auth.api.router import router as auth_router
-from domains.dashboard.api.router import router as dashboard_router
-from domains.integration.api.upload_router import router as upload_router
-
-# Include API routers
-from domains.integration.api.webhooks import router as webhook_router
-from domains.integration.api.quickflip_router import router as quickflip_router
-from domains.inventory.api.router import router as inventory_router
-from domains.orders.api.router import router as orders_router
-from domains.selling.api.selling_router import router as selling_router
-from domains.selling.api.order_management_router import router as order_management_router
-
-# Supplier account management
-from domains.suppliers.api.account_router import router as account_router
-from domains.suppliers.api.supplier_intelligence_api import router as supplier_intelligence_router
-
-# Using real router for production-ready pricing features
-from domains.pricing.api.router import router as pricing_router
-from domains.products.api.router import router as products_router
-
-# Monitoring routers
-from shared.monitoring.prometheus import router as prometheus_router
+# from domains.integration.api.commerce_intelligence_router import router as commerce_intelligence_router  # DISABLED: File corruption detected
 # from shared.monitoring.batch_monitor_router import router as batch_monitor_router  # REMOVED: Development-only
 
 # Authentication routes (public)
@@ -312,8 +305,7 @@ app.include_router(
 app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFlip"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
-app.include_router(selling_router, prefix="/api/v1/selling", tags=["Selling"])
-app.include_router(order_management_router, prefix="/api/v1/order-management", tags=["Order Management"])
+# Legacy selling routes removed - use /api/v1/transactions and /api/v1/orders instead
 app.include_router(account_router, prefix="/api/v1/suppliers/accounts", tags=["Supplier Accounts"])
 app.include_router(supplier_intelligence_router, tags=["Supplier Intelligence"])
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
@@ -333,20 +325,20 @@ app.include_router(prometheus_router, tags=["Monitoring"])
 @app.get("/health", tags=["System"])
 async def health_check():
     """Comprehensive health check endpoint with APM integration"""
-    from shared.monitoring.health import get_health_manager
     # from shared.monitoring.advanced_health import get_advanced_health_manager
     from shared.monitoring.apm import get_apm_collector
+    from shared.monitoring.health import get_health_manager
 
     health_manager = get_health_manager()
     # advanced_health = get_advanced_health_manager()
     apm_collector = get_apm_collector()
-    
+
     # Get basic health status
     health_status = await health_manager.get_overall_health()
-    
+
     # Advanced health checks temporarily disabled
     advanced_status = {"overall_status": "healthy", "startup_checks": {}, "component_health": {}}
-    
+
     # Get APM performance summary (last 5 minutes)
     performance_summary = apm_collector.get_performance_summary(minutes=5)
 
@@ -361,15 +353,15 @@ async def health_check():
         "advanced_health": {
             "overall_status": advanced_status["overall_status"],
             "startup_checks": advanced_status["startup_checks"],
-            "component_health": advanced_status["component_health"]
+            "component_health": advanced_status["component_health"],
         },
         "performance": {
             "health_score": performance_summary["health_score"],
             "requests": performance_summary["requests"],
             "database": performance_summary["database"],
             "system": performance_summary["system"],
-            "alerts_count": performance_summary["alerts"]["count"]
-        }
+            "alerts_count": performance_summary["alerts"]["count"],
+        },
     }
 
 
@@ -383,9 +375,9 @@ async def health_check():
 async def get_alerts():
     """Get current system alerts and alerting statistics"""
     from shared.monitoring.alerting import get_alert_manager
-    
+
     alert_manager = get_alert_manager()
-    
+
     return {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "active_alerts": [
@@ -394,13 +386,13 @@ async def get_alerts():
                 "severity": alert.severity.value,
                 "message": alert.message,
                 "timestamp": alert.timestamp.isoformat() + "Z",
-                "details": alert.details
+                "details": alert.details,
             }
             for alert in alert_manager.get_active_alerts()
         ],
         "alert_stats": alert_manager.get_alert_stats(hours=24),
         "rule_count": len(alert_manager.rules),
-        "enabled_rules": len([rule for rule in alert_manager.rules.values() if rule.enabled])
+        "enabled_rules": len([rule for rule in alert_manager.rules.values() if rule.enabled]),
     }
 
 
@@ -408,13 +400,13 @@ async def get_alerts():
 async def get_alert_history(hours: int = 24):
     """Get alert history for the specified time period"""
     from shared.monitoring.alerting import get_alert_manager
-    
+
     if hours > 168:  # Limit to 1 week
         hours = 168
-    
+
     alert_manager = get_alert_manager()
     history = alert_manager.get_alert_history(hours=hours)
-    
+
     return {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "timeframe_hours": hours,
@@ -428,11 +420,13 @@ async def get_alert_history(hours: int = 24):
                 "resolved": alert.resolved,
                 "resolved_at": alert.resolved_at.isoformat() + "Z" if alert.resolved_at else None,
                 "duration_minutes": round(
-                    ((alert.resolved_at or datetime.utcnow()) - alert.timestamp).total_seconds() / 60, 2
-                )
+                    ((alert.resolved_at or datetime.utcnow()) - alert.timestamp).total_seconds()
+                    / 60,
+                    2,
+                ),
             }
             for alert in history
-        ]
+        ],
     }
 
 
