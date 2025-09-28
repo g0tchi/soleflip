@@ -29,9 +29,11 @@ class BusinessIntelligenceService:
         """
         Calculate comprehensive analytics for inventory item (Notion feature parity)
 
+        Uses net_buy (without VAT) for ROI calculations as per B2B business requirements.
+
         Returns:
         - shelf_life_days: Days in inventory
-        - roi_percentage: Return on investment
+        - roi_percentage: Return on investment (based on net_buy)
         - profit_per_shelf_day: PAS metric
         - sale_overview: Notion-style summary
         """
@@ -41,12 +43,15 @@ class BusinessIntelligenceService:
         purchase_date = inventory_item.purchase_date.date() if inventory_item.purchase_date else datetime.now().date()
         shelf_life_days = (end_date - purchase_date).days
 
-        # Calculate financial metrics
-        purchase_price = inventory_item.purchase_price or Decimal('0')
+        # Calculate financial metrics using net pricing (B2B logic)
+        gross_purchase_price = inventory_item.purchase_price or Decimal('0')
         current_sale_price = sale_price or Decimal('0')
 
-        profit = current_sale_price - purchase_price if current_sale_price > 0 else Decimal('0')
-        roi_percentage = (profit / purchase_price * 100) if purchase_price > 0 else Decimal('0')
+        # Calculate net_buy from gross_buy using supplier VAT rate
+        net_purchase_price = await self._calculate_net_buy_price(inventory_item, gross_purchase_price)
+
+        profit = current_sale_price - net_purchase_price if current_sale_price > 0 else Decimal('0')
+        roi_percentage = (profit / net_purchase_price * 100) if net_purchase_price > 0 else Decimal('0')
         profit_per_shelf_day = (profit / shelf_life_days) if shelf_life_days > 0 else Decimal('0')
 
         # Generate Notion-style sale overview
@@ -306,3 +311,30 @@ class BusinessIntelligenceService:
                    count=len(performance_summary))
 
         return performance_summary
+
+    async def _calculate_net_buy_price(self, inventory_item: InventoryItem, gross_price: Decimal) -> Decimal:
+        """
+        Calculate net buy price (without VAT) from gross price
+
+        For B2B operations and IGLs to Holland, net pricing is more relevant.
+        Uses supplier's VAT rate or defaults to German VAT (19%).
+        """
+
+        # Get supplier VAT rate
+        if inventory_item.supplier_obj and inventory_item.supplier_obj.vat_rate:
+            vat_rate = inventory_item.supplier_obj.vat_rate
+        else:
+            # Default to German VAT rate of 19%
+            vat_rate = Decimal('19.0')
+
+        # Calculate net price: gross_price / (1 + vat_rate/100)
+        vat_multiplier = Decimal('1') + (vat_rate / Decimal('100'))
+        net_price = gross_price / vat_multiplier
+
+        logger.debug("Calculated net buy price",
+                    gross_price=float(gross_price),
+                    vat_rate=float(vat_rate),
+                    net_price=float(net_price),
+                    item_id=str(inventory_item.id))
+
+        return net_price
