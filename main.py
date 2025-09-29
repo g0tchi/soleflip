@@ -26,6 +26,7 @@ from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.quickflip_router import router as quickflip_router
 from domains.integration.api.upload_router import router as upload_router
 from domains.integration.api.webhooks import router as webhook_router
+from domains.integration.budibase.api.budibase_router import router as budibase_router
 from domains.integration.events import get_integration_event_handler
 from domains.inventory.api.router import router as inventory_router
 from domains.inventory.events import get_inventory_event_handler
@@ -302,6 +303,7 @@ app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integrat
 app.include_router(
     upload_router, prefix="/api/v1/integration", tags=["Integration"]
 )  # Prefix is the same
+app.include_router(budibase_router, prefix="/api/v1/budibase", tags=["Budibase"])
 app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFlip"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])

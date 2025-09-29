@@ -116,7 +116,7 @@ class BatchProcessingMonitor:
     async def monitor_batch_processing(self) -> BatchMonitorStats:
         """Monitor current batch processing status and generate alerts"""
         
-        async with get_db_session() as session:
+        async for session in get_db_session():
             try:
                 # Get statistics for the last 24 hours
                 cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -296,7 +296,7 @@ class BatchProcessingMonitor:
     async def check_specific_batch(self, batch_id: str) -> Optional[BatchAlert]:
         """Check a specific batch for issues and return alert if needed"""
         
-        async with get_db_session() as session:
+        async for session in get_db_session():
             try:
                 batch = await session.get(ImportBatch, batch_id)
                 if not batch:
@@ -340,7 +340,7 @@ class BatchProcessingMonitor:
     async def get_batch_health_summary(self) -> Dict[str, Any]:
         """Get comprehensive batch processing health summary"""
         
-        async with get_db_session() as session:
+        async for session in get_db_session():
             try:
                 # Get various time windows for analysis
                 now = datetime.now(timezone.utc)
