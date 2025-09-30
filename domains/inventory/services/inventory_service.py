@@ -13,7 +13,7 @@ import structlog
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Brand, Category, InventoryItem, Product, Size
+from shared.database.models import Brand, Category, InventoryItem, MarketplaceData, Platform, Product, Size
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
@@ -210,6 +210,9 @@ class InventoryService:
             default_category = await self._get_default_category()
             default_brand = await self._get_default_brand()
 
+            # Get or create StockX platform for marketplace data
+            stockx_platform = await self._get_or_create_stockx_platform()
+
             # Process each listing individually (simple approach)
             for listing in listings:
                 listing_id = listing.get("listingId")
@@ -222,10 +225,16 @@ class InventoryService:
                     existing_item = await self._simple_listing_check(listing_id)
                     if existing_item:
                         stats["matched"] += 1
+                        # Update marketplace data for existing items
+                        await self._create_or_update_marketplace_data(existing_item, listing, stockx_platform)
                         continue
 
                     # Create new inventory item
-                    await self._create_simple_inventory_item(listing, default_category, default_brand)
+                    inventory_item = await self._create_simple_inventory_item(listing, default_category, default_brand)
+
+                    # Create marketplace data for the new item
+                    await self._create_or_update_marketplace_data(inventory_item, listing, stockx_platform)
+
                     stats["created"] += 1
 
                 except Exception as e:
@@ -252,7 +261,7 @@ class InventoryService:
         )
         category = result.scalar_one_or_none()
         if not category:
-            category = Category(name="StockX Import", description="Items imported from StockX")
+            category = Category(name="StockX Import", slug="stockx-import")
             self.db_session.add(category)
             await self.db_session.flush()
         return category
@@ -265,7 +274,7 @@ class InventoryService:
         )
         brand = result.scalar_one_or_none()
         if not brand:
-            brand = Brand(name="Unknown Brand")
+            brand = Brand(name="Unknown Brand", slug="unknown-brand")
             self.db_session.add(brand)
             await self.db_session.flush()
         return brand
@@ -278,17 +287,18 @@ class InventoryService:
                 select(InventoryItem).where(
                     and_(
                         InventoryItem.external_ids.is_not(None),
-                        InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
+                        InventoryItem.external_ids.op('->>')('stockx_listing_id') == listing_id
                     )
                 )
             )
             return result.scalar_one_or_none()
-        except Exception:
+        except Exception as e:
+            self.logger.warning(f"Error checking for existing listing {listing_id}: {e}")
             return None
 
     async def _create_simple_inventory_item(self, listing, default_category, default_brand):
         """Create simple inventory item from StockX listing with proper SKU strategy"""
-        from shared.database.models import InventoryItem, Product, Size
+        from shared.database.models import InventoryItem, Size
         from datetime import datetime, timezone
 
         listing_id = listing.get("listingId")
@@ -355,6 +365,8 @@ class InventoryService:
         self.db_session.add(inventory_item)
         await self.db_session.flush()
 
+        return inventory_item
+
     async def _get_or_create_product_by_sku(self, sku, name, brand, category):
         """Get existing product by SKU or create new one"""
         from shared.database.models import Product
@@ -381,6 +393,7 @@ class InventoryService:
 
     async def _preload_sync_entities(self, listings: List[Dict]) -> Dict[str, Any]:
         """Pre-load all entities needed for sync to avoid N+1 queries"""
+        from shared.database.models import Category
         # Extract unique values from listings
         brand_names = set(listing.get("brand", "Unknown") for listing in listings)
         product_skus = set(f"stockx-{listing.get('listingId')}" for listing in listings if listing.get('listingId'))
@@ -404,7 +417,6 @@ class InventoryService:
         category = category_result.scalar_one_or_none()
         
         if not category:
-            from shared.database.models import Category
             category = Category(name="Sneakers", slug="sneakers")
             self.db_session.add(category)
             await self.db_session.flush()
@@ -1493,7 +1505,7 @@ class InventoryService:
         }
         
         try:
-            from shared.database.models import InventoryItem, Product, Brand, Size
+            from shared.database.models import InventoryItem, Product
             
             # Get all inventory items with related data  
             from sqlalchemy.orm import selectinload
@@ -1603,3 +1615,97 @@ class InventoryService:
         except Exception as e:
             self.logger.error(f"Error determining auto-merge eligibility: {e}")
             return False
+
+    async def _get_or_create_stockx_platform(self) -> Platform:
+        """Get or create the StockX platform entry"""
+        result = await self.db_session.execute(
+            select(Platform).where(Platform.slug == "stockx")
+        )
+        platform = result.scalar_one_or_none()
+
+        if not platform:
+            platform = Platform(
+                name="StockX",
+                slug="stockx",
+                url="https://stockx.com",
+                is_active=True
+            )
+            self.db_session.add(platform)
+            await self.db_session.flush()
+
+        return platform
+
+    async def _create_or_update_marketplace_data(self, inventory_item: InventoryItem, listing: dict, platform: Platform):
+        """Create or update marketplace data for the inventory item"""
+        try:
+            # Check if marketplace data already exists for this item and platform
+            existing_result = await self.db_session.execute(
+                select(MarketplaceData).where(
+                    and_(
+                        MarketplaceData.inventory_item_id == inventory_item.id,
+                        MarketplaceData.platform_id == platform.id
+                    )
+                )
+            )
+            existing_data = existing_result.scalar_one_or_none()
+
+            # Extract pricing data from listing
+            ask_info = listing.get("ask", {})
+
+            # Get the ask price - this is our listing price
+            ask_price = listing.get("amount")
+            if ask_price:
+                ask_price = Decimal(str(ask_price))
+
+            # Create platform-specific data
+            platform_specific = {
+                "askId": ask_info.get("askId"),
+                "variantId": listing.get("variant", {}).get("variantId"),
+                "authentication": "required",  # StockX always requires authentication
+                "condition_grade": "new",  # StockX typically deals with new items
+                "processing_time_days": 3,  # Typical StockX processing time
+                "currency_code": listing.get("currencyCode", "EUR"),
+                "listing_status": listing.get("status", "ACTIVE")
+            }
+
+            if existing_data:
+                # Update existing marketplace data
+                existing_data.marketplace_listing_id = listing.get("listingId")
+                existing_data.ask_price = ask_price
+                existing_data.fees_percentage = Decimal("0.095")  # StockX typically charges 9.5%
+                existing_data.platform_specific = platform_specific
+                # Keep updated_at as automatic
+
+                self.logger.debug(
+                    "Updated marketplace data",
+                    inventory_item_id=str(inventory_item.id),
+                    platform=platform.slug,
+                    ask_price=float(ask_price) if ask_price else None
+                )
+            else:
+                # Create new marketplace data
+                marketplace_data = MarketplaceData(
+                    inventory_item_id=inventory_item.id,
+                    platform_id=platform.id,
+                    marketplace_listing_id=listing.get("listingId"),
+                    ask_price=ask_price,
+                    fees_percentage=Decimal("0.095"),  # StockX typically charges 9.5%
+                    platform_specific=platform_specific
+                )
+
+                self.db_session.add(marketplace_data)
+
+                self.logger.debug(
+                    "Created marketplace data",
+                    inventory_item_id=str(inventory_item.id),
+                    platform=platform.slug,
+                    ask_price=float(ask_price) if ask_price else None
+                )
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to create/update marketplace data",
+                inventory_item_id=str(inventory_item.id),
+                platform=platform.slug,
+                error=str(e)
+            )

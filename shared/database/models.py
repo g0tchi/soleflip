@@ -8,7 +8,7 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -239,6 +239,7 @@ class Platform(Base, TimestampMixin):
     sales_forecasts = relationship("SalesForecast", back_populates="platform")
     pricing_kpis = relationship("PricingKPI", back_populates="platform")
     price_history = relationship("PriceHistory", back_populates="platform")
+    marketplace_data = relationship("MarketplaceData", back_populates="platform")
 
 
 class SystemConfig(Base, TimestampMixin):
@@ -326,12 +327,18 @@ class InventoryItem(Base, TimestampMixin):
         UUID(as_uuid=True), ForeignKey(get_schema_ref("suppliers.id", "core")), nullable=True
     )
     quantity = Column(Integer, nullable=False, default=1)
-    purchase_price = Column(Numeric(10, 2))
+    purchase_price = Column(Numeric(10, 2))  # Net purchase price (without VAT)
     purchase_date = Column(DateTime(timezone=True))
     supplier = Column(String(100))
     status = Column(String(50), nullable=False, default="in_stock")
     notes = Column(Text)
     external_ids = Column(JSONB, nullable=True, default=dict)
+
+    # Notion Sync Fields (added 2025-09-30)
+    delivery_date = Column(DateTime(timezone=True), nullable=True)
+    gross_purchase_price = Column(Numeric(10, 2), nullable=True)  # Purchase price WITH VAT
+    vat_amount = Column(Numeric(10, 2), nullable=True)
+    vat_rate = Column(Numeric(5, 2), nullable=True, default=19.00)  # Default Germany VAT rate
 
     # Business Intelligence Fields (from Notion Analysis)
     shelf_life_days = Column(Integer, nullable=True)
@@ -355,6 +362,7 @@ class InventoryItem(Base, TimestampMixin):
     supplier_obj = relationship("Supplier", back_populates="inventory_items")
     transactions = relationship("Transaction", back_populates="inventory_item")
     price_history = relationship("PriceHistory", back_populates="inventory_item")
+    marketplace_data = relationship("MarketplaceData", back_populates="inventory_item")
 
     def to_dict(self):
         return {
@@ -448,6 +456,17 @@ class Order(Base, TimestampMixin):
 
     stockx_created_at = Column(DateTime(timezone=True))
     last_stockx_updated_at = Column(DateTime(timezone=True))
+
+    # Notion Sync Fields (added 2025-09-30)
+    sold_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Sale completion date
+    gross_sale = Column(Numeric(10, 2), nullable=True)  # Sale price before fees/taxes
+    net_proceeds = Column(Numeric(10, 2), nullable=True)  # Net proceeds after platform fees
+    gross_profit = Column(Numeric(10, 2), nullable=True)  # Sale price - Purchase price
+    net_profit = Column(Numeric(10, 2), nullable=True)  # Net profit after all costs
+    roi = Column(Numeric(5, 2), nullable=True)  # Return on investment percentage
+    payout_received = Column(Boolean, nullable=True, default=False, index=True)  # Whether payout received
+    payout_date = Column(DateTime(timezone=True), nullable=True)  # Date payout received
+    shelf_life_days = Column(Integer, nullable=True)  # Days between purchase and sale
 
     raw_data = Column(JSONB)
 
@@ -994,6 +1013,79 @@ class SupplierPerformance(Base):
 
 # Update Supplier model to include accounts relationship
 Supplier.accounts = relationship("SupplierAccount", back_populates="supplier", cascade="all, delete-orphan")
+
+
+class MarketplaceData(Base, TimestampMixin):
+    """Market data from multiple platforms (StockX, Alias, GOAT, etc.) for pricing intelligence"""
+    __tablename__ = "marketplace_data"
+    __table_args__ = {"schema": "analytics"} if IS_POSTGRES else None
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    inventory_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(get_schema_ref("inventory.id", "products")),
+        nullable=False
+    )
+    platform_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(get_schema_ref("platforms.id", "core")),
+        nullable=False
+    )
+    marketplace_listing_id = Column(String(255), comment="External listing identifier")
+
+    # Universal pricing fields
+    ask_price = Column(Numeric(10, 2), comment="Current ask price")
+    bid_price = Column(Numeric(10, 2), comment="Current bid price")
+    market_lowest_ask = Column(Numeric(10, 2), comment="Lowest ask on the market")
+    market_highest_bid = Column(Numeric(10, 2), comment="Highest bid on the market")
+    last_sale_price = Column(Numeric(10, 2), comment="Most recent sale price")
+
+    # Market analytics
+    sales_frequency = Column(Integer, comment="Number of sales in last 30 days")
+    volatility = Column(Numeric(5, 4), comment="Price volatility (0.0-1.0)")
+    fees_percentage = Column(Numeric(5, 4), comment="Platform fees (0.08 = 8%)")
+
+    # Platform-specific data (JSON for flexibility)
+    platform_specific = Column(JSONB if IS_POSTGRES else Text, comment="Platform-specific metadata")
+
+    # Metadata
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    inventory_item = relationship("InventoryItem", back_populates="marketplace_data")
+    platform = relationship("Platform", back_populates="marketplace_data")
+
+    # Constraints
+    if IS_POSTGRES:
+        __table_args__ = (
+            UniqueConstraint('inventory_item_id', 'platform_id', name='uq_marketplace_data_item_platform'),
+            CheckConstraint('volatility >= 0 AND volatility <= 1', name='chk_volatility_range'),
+            CheckConstraint('fees_percentage >= 0 AND fees_percentage <= 1', name='chk_fees_range'),
+            {"schema": "analytics"}
+        )
+    else:
+        __table_args__ = (
+            UniqueConstraint('inventory_item_id', 'platform_id', name='uq_marketplace_data_item_platform'),
+        )
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "inventory_item_id": str(self.inventory_item_id),
+            "platform_id": str(self.platform_id),
+            "marketplace_listing_id": self.marketplace_listing_id,
+            "ask_price": float(self.ask_price) if self.ask_price else None,
+            "bid_price": float(self.bid_price) if self.bid_price else None,
+            "market_lowest_ask": float(self.market_lowest_ask) if self.market_lowest_ask else None,
+            "market_highest_bid": float(self.market_highest_bid) if self.market_highest_bid else None,
+            "last_sale_price": float(self.last_sale_price) if self.last_sale_price else None,
+            "sales_frequency": self.sales_frequency,
+            "volatility": float(self.volatility) if self.volatility else None,
+            "fees_percentage": float(self.fees_percentage) if self.fees_percentage else None,
+            "platform_specific": self.platform_specific,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 # Import pricing models to register them with SQLAlchemy
