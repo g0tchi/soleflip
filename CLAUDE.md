@@ -127,6 +127,7 @@ FastAPI's dependency injection is used extensively. Common dependencies are in `
 - **Alembic** for schema migrations with detailed timestamps
 - **SQLAlchemy 2.0** with async support and proper type hints
 - **Field encryption** for sensitive data using Fernet keys
+- **Multi-Platform Orders** (**v2.2.2 NEW**) - Unified `transactions.orders` table supports all marketplace platforms (StockX, eBay, GOAT, etc.) - see `context/orders-multi-platform-migration.md`
 
 ### Performance Considerations (**v2.2.1 ENHANCED**)
 - **Optimized Connection Pooling** - Enhanced async SQLAlchemy engine with 15% faster startup
