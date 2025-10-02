@@ -2,7 +2,7 @@
 Check transactions schema tables: orders and transactions
 """
 import asyncio
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from shared.database.connection import DatabaseManager
 
 async def main():
@@ -158,7 +158,7 @@ async def main():
         """))
 
         row = result.fetchone()
-        print(f"\nData Summary:")
+        print("\nData Summary:")
         print(f"  Orders table: {row.orders_count} records")
         print(f"  Transactions table: {row.transactions_count} records")
         print(f"  Unique inventory items in orders: {row.unique_inventory_in_orders}")

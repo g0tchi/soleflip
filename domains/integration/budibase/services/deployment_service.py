@@ -6,7 +6,6 @@ Handles deployment and management of Budibase applications.
 """
 
 import logging
-from typing import Optional
 
 from ..schemas.budibase_models import BudibaseApp, BudibaseDeployment, BudibaseEnvironment
 

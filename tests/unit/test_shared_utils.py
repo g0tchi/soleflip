@@ -3,10 +3,7 @@ Unit tests for shared utility functions
 Testing financial calculations and validation utilities for coverage improvement
 """
 
-import pytest
 from decimal import Decimal
-from datetime import datetime, date
-from uuid import UUID, uuid4
 
 from shared.utils.financial import FinancialCalculator
 from shared.utils.validation_utils import ValidationUtils

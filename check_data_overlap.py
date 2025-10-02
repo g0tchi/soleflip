@@ -53,7 +53,7 @@ async def check_overlap():
         """))
 
         stats = result.fetchone()
-        print(f"\n" + "=" * 80)
+        print("\n" + "=" * 80)
         print("INVENTORY OVERLAP CHECK")
         print("=" * 80)
         print(f"  Items in orders table: {stats.order_items}")
@@ -77,7 +77,7 @@ async def check_overlap():
         """))
 
         dates = result.fetchone()
-        print(f"\n" + "=" * 80)
+        print("\n" + "=" * 80)
         print("DATE RANGE COMPARISON")
         print("=" * 80)
         print(f"Orders table:       {dates.order_min.date()} → {dates.order_max.date()}")

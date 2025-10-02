@@ -4,9 +4,8 @@ Testing HTTP caching, conditional requests, and ETag generation for 100% coverag
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import MagicMock
 from fastapi import FastAPI, Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from shared.middleware.etag import ETagMiddleware, setup_etag_middleware
 

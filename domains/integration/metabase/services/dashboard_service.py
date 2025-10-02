@@ -6,14 +6,12 @@ Service for generating and managing Metabase dashboards programmatically.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from ..schemas.metabase_models import (
     MetabaseDashboard,
     DashboardCard,
-    DashboardParameter,
-    MetabaseCard,
-    VisualizationType
+    DashboardParameter
 )
 
 logger = logging.getLogger(__name__)

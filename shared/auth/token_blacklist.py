@@ -7,7 +7,6 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Optional, Set
-from uuid import UUID
 
 import structlog
 

@@ -4,10 +4,9 @@ Script to import Nike accounts from accounts.csv
 
 import asyncio
 import os
-from uuid import uuid4
 
 from shared.database.connection import db_manager
-from shared.database.models import Supplier, SupplierAccount
+from shared.database.models import Supplier
 from domains.suppliers.services.account_import_service import AccountImportService
 from sqlalchemy import select
 
@@ -88,7 +87,7 @@ async def import_nike_accounts():
 
         # Get final statistics
         summary = await import_service.get_import_summary(nike_supplier.id)
-        print(f"\n=== NIKE SUPPLIER SUMMARY ===")
+        print("\n=== NIKE SUPPLIER SUMMARY ===")
         print(f"Total accounts: {summary['total_accounts']}")
         print(f"Active accounts: {summary['active_accounts']}")
         print(f"Total purchases: {summary['total_purchases']}")

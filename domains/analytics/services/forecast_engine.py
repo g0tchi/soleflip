@@ -34,7 +34,6 @@ except ImportError:
     STATSMODELS_AVAILABLE = False
     logging.warning("statsmodels not available. Time series models will be limited.")
 
-from domains.pricing.models import ForecastAccuracy, SalesForecast
 
 from ..repositories.forecast_repository import ForecastRepository
 

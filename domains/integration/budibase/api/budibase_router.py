@@ -5,7 +5,6 @@ Budibase Management API Router
 REST endpoints for managing Budibase configurations, deployments, and synchronization.
 """
 
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -17,17 +16,13 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.api.dependencies import get_db_session
-from shared.auth.dependencies import require_authenticated_user
 from shared.api.responses import SuccessResponse
 from ..services.config_generator import BudibaseConfigGenerator
 from ..services.deployment_service import BudibaseDeploymentService
 from ..services.sync_service import BudibaseSyncService
 from ..schemas.budibase_models import (
     BudibaseApp,
-    BudibaseEnvironment,
-    BudibaseValidationResult,
-    BudibaseDeployment,
-    BudibaseSyncStatus
+    BudibaseEnvironment
 )
 
 logger = logging.getLogger(__name__)

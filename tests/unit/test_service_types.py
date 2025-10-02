@@ -3,8 +3,6 @@ Unit tests for service types
 Testing service layer types and protocols for 100% coverage
 """
 
-import pytest
-from typing import Dict, Any
 from shared.types.service_types import (
     ServiceResult,
     ServiceResultStatus,

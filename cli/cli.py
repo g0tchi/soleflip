@@ -872,11 +872,9 @@ class RetroAdminCLI:
         try:
             import asyncio
 
-            from sqlalchemy import text, update
 
             from domains.integration.services.stockx_service import StockXService
             from shared.database.connection import db_manager
-            from shared.database.models import Product
 
             async def bulk_enrich():
                 await db_manager.initialize()
@@ -1069,7 +1067,6 @@ class RetroAdminCLI:
 
     async def _execute_product_updates_batch(self, session, updates_batch: list):
         """Execute product updates using true bulk operations"""
-        from sqlalchemy import text
         
         if not updates_batch:
             return

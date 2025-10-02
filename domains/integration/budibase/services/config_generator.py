@@ -9,11 +9,9 @@ Validates API compatibility and creates realistic, working configurations.
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
-from uuid import uuid4
+from typing import List, Set
 
 import httpx
-from fastapi.openapi.utils import get_openapi
 
 from shared.config.settings import get_settings
 from ..schemas.budibase_models import (

@@ -11,7 +11,6 @@ import sys
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Dict, Any
-import json
 
 # Add project root to path
 sys.path.append('.')
@@ -278,7 +277,7 @@ async def validate_bi_calculations(session: AsyncSession, created_items: List[Di
     passed_items = sum(1 for r in all_results if r['all_accurate'])
     success_rate = (passed_items / total_items) * 100 if total_items > 0 else 0
 
-    print(f"\n[SUMMARY] SUMMARY:")
+    print("\n[SUMMARY] SUMMARY:")
     print(f"   Total Items: {total_items}")
     print(f"   Passed: {passed_items}")
     print(f"   Success Rate: {success_rate:.1f}%")

@@ -12,8 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.api.dependencies import get_db_session
-from shared.auth.dependencies import require_authenticated_user
-from domains.integration.services.quickflip_detection_service import QuickFlipDetectionService, QuickFlipOpportunity
+from domains.integration.services.quickflip_detection_service import QuickFlipDetectionService
 from domains.integration.services.market_price_import_service import MarketPriceImportService
 
 router = APIRouter()

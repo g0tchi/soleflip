@@ -11,17 +11,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status, File, UploadFile, Request
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated
 import structlog
 
 from shared.api.dependencies import get_db_session
 from shared.auth.dependencies import require_authenticated_user
 from shared.auth.models import User
 from shared.security.api_security import get_client_ip, AuditLogger
-from shared.error_handling.exceptions import (
-    ValidationException,
-    SoleFlipException
-)
 
 from domains.suppliers.services.account_import_service import AccountImportService
 from domains.suppliers.services.account_statistics_service import AccountStatisticsService
@@ -275,7 +270,7 @@ async def list_supplier_accounts(
 ):
     """List accounts for a specific supplier"""
     try:
-        from sqlalchemy import select, and_
+        from sqlalchemy import select
         from shared.database.models import SupplierAccount
 
         query = select(SupplierAccount).where(SupplierAccount.supplier_id == supplier_id)
@@ -285,7 +280,7 @@ async def list_supplier_accounts(
             query = query.where(SupplierAccount.account_status == status)
 
         if verified_only:
-            query = query.where(SupplierAccount.is_verified == True)
+            query = query.where(SupplierAccount.is_verified)
 
         # Apply pagination
         query = query.offset(offset).limit(limit)

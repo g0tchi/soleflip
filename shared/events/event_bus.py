@@ -10,7 +10,7 @@ import weakref
 
 import structlog
 
-from .base_event import BaseEvent, DomainEvent
+from .base_event import BaseEvent
 
 logger = structlog.get_logger(__name__)
 

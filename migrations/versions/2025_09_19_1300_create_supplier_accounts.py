@@ -7,7 +7,6 @@ Create Date: 2025-09-19 13:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '2025_09_19_1300_create_supplier_accounts'

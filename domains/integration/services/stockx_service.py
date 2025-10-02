@@ -6,7 +6,7 @@ import httpx
 import structlog
 from sqlalchemy import select
 from shared.utils.helpers import RetryHelper
-from shared.exceptions.domain_exceptions import StockXApiException, AuthenticationException
+from shared.exceptions.domain_exceptions import AuthenticationException
 
 from shared.database.models import SystemConfig
 

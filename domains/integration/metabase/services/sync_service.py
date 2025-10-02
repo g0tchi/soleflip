@@ -7,7 +7,7 @@ Synchronizes SoleFlipper database changes with Metabase materialized views.
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from .view_manager import MetabaseViewManager
 from ..config.materialized_views import RefreshStrategy

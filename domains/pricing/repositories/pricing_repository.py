@@ -36,7 +36,7 @@ class PricingRepository:
         query = (
             select(PriceRule)
             .where(
-                PriceRule.active == True,
+                PriceRule.active,
                 PriceRule.effective_from <= datetime.now(),
                 or_(
                     PriceRule.effective_until.is_(None), PriceRule.effective_until >= datetime.now()
@@ -107,7 +107,7 @@ class PricingRepository:
             select(BrandMultiplier)
             .where(
                 BrandMultiplier.brand_id == brand_id,
-                BrandMultiplier.active == True,
+                BrandMultiplier.active,
                 BrandMultiplier.effective_from <= effective_date,
                 or_(
                     BrandMultiplier.effective_until.is_(None),

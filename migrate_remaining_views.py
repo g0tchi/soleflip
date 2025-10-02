@@ -315,7 +315,7 @@ async def migrate():
                 await session.commit()
 
                 success_count += 1
-                print(f"    Success")
+                print("    Success")
 
             except Exception as e:
                 error_count += 1
@@ -323,7 +323,7 @@ async def migrate():
                 await session.rollback()
 
         print(f"\n{'='*80}")
-        print(f"MIGRATION SUMMARY")
+        print("MIGRATION SUMMARY")
         print(f"{'='*80}")
         print(f"  Total views: {len(REMAINING_VIEWS)}")
         print(f"  Successful: {success_count}")

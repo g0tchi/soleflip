@@ -4,7 +4,6 @@ Advanced alerting and notification system integrated with APM monitoring
 """
 
 import asyncio
-import json
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable

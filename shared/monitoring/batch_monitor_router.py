@@ -10,7 +10,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from .batch_monitor import get_batch_monitor, BatchMonitorStats, BatchAlert
+from .batch_monitor import get_batch_monitor, BatchAlert
 
 logger = structlog.get_logger(__name__)
 

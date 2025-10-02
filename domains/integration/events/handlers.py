@@ -4,18 +4,14 @@ Handles cross-domain events related to import processing.
 """
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.events import (
-    BaseEvent,
     ImportBatchCreatedEvent,
     ImportBatchProgressEvent,
     ImportBatchCompletedEvent,
     ImportBatchFailedEvent,
-    subscribe_to_domain_events,
     subscribe_to_event
 )
-from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
 

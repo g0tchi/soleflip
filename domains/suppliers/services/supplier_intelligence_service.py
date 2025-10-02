@@ -5,11 +5,11 @@ Supplier Intelligence Service
 
 from datetime import datetime, date
 from decimal import Decimal
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, desc, func, select, update
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import Supplier, SupplierPerformance, InventoryItem, Product
@@ -393,10 +393,10 @@ class SupplierIntelligenceService:
     def _generate_recommendation_reason(self, supplier: Supplier, performance: Optional[SupplierPerformance], score: float) -> str:
         """Generate human-readable recommendation reason"""
         if score >= 80:
-            return f"Excellent performer with high ROI and reliable delivery"
+            return "Excellent performer with high ROI and reliable delivery"
         elif score >= 60:
-            return f"Good supplier with decent performance metrics"
+            return "Good supplier with decent performance metrics"
         elif score >= 40:
-            return f"Average supplier, suitable for diversification"
+            return "Average supplier, suitable for diversification"
         else:
-            return f"Consider for specific products only"
+            return "Consider for specific products only"

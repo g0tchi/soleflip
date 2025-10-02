@@ -3,10 +3,7 @@ Unit tests for API response models and utilities
 Testing response builders and models for 100% coverage
 """
 
-import pytest
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
-from typing import Dict, Any, List
 
 from shared.api.responses import (
     BaseResponse,

@@ -3,7 +3,6 @@ Unit tests for domain exceptions
 Testing exception hierarchy and mapping functions for 100% coverage
 """
 
-import pytest
 from shared.exceptions.domain_exceptions import (
     DomainException,
     DatabaseOperationException,

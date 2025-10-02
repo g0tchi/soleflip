@@ -3,20 +3,17 @@ Account Statistics Service
 Calculate and analyze supplier account performance metrics
 """
 
-from decimal import Decimal
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from uuid import UUID
 from datetime import datetime, timedelta
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc, text
+from sqlalchemy import select, func, and_, desc, text
 from sqlalchemy.orm import selectinload
-from sqlalchemy.exc import SQLAlchemyError
 
 from shared.database.models import SupplierAccount, AccountPurchaseHistory, Supplier
 from shared.repositories.base_repository import BaseRepository
-from shared.utils.financial import FinancialCalculator
 
 logger = structlog.get_logger(__name__)
 
@@ -40,7 +37,7 @@ class AccountStatisticsService:
                     SupplierAccount.account_status == 'active'
                 ).label('active_accounts'),
                 func.count(SupplierAccount.id).filter(
-                    SupplierAccount.is_verified == True
+                    SupplierAccount.is_verified
                 ).label('verified_accounts'),
                 func.sum(SupplierAccount.total_purchases).label('total_purchases'),
                 func.sum(SupplierAccount.total_spent).label('total_revenue'),
@@ -135,7 +132,7 @@ class AccountStatisticsService:
             activity_query = select(
                 func.count(AccountPurchaseHistory.id).label('total_purchases'),
                 func.count(AccountPurchaseHistory.id).filter(
-                    AccountPurchaseHistory.success == True
+                    AccountPurchaseHistory.success
                 ).label('successful_purchases'),
                 func.sum(AccountPurchaseHistory.purchase_amount).label('total_amount'),
                 func.count(func.distinct(AccountPurchaseHistory.account_id)).label('active_accounts')
@@ -203,7 +200,7 @@ class AccountStatisticsService:
                     text("DATE_TRUNC('month', purchase_date) as month"),
                     func.count(AccountPurchaseHistory.id).label('total_purchases'),
                     func.count(AccountPurchaseHistory.id).filter(
-                        AccountPurchaseHistory.success == True
+                        AccountPurchaseHistory.success
                     ).label('successful_purchases'),
                     func.sum(AccountPurchaseHistory.purchase_amount).label('total_amount'),
                     func.count(func.distinct(AccountPurchaseHistory.account_id)).label('active_accounts')
@@ -219,7 +216,7 @@ class AccountStatisticsService:
                     text("strftime('%Y-%m', purchase_date) as month"),
                     func.count(AccountPurchaseHistory.id).label('total_purchases'),
                     func.count(AccountPurchaseHistory.id).filter(
-                        AccountPurchaseHistory.success == True
+                        AccountPurchaseHistory.success
                     ).label('successful_purchases'),
                     func.sum(AccountPurchaseHistory.purchase_amount).label('total_amount'),
                     func.count(func.distinct(AccountPurchaseHistory.account_id)).label('active_accounts')
@@ -294,7 +291,7 @@ class AccountStatisticsService:
             stats_query = select(
                 func.count(AccountPurchaseHistory.id).label('total_purchases'),
                 func.count(AccountPurchaseHistory.id).filter(
-                    AccountPurchaseHistory.success == True
+                    AccountPurchaseHistory.success
                 ).label('successful_purchases'),
                 func.sum(AccountPurchaseHistory.purchase_amount).label('total_spent'),
                 func.avg(AccountPurchaseHistory.purchase_amount).label('avg_order_value'),
@@ -339,7 +336,7 @@ class AccountStatisticsService:
             recent_query = select(
                 func.count(AccountPurchaseHistory.id).label('recent_purchases'),
                 func.count(AccountPurchaseHistory.id).filter(
-                    AccountPurchaseHistory.success == True
+                    AccountPurchaseHistory.success
                 ).label('recent_successful'),
                 func.avg(AccountPurchaseHistory.response_time_ms).label('recent_avg_response_time')
             ).where(

@@ -6,13 +6,8 @@ Testing encryption, timestamps, and core model functionality for 100% coverage
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime
-from uuid import uuid4
 
 from cryptography.fernet import Fernet
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.compiler import compiles
 
 
 class TestEncryptionSetup:
@@ -21,8 +16,6 @@ class TestEncryptionSetup:
     def test_missing_encryption_key_raises_error(self):
         """Test that missing FIELD_ENCRYPTION_KEY raises ValueError"""
         # Test the direct validation logic by simulating the condition
-        import os
-        from shared.database.models import cipher_suite
 
         # The key is set in the current environment, so we test the error condition differently
         # by checking that the error would be raised with empty key
@@ -206,7 +199,7 @@ class TestBrandModel:
 
     def test_brand_model_structure(self):
         """Test Brand model has correct structure"""
-        from shared.database.models import Brand, TimestampMixin
+        from shared.database.models import Brand
 
         # Check table name
         assert Brand.__tablename__ == "brands"
@@ -229,7 +222,7 @@ class TestBrandPatternModel:
 
     def test_brand_pattern_model_structure(self):
         """Test BrandPattern model has correct structure"""
-        from shared.database.models import BrandPattern, TimestampMixin
+        from shared.database.models import BrandPattern
 
         # Check table name
         assert BrandPattern.__tablename__ == "brand_patterns"
@@ -244,7 +237,7 @@ class TestModelIntegration:
 
     def test_models_inherit_from_base(self):
         """Test that models inherit from SQLAlchemy Base"""
-        from shared.database.models import Base, Brand, BrandPattern
+        from shared.database.models import Brand, BrandPattern
 
         # Check that Base is in the MRO (Method Resolution Order)
         brand_mro_names = [cls.__name__ for cls in Brand.__mro__]
@@ -254,7 +247,6 @@ class TestModelIntegration:
 
     def test_postgres_schema_configuration(self):
         """Test PostgreSQL schema configuration"""
-        from shared.database.models import Brand
 
         # Schema should be conditionally set based on IS_POSTGRES
         with patch('shared.database.models.IS_POSTGRES', True):

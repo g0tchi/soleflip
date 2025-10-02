@@ -52,7 +52,7 @@ async def execute_migration():
                 await session.commit()
 
                 success_count += 1
-                print(f"    Success")
+                print("    Success")
 
             except Exception as e:
                 error_count += 1
@@ -62,7 +62,7 @@ async def execute_migration():
                     traceback.print_exc()
 
         print(f"\n{'='*80}")
-        print(f"MIGRATION SUMMARY")
+        print("MIGRATION SUMMARY")
         print(f"{'='*80}")
         print(f"  Total statements: {len(statements)}")
         print(f"  Successful: {success_count}")

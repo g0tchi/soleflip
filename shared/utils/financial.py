@@ -5,7 +5,7 @@ Safe financial calculations using Decimal for precision
 
 import decimal
 from decimal import Decimal, ROUND_HALF_UP
-from typing import List, Optional, Union
+from typing import List, Union
 
 
 class FinancialCalculator:

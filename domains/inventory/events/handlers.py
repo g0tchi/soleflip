@@ -4,19 +4,15 @@ Handles inventory-related events and cross-domain communication.
 """
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.events import (
-    BaseEvent,
     InventoryUpdatedEvent,
     LowStockAlertEvent,
     ProductCreatedEvent,
     ImportBatchCompletedEvent,
     publish_event,
-    subscribe_to_event,
-    subscribe_to_domain_events
+    subscribe_to_event
 )
-from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
 

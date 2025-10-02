@@ -4,9 +4,8 @@ Import and manage supplier accounts from CSV data with secure handling
 """
 
 import csv
-import asyncio
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 from uuid import UUID
 from datetime import datetime
 from pathlib import Path
@@ -14,13 +13,12 @@ from pathlib import Path
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import IntegrityError
 
 from shared.database.models import Supplier, SupplierAccount, AccountPurchaseHistory
 from shared.repositories.base_repository import BaseRepository
 from shared.database.transaction_manager import TransactionMixin, transactional
 from shared.security.api_security import InputSanitizer
-from shared.utils.financial import FinancialCalculator
 
 logger = structlog.get_logger(__name__)
 
@@ -353,7 +351,7 @@ class AccountImportService(TransactionMixin):
                 func.sum(AccountPurchaseHistory.purchase_amount).label('total_spent'),
                 func.avg(AccountPurchaseHistory.purchase_amount).label('avg_order_value'),
                 func.count(AccountPurchaseHistory.id).filter(
-                    AccountPurchaseHistory.success == True
+                    AccountPurchaseHistory.success
                 ).label('successful_purchases')
             ).where(AccountPurchaseHistory.account_id == account_id)
 

@@ -5,7 +5,7 @@ Replaces generic exception handling with meaningful, specific errors.
 
 import asyncio
 import functools
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Type
 
 import structlog
 from sqlalchemy.exc import SQLAlchemyError

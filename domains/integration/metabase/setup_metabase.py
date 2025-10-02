@@ -58,13 +58,13 @@ async def main():
     try:
         statuses = await view_manager.get_all_view_statuses()
 
-        print(f"\nView Status Summary:")
+        print("\nView Status Summary:")
         print(f"  Total views: {len(statuses)}")
         print(f"  Existing: {sum(1 for v in statuses if v.exists)}")
         print(f"  Missing: {sum(1 for v in statuses if not v.exists)}")
         print(f"  Total rows: {sum(v.row_count or 0 for v in statuses):,}")
 
-        print(f"\nDetailed Status:")
+        print("\nDetailed Status:")
         for status in statuses:
             if status.exists:
                 print(f"  ✓ {status.view_name:40} | {status.row_count:>6,} rows | {len(status.indexes)} indexes")
@@ -105,12 +105,12 @@ async def main():
         success_count = sum(1 for s in sync_results.values() if s.status == "completed")
         total_time = sum(s.duration_seconds or 0 for s in sync_results.values())
 
-        print(f"\nSync Results:")
+        print("\nSync Results:")
         print(f"  Successful: {success_count}/{len(sync_results)}")
         print(f"  Total time: {total_time:.1f}s")
         print(f"  Average: {total_time/len(sync_results):.1f}s per view")
 
-        print(f"\nIndividual Refresh Times:")
+        print("\nIndividual Refresh Times:")
         for view_name, status in sync_results.items():
             if status.status == "completed":
                 print(f"  ✓ {view_name:40} | {status.duration_seconds:>5.1f}s")

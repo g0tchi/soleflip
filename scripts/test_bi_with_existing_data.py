@@ -126,7 +126,7 @@ def main():
         avg_pas = sum(r['pas'] for r in simulated_results) / len(simulated_results)
         avg_shelf_life = sum(r['shelf_life_days'] for r in simulated_results) / len(simulated_results)
 
-        print(f"\n[SUMMARY] Simulation Results:")
+        print("\n[SUMMARY] Simulation Results:")
         print(f"  Items Processed: {len(simulated_results)}")
         print(f"  Average ROI: {avg_roi:.1f}%")
         print(f"  Average PAS: {avg_pas:.2f} EUR/day")

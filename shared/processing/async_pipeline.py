@@ -9,15 +9,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Protocol
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 from shared.database.models import ImportBatch
 from shared.events import publish_event, ImportBatchCreatedEvent, ImportBatchProgressEvent, ImportBatchCompletedEvent, ImportBatchFailedEvent
-from shared.exceptions.domain_exceptions import BatchProcessingException, ServiceIntegrationException
+from shared.exceptions.domain_exceptions import BatchProcessingException
 
 logger = structlog.get_logger(__name__)
 

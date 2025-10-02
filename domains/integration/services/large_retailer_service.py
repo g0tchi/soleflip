@@ -4,16 +4,14 @@ Handles large-scale product imports from retailers using streaming processing,
 event-driven architecture, and optimized pipeline stages.
 """
 
-import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from uuid import UUID, uuid4
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.connection import get_db_session
 from shared.database.models import ImportBatch
 from shared.events import publish_event, ImportBatchCreatedEvent
 from shared.processing.async_pipeline import ProcessingStage, get_async_pipeline
@@ -291,7 +289,7 @@ class LargeRetailerImportService:
         
         if cancelled:
             await self._update_batch_status(batch_id, "cancelled")
-            logger.info(f"Import cancelled", batch_id=str(batch_id))
+            logger.info("Import cancelled", batch_id=str(batch_id))
         
         return cancelled
     

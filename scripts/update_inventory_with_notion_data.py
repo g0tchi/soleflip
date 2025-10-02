@@ -170,7 +170,7 @@ def main():
             print(f"[NOT_FOUND] No item found matching '{notion_data['search_term']}'")
 
     # Summary
-    print(f"\n[SUMMARY] BI Testing Results:")
+    print("\n[SUMMARY] BI Testing Results:")
     print("-" * 40)
 
     total_items = len(updated_items)
@@ -187,7 +187,7 @@ def main():
         avg_calculated_roi = sum(item['calculated_roi'] for item in updated_items) / total_items
         avg_expected_roi = sum(item['expected_roi'] for item in updated_items) / total_items
 
-        print(f"\nAverage Metrics:")
+        print("\nAverage Metrics:")
         print(f"  Calculated Shelf Life: {avg_calculated_shelf_life:.1f} days")
         print(f"  Expected Shelf Life: {avg_expected_shelf_life:.1f} days")
         print(f"  Calculated ROI: {avg_calculated_roi:.1f}%")

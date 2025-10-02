@@ -11,8 +11,6 @@ Usage:
 """
 import asyncio
 import sys
-from decimal import Decimal
-from datetime import datetime
 from typing import Dict, Optional
 import structlog
 

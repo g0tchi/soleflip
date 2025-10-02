@@ -5,17 +5,15 @@ Comprehensive health monitoring with detailed component checks
 
 import asyncio
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, Optional
 
-import aiohttp
 import structlog
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import db_manager
 from .apm import collect_system_metrics, get_apm_collector
-from .health import HealthStatus, HealthCheckResult, CheckType
+from .health import HealthStatus, HealthCheckResult
 
 logger = structlog.get_logger(__name__)
 
@@ -416,7 +414,6 @@ class AdvancedHealthChecker:
         start_time = time.time()
         
         try:
-            import os
             import tempfile
             
             # Test write access to temp directory

@@ -6,9 +6,8 @@ using StockX Sale IDs and SKU matching strategies.
 
 import asyncio
 import re
-from decimal import Decimal
-from datetime import datetime, date
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Optional
 import structlog
 
 from shared.database.connection import get_db_session, db_manager

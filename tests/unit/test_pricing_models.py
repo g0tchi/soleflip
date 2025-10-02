@@ -3,11 +3,9 @@ Unit tests for pricing models business logic
 Testing model methods and properties for 100% coverage
 """
 
-import pytest
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
-from typing import Dict, Any
 
 from domains.pricing.models import (
     PriceRule,
@@ -15,7 +13,6 @@ from domains.pricing.models import (
     MarketPrice,
     SalesForecast,
     ForecastAccuracy,
-    DemandPattern,
     PricingKPI
 )
 

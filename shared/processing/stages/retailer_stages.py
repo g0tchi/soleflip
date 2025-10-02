@@ -9,12 +9,11 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
 from shared.database.models import Product, Brand, Category, InventoryItem
-from shared.events import publish_event, ProductCreatedEvent, InventoryUpdatedEvent
-from shared.processing.async_pipeline import ProcessingStageProtocol, ProcessingContext, ChunkResult
+from shared.events import publish_event, ProductCreatedEvent
+from shared.processing.async_pipeline import ProcessingContext, ChunkResult
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)

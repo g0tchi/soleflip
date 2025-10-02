@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from fastapi import Request, Response, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import structlog
 
 logger = structlog.get_logger(__name__)

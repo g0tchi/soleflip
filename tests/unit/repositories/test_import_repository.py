@@ -5,7 +5,7 @@ Testing database access patterns and eager loading functionality for 100% covera
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from domains.integration.repositories.import_repository import ImportRepository
 from shared.database.models import ImportBatch

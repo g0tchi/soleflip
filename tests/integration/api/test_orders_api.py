@@ -6,7 +6,6 @@ from httpx import AsyncClient
 
 from main import app  # Import the app instance
 # COVERAGE FIX: Direct import of router to ensure coverage measurement
-import domains.orders.api.router  # This ensures the module is imported for coverage
 
 # Mark all tests in this file as API and integration tests that require a DB
 pytestmark = [pytest.mark.api, pytest.mark.integration, pytest.mark.database]

@@ -68,7 +68,7 @@ async def test_views():
                 print(f"    ERROR: {str(e)[:100]}")
 
         print(f"\n{'='*80}")
-        print(f"TEST SUMMARY")
+        print("TEST SUMMARY")
         print(f"{'='*80}")
         print(f"  Total views: {len(ALL_MIGRATED_VIEWS)}")
         print(f"  Successful: {success_count}")
@@ -78,7 +78,7 @@ async def test_views():
             print(f"\n[OK] ALL {len(ALL_MIGRATED_VIEWS)} views are working!")
 
         print(f"\n{'='*80}")
-        print(f"VIEW DETAILS")
+        print("VIEW DETAILS")
         print(f"{'='*80}")
         for result in results:
             print(f"{result['view']:30} | {result['rows']:6} rows | {result['columns']:2} cols | {result['status']}")

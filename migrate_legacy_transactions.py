@@ -25,7 +25,7 @@ async def migrate_legacy_transactions():
             FROM transactions.transactions
         """))
         stats = result.fetchone()
-        print(f"\nLegacy transactions table:")
+        print("\nLegacy transactions table:")
         print(f"  Total records: {stats.total}")
         print(f"  Unique external_ids: {stats.unique_external_ids}")
         print(f"  Date range: {stats.earliest.date()} to {stats.latest.date()}")

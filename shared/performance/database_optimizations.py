@@ -3,13 +3,11 @@ Database Performance Optimizations
 Advanced database performance improvements for large-scale operations.
 """
 
-import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Type, TypeVar
-from uuid import UUID
 
 import structlog
-from sqlalchemy import text, Index, select
+from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.sql import Select

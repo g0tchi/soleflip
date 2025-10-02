@@ -15,7 +15,6 @@ from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from shared.utils.helpers import RetryHelper
 
 from domains.products.services.product_processor import ProductProcessor
 from domains.sales.services.transaction_processor import TransactionProcessor

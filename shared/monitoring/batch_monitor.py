@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import structlog
-from sqlalchemy import select, func, and_, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_
 
 from shared.database.connection import get_db_session
 from shared.database.models import ImportBatch
@@ -206,7 +205,7 @@ class BatchProcessingMonitor:
                             id=f"stuck_batch_{batch.id}",
                             alert_type=AlertType.STUCK_BATCH,
                             severity=AlertSeverity.HIGH,
-                            title=f"Batch stuck in processing",
+                            title="Batch stuck in processing",
                             message=f"Batch {batch.id} has been {batch.status} for over {self.monitoring_thresholds['stuck_batch_threshold_hours']} hours",
                             batch_id=str(batch.id),
                             source_type=batch.source_type,
@@ -224,7 +223,7 @@ class BatchProcessingMonitor:
                         id=f"long_processing_{datetime.now().timestamp()}",
                         alert_type=AlertType.LONG_PROCESSING_TIME,
                         severity=AlertSeverity.MEDIUM,
-                        title=f"Long average processing time",
+                        title="Long average processing time",
                         message=f"Average batch processing time of {avg_processing_time:.1f} minutes exceeds threshold",
                         metadata={
                             "avg_processing_time_minutes": avg_processing_time,
@@ -249,7 +248,7 @@ class BatchProcessingMonitor:
                         id=f"retry_exhausted_{batch.id}",
                         alert_type=AlertType.RETRY_EXHAUSTED,
                         severity=AlertSeverity.HIGH,
-                        title=f"Batch retry attempts exhausted",
+                        title="Batch retry attempts exhausted",
                         message=f"Batch {batch.id} has failed after {batch.retry_count} retry attempts",
                         batch_id=str(batch.id),
                         source_type=batch.source_type,

@@ -446,7 +446,7 @@ class NotionPostgresSyncService:
         print(f"Newly synced:            {self.stats['newly_synced']}")
         print(f"Failed:                  {self.stats['failed']}")
         print(f"Skipped (invalid):       {self.stats['skipped_invalid']}")
-        print(f"\nEntities Created:")
+        print("\nEntities Created:")
         print(f"  Suppliers:             {self.stats['suppliers_created']}")
         print(f"  Products:              {self.stats['products_created']}")
         print(f"  Sizes:                 {self.stats['sizes_created']}")
@@ -477,7 +477,7 @@ async def main():
         print("NOTION TO POSTGRESQL SYNC")
         print("=" * 80)
         print(f"Mode: {'DRY RUN' if args.dry_run else 'LIVE SYNC'}")
-        print(f"API Server: http://localhost:8000")
+        print("API Server: http://localhost:8000")
         print()
 
         print("[!] IMPORTANT:")

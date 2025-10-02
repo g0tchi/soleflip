@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.analytics.services.business_intelligence_service import BusinessIntelligenceService
-from shared.api.dependencies import PaginationParams, get_db_session, ResponseFormatter
+from shared.api.dependencies import get_db_session, ResponseFormatter
 from shared.database.models import InventoryItem
 
 router = APIRouter(prefix="/api/analytics/business-intelligence", tags=["Business Intelligence"])

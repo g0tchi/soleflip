@@ -7,7 +7,6 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,7 @@ Imports external product data from various sources (AWIN, Webgains, etc.) for Qu
 import csv
 import re
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import Dict, Optional
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
