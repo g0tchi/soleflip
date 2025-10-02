@@ -104,6 +104,30 @@ The inventory service uses this strategy in `sync_all_stockx_listings_to_invento
 2. **Product Lookup**: Find existing product by SKU or create new one
 3. **External IDs Storage**: Store all StockX metadata in JSON field
 4. **Duplicate Prevention**: Check external_ids for existing listing_id to prevent duplicates
+5. **Marketplace Data Creation**: Create or update marketplace_data entries for pricing intelligence
+6. **Platform Integration**: Link inventory items with StockX platform for cross-platform analytics
+
+## Marketplace Data Integration
+
+The StockX sync now also populates the `marketplace_data` table for pricing intelligence:
+
+### Data Captured
+- **Ask Price**: Current listing price from StockX
+- **Platform Fees**: StockX fee percentage (typically 9.5%)
+- **Marketplace Listing ID**: External listing identifier for tracking
+- **Platform-Specific Data**: JSON metadata including askId, variantId, authentication requirements
+
+### Implementation Details
+- **Platform Creation**: Automatically creates/retrieves StockX platform entry
+- **Data Updates**: Updates existing marketplace data on sync to keep pricing current
+- **Error Handling**: Robust error handling for marketplace data creation failures
+- **Logging**: Comprehensive logging for marketplace data operations
+
+### Benefits
+- **Pricing Intelligence**: Real-time pricing data for competitive analysis
+- **Cross-Platform Analytics**: Foundation for multi-marketplace comparisons
+- **Fee Calculations**: Accurate fee tracking for profit calculations
+- **Historical Tracking**: Timestamped data for price trend analysis
 
 ## Migration Notes
 
@@ -112,6 +136,7 @@ When implementing this strategy:
 - Update all queries to use proper JSON NULL checking
 - Ensure external_ids field is properly indexed for performance
 - Update API documentation to reflect new SKU strategy
+- Run StockX sync to populate marketplace_data for existing listings
 
 ## Security Considerations
 
