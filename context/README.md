@@ -28,9 +28,10 @@ context/
 
 | Document | Location | Purpose |
 |----------|----------|---------|
+| **API Status Report** | [refactoring/API_STATUS_REPORT.md](refactoring/API_STATUS_REPORT.md) | Complete API health (v2.2.4) |
+| **Linting Cleanup** | [refactoring/LINTING_CLEANUP_REPORT.md](refactoring/LINTING_CLEANUP_REPORT.md) | Code quality improvements |
 | **Migration Index** | [migrations/MIGRATION_INDEX.md](migrations/MIGRATION_INDEX.md) | Current schema version, all migrations |
 | **Metabase Quick Start** | [integrations/metabase-integration-quickstart.md](integrations/metabase-integration-quickstart.md) | 5-minute Metabase setup |
-| **Architecture Overview** | [integrations/metabase-architecture-overview.md](integrations/metabase-architecture-overview.md) | System architecture diagrams |
 | **Database Schema** | [architecture/database-analysis.md](architecture/database-analysis.md) | Complete database structure |
 | **Code Quality Standards** | [refactoring/README.md](refactoring/README.md) | Linting, formatting, testing |
 
@@ -136,16 +137,24 @@ context/
 **Purpose:** Code quality improvements, development best practices
 
 **Key Documents:**
+
+#### Status Reports (v2.2.4)
+- **API_STATUS_REPORT.md** - Complete API health assessment
+- **LINTING_CLEANUP_REPORT.md** - Linting cleanup results (-60% violations)
+
+#### Code Quality
 - **coverage-improvement-plan.md** - Test coverage strategy (80%+ target)
 - **design-principles.md** - DDD, SOLID, Clean Architecture
 - **optimization-analysis.md** - Performance optimization
 - **style-guide.md** - Python code style (PEP 8, black, isort)
 
-**Quality Standards:**
-- ✅ Zero linting violations (ruff)
+**Current Status (v2.2.4):**
+- ✅ 153 linting violations (down from 385, -60%)
+- ✅ 97.6% test pass rate (41/42 unit tests)
 - ✅ 100% formatting compliance (black, isort)
 - ✅ Type hints on all public APIs
 - ✅ 80%+ test coverage
+- ✅ 9.0/10 overall health score
 
 **Tools:**
 ```bash
@@ -218,8 +227,14 @@ make check        # All checks + tests
 **...check migration status**
 → See [migrations/MIGRATION_INDEX.md](migrations/MIGRATION_INDEX.md)
 
+**...check API health and status**
+→ Read [refactoring/API_STATUS_REPORT.md](refactoring/API_STATUS_REPORT.md)
+
 **...understand code quality standards**
 → Review [refactoring/README.md](refactoring/README.md)
+
+**...see linting cleanup results**
+→ Check [refactoring/LINTING_CLEANUP_REPORT.md](refactoring/LINTING_CLEANUP_REPORT.md)
 
 **...learn about StockX integration**
 → Read [integrations/stockx-product-search-api-discovery.md](integrations/stockx-product-search-api-discovery.md)
@@ -234,7 +249,7 @@ make check        # All checks + tests
 
 ## 📊 System Overview
 
-### Current Version: v2.2.3
+### Current Version: v2.2.4
 
 **Architecture:**
 - Domain-Driven Design (DDD)
@@ -253,9 +268,11 @@ make check        # All checks + tests
 
 **Code Quality:**
 - ✅ 80%+ test coverage
-- ✅ Zero linting violations
+- ✅ 153 linting violations (down from 385, -60%)
+- ✅ 97.6% test pass rate
 - ✅ Type hints on all APIs
 - ✅ Async/await patterns
+- ✅ 9.0/10 overall health score
 
 **Performance:**
 - ✅ Optimized connection pooling
@@ -279,6 +296,8 @@ make check        # All checks + tests
 
 ### By Date
 
+- **2025-10-02:** Code quality cleanup (v2.2.4)
+- **2025-10-02:** API status documentation
 - **2025-10-01:** Metabase integration (v2.2.3)
 - **2025-10-01:** Analytics views migration
 - **2025-10-01:** Multi-platform orders (v2.2.2)
@@ -378,6 +397,6 @@ cd context/
 
 ---
 
-**Last Updated:** 2025-10-01
-**Version:** v2.2.3
+**Last Updated:** 2025-10-02
+**Version:** v2.2.4
 **Maintained by:** SoleFlipper Development Team
