@@ -1,0 +1,545 @@
+{
+  "screen": {
+    "id": "screen_price_import",
+    "name": "Supplier Price Import",
+    "description": "Upload and manage supplier price lists for QuickFlip opportunity detection",
+    "route": "/price-import",
+    "roleId": "role_admin",
+    "icon": "Upload",
+    "showNavigation": true,
+    "width": "1400px",
+    "components": [
+      {
+        "type": "container",
+        "id": "container_main",
+        "styling": {
+          "maxWidth": "1400px",
+          "margin": "0 auto",
+          "padding": "32px",
+          "background": "#f8f9fa"
+        },
+        "children": [
+          {
+            "type": "heading",
+            "id": "heading_title",
+            "text": "📊 Supplier Price Import",
+            "size": "XL",
+            "styling": {
+              "marginBottom": "8px",
+              "color": "#1a1a1a"
+            }
+          },
+          {
+            "type": "paragraph",
+            "id": "para_subtitle",
+            "text": "Upload CSV files with supplier price lists to find profitable QuickFlip opportunities",
+            "styling": {
+              "color": "#666",
+              "fontSize": "16px",
+              "marginBottom": "32px"
+            }
+          },
+          {
+            "type": "divider",
+            "styling": {
+              "marginBottom": "24px"
+            }
+          },
+          {
+            "type": "container",
+            "id": "container_upload_section",
+            "direction": "row",
+            "styling": {
+              "gap": "24px",
+              "marginBottom": "32px"
+            },
+            "children": [
+              {
+                "type": "container",
+                "id": "container_upload_form",
+                "styling": {
+                  "flex": "2",
+                  "background": "white",
+                  "padding": "24px",
+                  "borderRadius": "8px",
+                  "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+                },
+                "children": [
+                  {
+                    "type": "heading",
+                    "text": "Upload Price List",
+                    "size": "M",
+                    "styling": {
+                      "marginBottom": "16px"
+                    }
+                  },
+                  {
+                    "type": "form",
+                    "id": "form_price_import",
+                    "dataSource": null,
+                    "submitButtonText": "Import Prices",
+                    "children": [
+                      {
+                        "type": "fieldgroup",
+                        "id": "fieldgroup_import_config",
+                        "children": [
+                          {
+                            "type": "stringfield",
+                            "id": "field_source_name",
+                            "field": "source",
+                            "label": "Supplier Source Name",
+                            "placeholder": "e.g., supplier_xyz, awin, webgains",
+                            "required": true,
+                            "helpText": "Unique identifier for this supplier (lowercase, no spaces)",
+                            "validation": {
+                              "pattern": "^[a-z0-9_-]+$",
+                              "message": "Only lowercase letters, numbers, underscores and hyphens allowed"
+                            }
+                          },
+                          {
+                            "type": "attachment",
+                            "id": "field_csv_file",
+                            "field": "file",
+                            "label": "CSV Price List",
+                            "required": true,
+                            "extensions": [".csv"],
+                            "maxSize": 104857600,
+                            "helpText": "Maximum file size: 100MB. Required columns: id, title, price"
+                          },
+                          {
+                            "type": "options",
+                            "id": "field_import_mode",
+                            "field": "import_mode",
+                            "label": "Import Mode",
+                            "optionsType": "select",
+                            "options": [
+                              {"label": "Create & Update (Default)", "value": "upsert"},
+                              {"label": "Create Only (Skip Existing)", "value": "create"},
+                              {"label": "Update Only (Existing Prices)", "value": "update"}
+                            ],
+                            "defaultValue": "upsert",
+                            "helpText": "Choose how to handle existing products"
+                          }
+                        ]
+                      }
+                    ],
+                    "onSubmit": [
+                      {
+                        "action": "ExecuteQuery",
+                        "parameters": {
+                          "queryId": "api_import_market_prices",
+                          "source": "{{ form_price_import.fields.source }}",
+                          "file": "{{ form_price_import.fields.file }}",
+                          "import_mode": "{{ form_price_import.fields.import_mode }}"
+                        }
+                      },
+                      {
+                        "action": "ShowNotification",
+                        "parameters": {
+                          "message": "Import started successfully!",
+                          "type": "success",
+                          "duration": 5000
+                        }
+                      },
+                      {
+                        "action": "RefreshDatasource",
+                        "parameters": {
+                          "datasourceId": "query_import_history"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "container",
+                "id": "container_format_guide",
+                "styling": {
+                  "flex": "1",
+                  "background": "#fff3cd",
+                  "padding": "20px",
+                  "borderRadius": "8px",
+                  "border": "1px solid #ffc107"
+                },
+                "children": [
+                  {
+                    "type": "heading",
+                    "text": "📋 CSV Format",
+                    "size": "S",
+                    "styling": {
+                      "marginBottom": "12px",
+                      "color": "#856404"
+                    }
+                  },
+                  {
+                    "type": "paragraph",
+                    "text": "**Required Columns:**",
+                    "styling": {
+                      "fontWeight": "bold",
+                      "marginBottom": "8px"
+                    }
+                  },
+                  {
+                    "type": "markdown",
+                    "value": "• `id` - Supplier product ID\n• `title` - Product name\n• `price` - Buy price (EUR)\n\n**Optional Columns:**\n• `brand` - Brand name\n• `gtin` / `ean` - For better matching\n• `availability` - Stock status\n• `stock_qty` - Quantity available\n• `link` - Product URL\n• `program_name` - Supplier name",
+                    "styling": {
+                      "fontSize": "13px",
+                      "lineHeight": "1.6"
+                    }
+                  },
+                  {
+                    "type": "divider",
+                    "styling": {
+                      "margin": "12px 0"
+                    }
+                  },
+                  {
+                    "type": "paragraph",
+                    "text": "**Example:**",
+                    "styling": {
+                      "fontWeight": "bold",
+                      "marginBottom": "8px"
+                    }
+                  },
+                  {
+                    "type": "code",
+                    "language": "csv",
+                    "value": "id,title,brand,price,gtin\n12345,Nike Air Max 90,Nike,89.99,0883419123456\n67890,Adidas Ultraboost,Adidas,149.99,4060512345678",
+                    "styling": {
+                      "fontSize": "12px",
+                      "background": "#fff",
+                      "padding": "8px",
+                      "borderRadius": "4px"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "divider",
+            "styling": {
+              "marginBottom": "24px"
+            }
+          },
+          {
+            "type": "container",
+            "id": "container_import_history",
+            "styling": {
+              "background": "white",
+              "padding": "24px",
+              "borderRadius": "8px",
+              "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+            },
+            "children": [
+              {
+                "type": "heading",
+                "text": "📊 Import History & Statistics",
+                "size": "M",
+                "styling": {
+                  "marginBottom": "16px"
+                }
+              },
+              {
+                "type": "dataprovider",
+                "id": "dataprovider_import_stats",
+                "dataSource": "query_import_statistics",
+                "children": [
+                  {
+                    "type": "container",
+                    "direction": "row",
+                    "styling": {
+                      "gap": "16px",
+                      "marginBottom": "24px"
+                    },
+                    "children": [
+                      {
+                        "type": "statistic",
+                        "title": "Total Sources",
+                        "value": "{{ dataprovider_import_stats.total_sources }}",
+                        "icon": "Database",
+                        "color": "blue"
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Total Products",
+                        "value": "{{ dataprovider_import_stats.total_products }}",
+                        "icon": "ShoppingBag",
+                        "color": "green"
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Avg Price",
+                        "value": "€{{ dataprovider_import_stats.avg_price }}",
+                        "icon": "Euro",
+                        "color": "orange"
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Last Import",
+                        "value": "{{ dataprovider_import_stats.last_import_date }}",
+                        "icon": "Clock",
+                        "color": "purple"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "dataprovider",
+                "id": "dataprovider_recent_imports",
+                "dataSource": "query_recent_imports",
+                "filter": [
+                  {
+                    "field": "source",
+                    "operator": "contains",
+                    "value": "{{ state.search_filter }}"
+                  }
+                ],
+                "children": [
+                  {
+                    "type": "container",
+                    "direction": "row",
+                    "styling": {
+                      "marginBottom": "16px",
+                      "gap": "12px"
+                    },
+                    "children": [
+                      {
+                        "type": "stringfield",
+                        "id": "search_imports",
+                        "placeholder": "Search by source name...",
+                        "onChange": [
+                          {
+                            "action": "UpdateState",
+                            "parameters": {
+                              "key": "search_filter",
+                              "value": "{{ this.value }}"
+                            }
+                          }
+                        ],
+                        "styling": {
+                          "flex": "1"
+                        }
+                      },
+                      {
+                        "type": "button",
+                        "text": "Refresh",
+                        "icon": "Refresh",
+                        "onClick": [
+                          {
+                            "action": "RefreshDatasource",
+                            "parameters": {
+                              "datasourceId": "query_recent_imports"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "table",
+                    "id": "table_import_history",
+                    "title": "Recent Imports by Source",
+                    "columns": [
+                      {
+                        "name": "source",
+                        "label": "Supplier Source",
+                        "width": "20%"
+                      },
+                      {
+                        "name": "total_products",
+                        "label": "Products",
+                        "width": "10%",
+                        "align": "center"
+                      },
+                      {
+                        "name": "avg_price",
+                        "label": "Avg Price",
+                        "width": "12%",
+                        "displayName": "€{{ value }}",
+                        "align": "right"
+                      },
+                      {
+                        "name": "min_price",
+                        "label": "Min Price",
+                        "width": "12%",
+                        "displayName": "€{{ value }}",
+                        "align": "right"
+                      },
+                      {
+                        "name": "max_price",
+                        "label": "Max Price",
+                        "width": "12%",
+                        "displayName": "€{{ value }}",
+                        "align": "right"
+                      },
+                      {
+                        "name": "last_updated",
+                        "label": "Last Updated",
+                        "width": "18%",
+                        "displayName": "{{ value | date:'dd MMM yyyy HH:mm' }}"
+                      },
+                      {
+                        "name": "actions",
+                        "label": "Actions",
+                        "width": "16%",
+                        "type": "custom",
+                        "template": {
+                          "type": "container",
+                          "direction": "row",
+                          "styling": {
+                            "gap": "8px"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "text": "View Opportunities",
+                              "size": "small",
+                              "type": "secondary",
+                              "onClick": [
+                                {
+                                  "action": "Navigate",
+                                  "parameters": {
+                                    "url": "/quickflip-opportunities",
+                                    "queryParams": {
+                                      "source": "{{ row.source }}"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "button",
+                              "text": "Delete",
+                              "size": "small",
+                              "type": "danger",
+                              "icon": "Delete",
+                              "onClick": [
+                                {
+                                  "action": "ExecuteQuery",
+                                  "parameters": {
+                                    "queryId": "api_delete_source_prices",
+                                    "source": "{{ row.source }}"
+                                  }
+                                },
+                                {
+                                  "action": "ShowNotification",
+                                  "parameters": {
+                                    "message": "Source prices deleted successfully",
+                                    "type": "success"
+                                  }
+                                },
+                                {
+                                  "action": "RefreshDatasource",
+                                  "parameters": {
+                                    "datasourceId": "query_recent_imports"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "pageSize": 10,
+                    "showPagination": true,
+                    "showSearch": false,
+                    "sortable": true,
+                    "defaultSort": {
+                      "column": "last_updated",
+                      "order": "desc"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "queries": {
+    "query_import_statistics": {
+      "name": "Import Statistics Summary",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "read",
+      "sql": "SELECT COUNT(DISTINCT source) as total_sources, COUNT(*) as total_products, ROUND(AVG(buy_price)::numeric, 2) as avg_price, TO_CHAR(MAX(updated_at), 'DD Mon YYYY') as last_import_date FROM finance.source_prices WHERE source IS NOT NULL",
+      "readable": true
+    },
+    "query_recent_imports": {
+      "name": "Recent Imports by Source",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "read",
+      "sql": "SELECT source, COUNT(*) as total_products, ROUND(AVG(buy_price)::numeric, 2) as avg_price, ROUND(MIN(buy_price)::numeric, 2) as min_price, ROUND(MAX(buy_price)::numeric, 2) as max_price, MAX(updated_at) as last_updated, MAX(created_at) as first_import FROM finance.source_prices WHERE source IS NOT NULL GROUP BY source ORDER BY last_updated DESC",
+      "readable": true
+    },
+    "api_import_market_prices": {
+      "name": "Import Market Prices API",
+      "datasourceId": "ds_soleflip_api",
+      "queryVerb": "create",
+      "method": "POST",
+      "url": "{{ env.API_URL }}/api/v1/quickflip/import-market-prices",
+      "headers": {
+        "Content-Type": "multipart/form-data"
+      },
+      "bodyType": "form",
+      "body": {
+        "file": "{{ file }}",
+        "source": "{{ source }}"
+      },
+      "transformer": "return { success: data.success, stats: data.stats, message: data.message }",
+      "readable": true
+    },
+    "api_delete_source_prices": {
+      "name": "Delete Source Prices",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "delete",
+      "sql": "DELETE FROM finance.source_prices WHERE source = $1",
+      "parameters": [
+        {
+          "name": "source",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "readable": true
+    }
+  },
+  "datasources": {
+    "ds_soleflip_api": {
+      "name": "SoleFlipper API",
+      "type": "rest",
+      "config": {
+        "url": "{{ env.API_URL || 'http://localhost:8000' }}",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "defaultHeaders": true
+      }
+    }
+  },
+  "automations": [
+    {
+      "id": "automation_import_notification",
+      "name": "Import Success Notification",
+      "trigger": {
+        "type": "webhook",
+        "inputs": {
+          "schemaId": "schema_import_complete"
+        }
+      },
+      "steps": [
+        {
+          "id": "step_send_notification",
+          "type": "sendEmail",
+          "inputs": {
+            "to": "{{ trigger.email }}",
+            "subject": "Supplier Price Import Complete - {{ trigger.source }}",
+            "body": "Your import for {{ trigger.source }} has completed successfully.\n\nProcessed: {{ trigger.processed }}\nCreated: {{ trigger.created }}\nUpdated: {{ trigger.updated }}\nErrors: {{ trigger.errors }}\n\nView opportunities: http://localhost:10000/quickflip-opportunities?source={{ trigger.source }}"
+          }
+        }
+      ]
+    }
+  ]
+}

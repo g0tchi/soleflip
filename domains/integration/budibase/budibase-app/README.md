@@ -52,13 +52,16 @@ docker-compose -f 04_docker_budibase_setup.yml logs -f budibase
 
 ```
 budibase-app/
-├── 01_database_queries.sql          # 20+ optimized SQL queries
-├── 02_business_intelligence_views.sql # 7 BI views for analytics
-├── 03_budibase_app_config.json      # Complete app configuration
-├── 04_docker_budibase_setup.yml     # Container deployment
-├── 05_complete_setup_guide.md       # Detailed setup instructions
-├── 06_nginx_config.conf             # Production-ready proxy
-└── README.md                        # This file
+├── 01_database_queries.sql                    # 20+ optimized SQL queries
+├── 02_business_intelligence_views.sql         # 7 BI views for analytics
+├── 03_budibase_app_config.json                # Complete app configuration
+├── 04_docker_budibase_setup.yml               # Container deployment
+├── 05_complete_setup_guide.md                 # Detailed setup instructions
+├── 06_nginx_config.conf                       # Production-ready proxy
+├── 07_price_import_screen.json                # 🆕 Supplier price upload screen
+├── 08_quickflip_opportunities_screen.json     # 🆕 QuickFlip analysis dashboard
+├── 09_SUPPLIER_PRICE_IMPORT_SETUP.md         # 🆕 Import setup guide
+└── README.md                                  # This file
 ```
 
 ## 🔧 Database Connection
@@ -129,8 +132,30 @@ FROM inventory.items GROUP BY brand_name ORDER BY value DESC LIMIT 10
 
 1. **Setup** (30 minutes): Follow the quick start guide
 2. **Customize**: Modify dashboards for your specific needs
-3. **Expand**: Add more analytics as your business grows
-4. **Automate**: Set up alerts and automated reports
+3. **🆕 Add Supplier Price Import** (15 minutes): See `09_SUPPLIER_PRICE_IMPORT_SETUP.md`
+4. **Expand**: Add more analytics as your business grows
+5. **Automate**: Set up alerts and automated reports
+
+## 🆕 New Features (v2.2.4)
+
+### **Supplier Price Import & QuickFlip Analysis**
+
+Automatically import supplier price lists and find profitable products!
+
+**Quick Setup:** See `09_SUPPLIER_PRICE_IMPORT_SETUP.md`
+
+**Features:**
+- 📤 **Drag & Drop Upload** - CSV price list import
+- 📊 **QuickFlip Dashboard** - Find profitable opportunities
+- 🔍 **Advanced Filtering** - By margin, profit, source
+- 📈 **Real-time KPIs** - Opportunities, margins, profit
+- 💾 **Export Data** - Download opportunities as CSV
+
+**Screens Added:**
+- `/price-import` - Upload supplier price lists
+- `/quickflip-opportunities` - Analyze profitable products
+
+**Setup Time:** ~15 minutes
 
 ## 📞 Support
 

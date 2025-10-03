@@ -1,0 +1,658 @@
+{
+  "screen": {
+    "id": "screen_quickflip_opportunities",
+    "name": "QuickFlip Opportunities",
+    "description": "Analyze profitable products from imported supplier price lists",
+    "route": "/quickflip-opportunities",
+    "roleId": "role_manager",
+    "icon": "TrendingUp",
+    "showNavigation": true,
+    "width": "1600px",
+    "components": [
+      {
+        "type": "container",
+        "id": "container_main",
+        "styling": {
+          "maxWidth": "1600px",
+          "margin": "0 auto",
+          "padding": "32px",
+          "background": "#f8f9fa"
+        },
+        "children": [
+          {
+            "type": "heading",
+            "id": "heading_title",
+            "text": "🚀 QuickFlip Opportunities",
+            "size": "XL",
+            "styling": {
+              "marginBottom": "8px",
+              "color": "#1a1a1a"
+            }
+          },
+          {
+            "type": "paragraph",
+            "id": "para_subtitle",
+            "text": "Find profitable products by comparing supplier prices with market prices",
+            "styling": {
+              "color": "#666",
+              "fontSize": "16px",
+              "marginBottom": "32px"
+            }
+          },
+          {
+            "type": "divider",
+            "styling": {
+              "marginBottom": "24px"
+            }
+          },
+          {
+            "type": "container",
+            "id": "container_kpis",
+            "direction": "row",
+            "styling": {
+              "gap": "16px",
+              "marginBottom": "32px"
+            },
+            "children": [
+              {
+                "type": "dataprovider",
+                "id": "dataprovider_kpis",
+                "dataSource": "query_quickflip_kpis",
+                "filter": [
+                  {
+                    "field": "source",
+                    "operator": "equals",
+                    "value": "{{ state.selected_source }}"
+                  }
+                ],
+                "children": [
+                  {
+                    "type": "container",
+                    "direction": "row",
+                    "styling": {
+                      "gap": "16px",
+                      "width": "100%"
+                    },
+                    "children": [
+                      {
+                        "type": "statistic",
+                        "title": "Opportunities",
+                        "value": "{{ dataprovider_kpis.total_opportunities }}",
+                        "icon": "ShoppingCart",
+                        "color": "green",
+                        "styling": {
+                          "flex": "1"
+                        }
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Avg Margin",
+                        "value": "{{ dataprovider_kpis.avg_margin }}%",
+                        "icon": "TrendingUp",
+                        "color": "blue",
+                        "styling": {
+                          "flex": "1"
+                        }
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Total Potential Profit",
+                        "value": "€{{ dataprovider_kpis.total_potential_profit }}",
+                        "icon": "Euro",
+                        "color": "orange",
+                        "styling": {
+                          "flex": "1"
+                        }
+                      },
+                      {
+                        "type": "statistic",
+                        "title": "Best Margin",
+                        "value": "{{ dataprovider_kpis.max_margin }}%",
+                        "icon": "Star",
+                        "color": "purple",
+                        "styling": {
+                          "flex": "1"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "container",
+            "id": "container_filters",
+            "styling": {
+              "background": "white",
+              "padding": "20px",
+              "borderRadius": "8px",
+              "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
+              "marginBottom": "24px"
+            },
+            "children": [
+              {
+                "type": "heading",
+                "text": "🔍 Filters",
+                "size": "S",
+                "styling": {
+                  "marginBottom": "16px"
+                }
+              },
+              {
+                "type": "container",
+                "direction": "row",
+                "styling": {
+                  "gap": "16px",
+                  "flexWrap": "wrap"
+                },
+                "children": [
+                  {
+                    "type": "dataprovider",
+                    "id": "dataprovider_sources",
+                    "dataSource": "query_available_sources",
+                    "children": [
+                      {
+                        "type": "options",
+                        "id": "select_source",
+                        "field": "source_filter",
+                        "label": "Supplier Source",
+                        "optionsType": "select",
+                        "optionsSource": "dataprovider_sources",
+                        "valueColumn": "source",
+                        "labelColumn": "source_label",
+                        "placeholder": "All Sources",
+                        "onChange": [
+                          {
+                            "action": "UpdateState",
+                            "parameters": {
+                              "key": "selected_source",
+                              "value": "{{ this.value }}"
+                            }
+                          },
+                          {
+                            "action": "RefreshDatasource",
+                            "parameters": {
+                              "datasourceId": "query_quickflip_opportunities"
+                            }
+                          }
+                        ],
+                        "styling": {
+                          "minWidth": "200px"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "numberfield",
+                    "id": "field_min_margin",
+                    "field": "min_margin",
+                    "label": "Min Margin %",
+                    "placeholder": "0",
+                    "defaultValue": 15,
+                    "min": 0,
+                    "max": 1000,
+                    "onChange": [
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "min_margin_filter",
+                          "value": "{{ this.value }}"
+                        }
+                      }
+                    ],
+                    "styling": {
+                      "width": "150px"
+                    }
+                  },
+                  {
+                    "type": "numberfield",
+                    "id": "field_min_profit",
+                    "field": "min_profit",
+                    "label": "Min Profit €",
+                    "placeholder": "0",
+                    "defaultValue": 10,
+                    "min": 0,
+                    "onChange": [
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "min_profit_filter",
+                          "value": "{{ this.value }}"
+                        }
+                      }
+                    ],
+                    "styling": {
+                      "width": "150px"
+                    }
+                  },
+                  {
+                    "type": "stringfield",
+                    "id": "field_search",
+                    "field": "search_query",
+                    "label": "Search Products",
+                    "placeholder": "Nike, Adidas, Air Max...",
+                    "onChange": [
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "search_filter",
+                          "value": "{{ this.value }}"
+                        }
+                      }
+                    ],
+                    "styling": {
+                      "flex": "1",
+                      "minWidth": "250px"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "text": "Apply Filters",
+                    "type": "cta",
+                    "icon": "Filter",
+                    "onClick": [
+                      {
+                        "action": "RefreshDatasource",
+                        "parameters": {
+                          "datasourceId": "query_quickflip_opportunities"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "button",
+                    "text": "Reset",
+                    "type": "secondary",
+                    "icon": "Refresh",
+                    "onClick": [
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "selected_source",
+                          "value": null
+                        }
+                      },
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "min_margin_filter",
+                          "value": 15
+                        }
+                      },
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "min_profit_filter",
+                          "value": 10
+                        }
+                      },
+                      {
+                        "action": "UpdateState",
+                        "parameters": {
+                          "key": "search_filter",
+                          "value": ""
+                        }
+                      },
+                      {
+                        "action": "RefreshDatasource",
+                        "parameters": {
+                          "datasourceId": "query_quickflip_opportunities"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "container",
+            "id": "container_opportunities",
+            "styling": {
+              "background": "white",
+              "padding": "24px",
+              "borderRadius": "8px",
+              "boxShadow": "0 2px 4px rgba(0,0,0,0.1)"
+            },
+            "children": [
+              {
+                "type": "heading",
+                "text": "💰 Profitable Products",
+                "size": "M",
+                "styling": {
+                  "marginBottom": "16px"
+                }
+              },
+              {
+                "type": "dataprovider",
+                "id": "dataprovider_opportunities",
+                "dataSource": "query_quickflip_opportunities",
+                "filter": [
+                  {
+                    "field": "source",
+                    "operator": "equals",
+                    "value": "{{ state.selected_source }}",
+                    "enabled": "{{ state.selected_source != null }}"
+                  },
+                  {
+                    "field": "margin_percent",
+                    "operator": "greaterThanOrEqual",
+                    "value": "{{ state.min_margin_filter || 15 }}"
+                  },
+                  {
+                    "field": "profit",
+                    "operator": "greaterThanOrEqual",
+                    "value": "{{ state.min_profit_filter || 10 }}"
+                  },
+                  {
+                    "field": "product_name",
+                    "operator": "contains",
+                    "value": "{{ state.search_filter }}",
+                    "enabled": "{{ state.search_filter != '' }}"
+                  }
+                ],
+                "children": [
+                  {
+                    "type": "table",
+                    "id": "table_opportunities",
+                    "columns": [
+                      {
+                        "name": "product_name",
+                        "label": "Product",
+                        "width": "25%"
+                      },
+                      {
+                        "name": "brand_name",
+                        "label": "Brand",
+                        "width": "12%"
+                      },
+                      {
+                        "name": "sku",
+                        "label": "SKU",
+                        "width": "10%"
+                      },
+                      {
+                        "name": "buy_price",
+                        "label": "Buy Price",
+                        "width": "10%",
+                        "displayName": "€{{ value }}",
+                        "align": "right"
+                      },
+                      {
+                        "name": "market_price",
+                        "label": "Market Price",
+                        "width": "10%",
+                        "displayName": "€{{ value }}",
+                        "align": "right"
+                      },
+                      {
+                        "name": "profit",
+                        "label": "Profit",
+                        "width": "10%",
+                        "displayName": "€{{ value }}",
+                        "align": "right",
+                        "color": "{{ value >= 50 ? 'green' : value >= 20 ? 'blue' : 'default' }}"
+                      },
+                      {
+                        "name": "margin_percent",
+                        "label": "Margin %",
+                        "width": "10%",
+                        "displayName": "{{ value }}%",
+                        "align": "right",
+                        "type": "badge",
+                        "badgeColor": "{{ value >= 50 ? 'green' : value >= 30 ? 'blue' : value >= 15 ? 'orange' : 'default' }}"
+                      },
+                      {
+                        "name": "availability",
+                        "label": "Stock",
+                        "width": "8%",
+                        "align": "center",
+                        "type": "badge",
+                        "badgeColor": "{{ value == 'in_stock' ? 'green' : 'red' }}"
+                      },
+                      {
+                        "name": "actions",
+                        "label": "Actions",
+                        "width": "15%",
+                        "type": "custom",
+                        "template": {
+                          "type": "container",
+                          "direction": "row",
+                          "styling": {
+                            "gap": "8px"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "text": "View",
+                              "size": "small",
+                              "icon": "Eye",
+                              "onClick": [
+                                {
+                                  "action": "UpdateState",
+                                  "parameters": {
+                                    "key": "selected_product",
+                                    "value": "{{ row }}"
+                                  }
+                                },
+                                {
+                                  "action": "OpenModal",
+                                  "parameters": {
+                                    "modalId": "modal_product_details"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "link",
+                              "text": "Supplier",
+                              "url": "{{ row.product_url }}",
+                              "openInNewTab": true,
+                              "size": "small",
+                              "type": "secondary",
+                              "enabled": "{{ row.product_url != null }}"
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "pageSize": 25,
+                    "showPagination": true,
+                    "showSearch": false,
+                    "sortable": true,
+                    "defaultSort": {
+                      "column": "margin_percent",
+                      "order": "desc"
+                    },
+                    "rowClick": null,
+                    "exportable": true,
+                    "exportFormats": ["csv", "json"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "modals": [
+      {
+        "id": "modal_product_details",
+        "title": "Product Details",
+        "size": "large",
+        "children": [
+          {
+            "type": "container",
+            "styling": {
+              "padding": "24px"
+            },
+            "children": [
+              {
+                "type": "heading",
+                "text": "{{ state.selected_product.product_name }}",
+                "size": "L"
+              },
+              {
+                "type": "divider",
+                "styling": {
+                  "margin": "16px 0"
+                }
+              },
+              {
+                "type": "container",
+                "direction": "row",
+                "styling": {
+                  "gap": "32px"
+                },
+                "children": [
+                  {
+                    "type": "container",
+                    "styling": {
+                      "flex": "1"
+                    },
+                    "children": [
+                      {
+                        "type": "heading",
+                        "text": "Product Information",
+                        "size": "S",
+                        "styling": {
+                          "marginBottom": "12px"
+                        }
+                      },
+                      {
+                        "type": "keyvaluelist",
+                        "data": {
+                          "Brand": "{{ state.selected_product.brand_name }}",
+                          "SKU": "{{ state.selected_product.sku }}",
+                          "Source": "{{ state.selected_product.source }}",
+                          "Availability": "{{ state.selected_product.availability }}",
+                          "Stock Quantity": "{{ state.selected_product.stock_qty || 'N/A' }}"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "container",
+                    "styling": {
+                      "flex": "1"
+                    },
+                    "children": [
+                      {
+                        "type": "heading",
+                        "text": "Pricing Analysis",
+                        "size": "S",
+                        "styling": {
+                          "marginBottom": "12px"
+                        }
+                      },
+                      {
+                        "type": "keyvaluelist",
+                        "data": {
+                          "Buy Price": "€{{ state.selected_product.buy_price }}",
+                          "Market Price": "€{{ state.selected_product.market_price }}",
+                          "Profit": "€{{ state.selected_product.profit }}",
+                          "Margin": "{{ state.selected_product.margin_percent }}%",
+                          "ROI": "{{ (state.selected_product.profit / state.selected_product.buy_price * 100).toFixed(2) }}%"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "divider",
+                "styling": {
+                  "margin": "24px 0"
+                }
+              },
+              {
+                "type": "container",
+                "direction": "row",
+                "styling": {
+                  "gap": "12px",
+                  "justifyContent": "flex-end"
+                },
+                "children": [
+                  {
+                    "type": "link",
+                    "text": "View on Supplier Site",
+                    "url": "{{ state.selected_product.product_url }}",
+                    "openInNewTab": true,
+                    "type": "cta",
+                    "enabled": "{{ state.selected_product.product_url != null }}"
+                  },
+                  {
+                    "type": "button",
+                    "text": "Close",
+                    "type": "secondary",
+                    "onClick": [
+                      {
+                        "action": "CloseModal",
+                        "parameters": {
+                          "modalId": "modal_product_details"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "queries": {
+    "query_quickflip_kpis": {
+      "name": "QuickFlip Opportunities KPIs",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "read",
+      "sql": "SELECT COUNT(*) as total_opportunities, ROUND(AVG((p.retail_price - sp.buy_price) / sp.buy_price * 100)::numeric, 2) as avg_margin, ROUND(SUM(p.retail_price - sp.buy_price)::numeric, 2) as total_potential_profit, ROUND(MAX((p.retail_price - sp.buy_price) / sp.buy_price * 100)::numeric, 2) as max_margin FROM products.products p JOIN finance.source_prices sp ON sp.product_id = p.id WHERE p.retail_price > sp.buy_price AND ($1::text IS NULL OR sp.source = $1) AND ((p.retail_price - sp.buy_price) / sp.buy_price * 100) >= 15",
+      "parameters": [
+        {
+          "name": "source",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "readable": true
+    },
+    "query_quickflip_opportunities": {
+      "name": "QuickFlip Opportunities List",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "read",
+      "sql": "SELECT p.id, p.name as product_name, p.sku, b.name as brand_name, sp.source, sp.buy_price, p.retail_price as market_price, (p.retail_price - sp.buy_price) as profit, ROUND(((p.retail_price - sp.buy_price) / sp.buy_price * 100)::numeric, 2) as margin_percent, sp.availability, sp.stock_qty, sp.product_url FROM products.products p JOIN finance.source_prices sp ON sp.product_id = p.id LEFT JOIN core.brands b ON p.brand_id = b.id WHERE p.retail_price > sp.buy_price AND ($1::text IS NULL OR sp.source = $1) AND ((p.retail_price - sp.buy_price) / sp.buy_price * 100) >= COALESCE($2::numeric, 15) AND (p.retail_price - sp.buy_price) >= COALESCE($3::numeric, 10) AND ($4::text IS NULL OR p.name ILIKE '%' || $4 || '%' OR b.name ILIKE '%' || $4 || '%') ORDER BY margin_percent DESC LIMIT 100",
+      "parameters": [
+        {
+          "name": "source",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "min_margin",
+          "type": "number",
+          "default": 15
+        },
+        {
+          "name": "min_profit",
+          "type": "number",
+          "default": 10
+        },
+        {
+          "name": "search",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "readable": true
+    },
+    "query_available_sources": {
+      "name": "Available Supplier Sources",
+      "datasourceId": "ds_soleflip_postgres",
+      "queryVerb": "read",
+      "sql": "SELECT DISTINCT source, source || ' (' || COUNT(*) || ' products)' as source_label FROM finance.source_prices WHERE source IS NOT NULL GROUP BY source ORDER BY source",
+      "readable": true
+    }
+  }
+}
