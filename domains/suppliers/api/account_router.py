@@ -14,8 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from shared.api.dependencies import get_db_session
-from shared.auth.dependencies import require_authenticated_user
-from shared.auth.models import User
 from shared.security.api_security import get_client_ip, AuditLogger
 
 from domains.suppliers.services.account_import_service import AccountImportService
@@ -112,7 +110,6 @@ async def import_accounts_from_csv(
     file: UploadFile = File(..., description="CSV file containing account data"),
     request_data: AccountImportRequest = Depends(),
     import_service: AccountImportService = Depends(get_account_import_service),
-    user: User = Depends(require_authenticated_user),
     client_ip: str = Depends(get_client_ip),
     http_request: Request = None
 ):
@@ -141,7 +138,7 @@ async def import_accounts_from_csv(
             audit_logger.log_security_event(
                 "account_import_attempt",
                 http_request,
-                user_id=str(user.id),
+                user_id="system",
                 additional_data={
                     "filename": file.filename,
                     "file_size": len(content),
@@ -161,7 +158,7 @@ async def import_accounts_from_csv(
             audit_logger.log_security_event(
                 "account_import_completed",
                 http_request,
-                user_id=str(user.id),
+                user_id="system",
                 additional_data={
                     "successful_imports": result["successful_imports"],
                     "failed_imports": result["failed_imports"],
@@ -180,7 +177,6 @@ async def import_accounts_from_csv(
     except Exception as e:
         logger.error(
             "Failed to import accounts from CSV",
-            user_id=str(user.id),
             filename=file.filename,
             error=str(e)
         )
@@ -199,7 +195,6 @@ async def import_accounts_from_csv(
 async def get_supplier_account_overview(
     supplier_id: UUID,
     statistics_service: AccountStatisticsService = Depends(get_account_statistics_service),
-    user: User = Depends(require_authenticated_user)
 ):
     """Get comprehensive overview of supplier accounts"""
     try:
@@ -209,7 +204,6 @@ async def get_supplier_account_overview(
     except Exception as e:
         logger.error(
             "Failed to get supplier account overview",
-            user_id=str(user.id),
             supplier_id=str(supplier_id),
             error=str(e)
         )
@@ -228,7 +222,6 @@ async def get_supplier_account_overview(
 async def get_account_statistics(
     account_id: UUID,
     statistics_service: AccountStatisticsService = Depends(get_account_statistics_service),
-    user: User = Depends(require_authenticated_user)
 ):
     """Get detailed statistics for a specific account"""
     try:
@@ -243,7 +236,6 @@ async def get_account_statistics(
     except Exception as e:
         logger.error(
             "Failed to get account statistics",
-            user_id=str(user.id),
             account_id=str(account_id),
             error=str(e)
         )
@@ -266,7 +258,6 @@ async def list_supplier_accounts(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_authenticated_user)
 ):
     """List accounts for a specific supplier"""
     try:
@@ -293,7 +284,6 @@ async def list_supplier_accounts(
     except Exception as e:
         logger.error(
             "Failed to list supplier accounts",
-            user_id=str(user.id),
             supplier_id=str(supplier_id),
             error=str(e)
         )
@@ -312,7 +302,6 @@ async def record_account_purchase(
     account_id: UUID,
     purchase_data: Dict = None,
     import_service: AccountImportService = Depends(get_account_import_service),
-    user: User = Depends(require_authenticated_user),
     db: AsyncSession = Depends(get_db_session)
 ):
     """Record a purchase for an account and update statistics"""
@@ -352,7 +341,6 @@ async def record_account_purchase(
     except Exception as e:
         logger.error(
             "Failed to record account purchase",
-            user_id=str(user.id),
             account_id=str(account_id),
             error=str(e)
         )
@@ -370,7 +358,6 @@ async def record_account_purchase(
 async def recalculate_account_statistics(
     supplier_id: Optional[UUID] = Query(None, description="Supplier ID to recalculate (all if not provided)"),
     statistics_service: AccountStatisticsService = Depends(get_account_statistics_service),
-    user: User = Depends(require_authenticated_user),
     client_ip: str = Depends(get_client_ip),
     http_request: Request = None
 ):
@@ -380,7 +367,7 @@ async def recalculate_account_statistics(
         audit_logger.log_security_event(
             "statistics_recalculation_attempt",
             http_request,
-            user_id=str(user.id),
+            user_id="system",
             additional_data={
                 "supplier_id": str(supplier_id) if supplier_id else "all",
                 "client_ip": client_ip
@@ -393,7 +380,7 @@ async def recalculate_account_statistics(
         audit_logger.log_security_event(
             "statistics_recalculation_completed",
             http_request,
-            user_id=str(user.id),
+            user_id="system",
             additional_data={
                 "total_accounts": result["total_accounts"],
                 "updated_count": result["updated_count"],
@@ -411,7 +398,6 @@ async def recalculate_account_statistics(
     except Exception as e:
         logger.error(
             "Failed to recalculate account statistics",
-            user_id=str(user.id),
             supplier_id=str(supplier_id) if supplier_id else "all",
             error=str(e)
         )
@@ -429,7 +415,6 @@ async def recalculate_account_statistics(
 async def get_import_summary(
     supplier_id: Optional[UUID] = Query(None, description="Filter by supplier ID"),
     import_service: AccountImportService = Depends(get_account_import_service),
-    user: User = Depends(require_authenticated_user)
 ):
     """Get summary of imported accounts"""
     try:
@@ -439,7 +424,6 @@ async def get_import_summary(
     except Exception as e:
         logger.error(
             "Failed to get import summary",
-            user_id=str(user.id),
             supplier_id=str(supplier_id) if supplier_id else "all",
             error=str(e)
         )

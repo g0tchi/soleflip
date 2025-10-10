@@ -10,10 +10,11 @@ from uuid import UUID
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-# from shared.auth.dependencies import require_admin_role  # DISABLED
+from shared.database.models import SystemConfig
 
 from ..repositories.import_repository import ImportRepository
 from ..services.import_processor import ImportProcessor, ImportStatus, SourceType
@@ -77,7 +78,6 @@ async def stockx_import_orders_webhook(
     background_tasks: BackgroundTasks,
     stockx_service: StockXService = Depends(get_stockx_service),
     import_processor: ImportProcessor = Depends(get_import_processor),
-    # current_user = Depends(require_admin_role),  # SECURITY: Critical - require admin for StockX import - DISABLED
 ):
     """
     Triggers a background task to import historical orders from the StockX API
@@ -147,3 +147,98 @@ async def get_import_status(
         raise HTTPException(status_code=404, detail="Import batch not found")
 
     return batch
+
+
+class SystemConfigStatusResponse(BaseModel):
+    """Response model for system config status."""
+    key: str
+    has_value: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@router.get("/stockx/credentials/status", response_model=list[SystemConfigStatusResponse], tags=["StockX Integration"])
+async def get_stockx_credentials_status(db: AsyncSession = Depends(get_db_session)):
+    """
+    Get current status of StockX credentials in core.system_config.
+    Shows updated_at timestamps to verify when credentials were last modified.
+    """
+    logger.info("Fetching StockX credentials status from core.system_config")
+
+    result = await db.execute(
+        select(SystemConfig).where(SystemConfig.key.like('stockx%')).order_by(SystemConfig.key)
+    )
+    configs = result.scalars().all()
+
+    if not configs:
+        logger.warning("No StockX credentials found in database")
+        raise HTTPException(status_code=404, detail="No StockX credentials found in database")
+
+    return [
+        SystemConfigStatusResponse(
+            key=config.key,
+            has_value=bool(config.value_encrypted),
+            created_at=config.created_at,
+            updated_at=config.updated_at
+        )
+        for config in configs
+    ]
+
+
+@router.post("/stockx/credentials/update-timestamps", tags=["StockX Integration"])
+async def update_stockx_credentials_timestamps(db: AsyncSession = Depends(get_db_session)):
+    """
+    Update the updated_at timestamps for all StockX credentials in core.system_config.
+    This does NOT modify the actual credential values (client_id, client_secret, refresh_token, api_key).
+    Only updates the metadata timestamp to reflect current time.
+    """
+    logger.info("Updating updated_at timestamps for StockX credentials")
+
+    # Get current credentials before update
+    result = await db.execute(
+        select(SystemConfig).where(SystemConfig.key.like('stockx%'))
+    )
+    configs = result.scalars().all()
+
+    if not configs:
+        raise HTTPException(status_code=404, detail="No StockX credentials found in database")
+
+    credential_count = len(configs)
+    current_time = datetime.utcnow()
+
+    # Update timestamps using raw SQL for efficiency
+    await db.execute(
+        text("""
+            UPDATE core.system_config
+            SET updated_at = :now
+            WHERE key LIKE 'stockx%'
+        """),
+        {"now": current_time}
+    )
+
+    await db.commit()
+
+    logger.info(
+        "Successfully updated StockX credentials timestamps",
+        credential_count=credential_count,
+        new_timestamp=current_time.isoformat()
+    )
+
+    # Verify update
+    result = await db.execute(
+        select(SystemConfig).where(SystemConfig.key.like('stockx%')).order_by(SystemConfig.key)
+    )
+    updated_configs = result.scalars().all()
+
+    return {
+        "status": "success",
+        "message": f"Updated {credential_count} StockX credential timestamps",
+        "updated_at": current_time.isoformat(),
+        "credentials": [
+            {
+                "key": config.key,
+                "updated_at": config.updated_at.isoformat()
+            }
+            for config in updated_configs
+        ]
+    }

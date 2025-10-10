@@ -433,6 +433,80 @@ class MetricsCollector:
                 "histograms": {}
             }
 
+    def increment_counter(
+        self,
+        metric_name: str,
+        value: float = 1.0,
+        labels: Optional[Dict[str, str]] = None
+    ):
+        """Increment a counter metric by the specified value"""
+        metric = self.registry.get_metric(metric_name)
+
+        if not metric:
+            # Auto-register counter if it doesn't exist
+            metric = self.registry.register_metric(
+                name=metric_name,
+                type=MetricType.COUNTER,
+                unit=MetricUnit.COUNT,
+                description=f"Auto-registered counter: {metric_name}",
+                labels=labels
+            )
+
+        # Get current value and add increment
+        current_value = metric.get_latest_value() or 0
+        metric.add_sample(current_value + value, labels)
+
+    def record_gauge(
+        self,
+        metric_name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None
+    ):
+        """Record a gauge metric value"""
+        metric = self.registry.get_metric(metric_name)
+
+        if not metric:
+            # Auto-register gauge if it doesn't exist
+            metric = self.registry.register_metric(
+                name=metric_name,
+                type=MetricType.GAUGE,
+                unit=MetricUnit.COUNT,
+                description=f"Auto-registered gauge: {metric_name}",
+                labels=labels
+            )
+
+        metric.add_sample(value, labels)
+
+    def record_histogram(
+        self,
+        metric_name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None
+    ):
+        """Record a histogram metric value"""
+        metric = self.registry.get_metric(metric_name)
+
+        if not metric:
+            # Auto-register histogram if it doesn't exist
+            metric = self.registry.register_metric(
+                name=metric_name,
+                type=MetricType.HISTOGRAM,
+                unit=MetricUnit.MILLISECONDS,
+                description=f"Auto-registered histogram: {metric_name}",
+                labels=labels
+            )
+
+        metric.add_sample(value, labels)
+
+    def set_gauge(
+        self,
+        metric_name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None
+    ):
+        """Set a gauge metric to a specific value (alias for record_gauge)"""
+        self.record_gauge(metric_name, value, labels)
+
     def get_health_status(self) -> Dict[str, Any]:
         """Get system health status based on metrics"""
         try:

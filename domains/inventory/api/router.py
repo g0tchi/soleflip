@@ -17,7 +17,6 @@ from shared.api.dependencies import (
     get_inventory_service,
     validate_inventory_item_id,
 )
-from shared.auth.dependencies import require_authenticated_user
 from shared.database.connection import get_db_session
 from shared.streaming.response import stream_inventory_export
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,7 +103,6 @@ async def update_inventory_item(
     item_id: str,
     update_data: dict,
     inventory_service: InventoryService = Depends(get_inventory_service),
-    current_user = Depends(require_authenticated_user),  # SECURITY: Add authentication
 ):
     """Simple update for inventory item"""
     try:

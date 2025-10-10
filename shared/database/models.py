@@ -344,7 +344,7 @@ class InventoryItem(Base, TimestampMixin):
     shelf_life_days = Column(Integer, nullable=True)
     profit_per_shelf_day = Column(Numeric(10, 2), nullable=True)
     roi_percentage = Column(Numeric(5, 2), nullable=True)
-    sale_overview = Column(Text, nullable=True)
+    # sale_overview = Column(Text, nullable=True)  # REMOVED: Column doesn't exist in DB
 
     # Multi-Platform Operations Fields
     location = Column(String(50), nullable=True)

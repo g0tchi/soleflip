@@ -75,6 +75,13 @@ dev = [
     "ruff>=0.1.0",  # Modern linter replacement for flake8
 ]
 
+ml = [
+    # Machine Learning for forecasting and analytics
+    "scikit-learn>=1.6.0",  # Random Forest, Linear Regression, Gradient Boosting
+    "statsmodels>=0.14.4",  # ARIMA time series models
+    "scipy>=1.14.0",  # Scientific computing (dependency for both above)
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]

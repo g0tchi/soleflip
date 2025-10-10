@@ -76,7 +76,7 @@ class APMCollector:
         self.slow_request_threshold_ms = 1000
         self.slow_query_threshold_ms = 500
         self.high_cpu_threshold = 80.0
-        self.high_memory_threshold = 85.0
+        self.high_memory_threshold = 90.0  # Increased for dev environment with multiple services
         
         logger.info("APM Collector initialized", max_samples=max_samples)
     

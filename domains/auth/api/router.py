@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.api.responses import create_success_response
-from shared.auth.dependencies import get_current_user, require_admin_role
 from shared.auth.jwt_handler import JWTHandler
 from shared.auth.models import AuthToken, LoginRequest, User, UserCreate, UserResponse
 from shared.auth.password_hasher import PasswordHasher
@@ -97,15 +96,13 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db_sess
 @router.post("/register", response_model=UserResponse)
 async def register(
     user_data: UserCreate,
-    current_user: User = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
-    Register a new user (admin only).
+    Register a new user.
 
     Args:
         user_data: User registration data
-        current_user: Current admin user
         db: Database session
 
     Returns:
@@ -154,81 +151,44 @@ async def register(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+async def get_current_user_info():
     """
     Get current user information.
-
-    Args:
-        current_user: Current authenticated user
 
     Returns:
         Current user information
     """
-    return UserResponse.model_validate(current_user)
+    # TODO: Implement with API key authentication
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Authentication system being migrated to API keys"
+    )
 
 
 @router.post("/logout")
-async def logout(
-    request: Request,
-    current_user: User = Depends(get_current_user)
-):
+async def logout(request: Request):
     """
-    Logout current user and blacklist the JWT token.
-    
+    Logout current user.
+
     Args:
-        request: FastAPI request object (to extract token)
-        current_user: Current authenticated user
+        request: FastAPI request object
 
     Returns:
         Success message
     """
-    # Extract JWT token from Authorization header
-    auth_header = request.headers.get("authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header[7:]  # Remove "Bearer " prefix
-        
-        # Get token expiration from JWT handler
-        try:
-            from shared.auth.jwt_handler import get_jwt_handler
-            from shared.auth.token_blacklist import blacklist_token
-            import jwt
-            
-            # Decode token to get expiration (without verification)
-            jwt_handler = get_jwt_handler()
-            unverified_payload = jwt.decode(token, options={"verify_signature": False})
-            exp_timestamp = unverified_payload.get("exp")
-            
-            if exp_timestamp:
-                # Add token to blacklist
-                await blacklist_token(token, exp_timestamp)
-                logger.info(
-                    "User logout with token blacklisted", 
-                    user_id=current_user.id, 
-                    username=current_user.username,
-                    token_prefix=token[:20] + "..."
-                )
-            else:
-                logger.warning("Token has no expiration, cannot blacklist properly")
-        
-        except Exception as e:
-            logger.error(f"Failed to blacklist token during logout: {e}")
-    else:
-        logger.info("User logout without valid token", user_id=current_user.id, username=current_user.username)
-
+    # TODO: Implement with API key authentication
+    logger.info("Logout endpoint called (auth migration in progress)")
     return create_success_response(
-        message="Successfully logged out", data={"username": current_user.username}
+        message="Successfully logged out", data={}
     )
 
 
 @router.get("/users", response_model=list[UserResponse])
-async def list_users(
-    current_user: User = Depends(require_admin_role), db: AsyncSession = Depends(get_db_session)
-):
+async def list_users(db: AsyncSession = Depends(get_db_session)):
     """
-    List all users (admin only).
+    List all users.
 
     Args:
-        current_user: Current admin user
         db: Database session
 
     Returns:
@@ -250,15 +210,13 @@ async def list_users(
 @router.patch("/users/{user_id}/activate")
 async def activate_user(
     user_id: str,
-    current_user: User = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
-    Activate a user account (admin only).
+    Activate a user account.
 
     Args:
         user_id: User ID to activate
-        current_user: Current admin user
         db: Database session
 
     Returns:
@@ -271,7 +229,7 @@ async def activate_user(
         if not updated_user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-        logger.info("User activated", user_id=user_id, admin_user=current_user.username)
+        logger.info("User activated", user_id=user_id)
 
         return create_success_response(
             message="User activated successfully", data={"user_id": user_id}
@@ -289,26 +247,19 @@ async def activate_user(
 @router.patch("/users/{user_id}/deactivate")
 async def deactivate_user(
     user_id: str,
-    current_user: User = Depends(require_admin_role),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
-    Deactivate a user account (admin only).
+    Deactivate a user account.
 
     Args:
         user_id: User ID to deactivate
-        current_user: Current admin user
         db: Database session
 
     Returns:
         Success message
     """
     try:
-        # Prevent admin from deactivating themselves
-        if str(current_user.id) == user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot deactivate your own account"
-            )
 
         user_repo = BaseRepository(User, db)
 
@@ -316,7 +267,7 @@ async def deactivate_user(
         if not updated_user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-        logger.info("User deactivated", user_id=user_id, admin_user=current_user.username)
+        logger.info("User deactivated", user_id=user_id)
 
         return create_success_response(
             message="User deactivated successfully", data={"user_id": user_id}

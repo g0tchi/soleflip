@@ -333,7 +333,7 @@ async def get_predictive_insights(
                 AVG(t.sale_price) as avg_transaction_value,
                 COUNT(DISTINCT p.id) as active_products,
                 COUNT(DISTINCT b.id) as active_brands
-            FROM sales.transactions t
+            FROM transactions.transactions t
             LEFT JOIN products.inventory i ON t.inventory_id = i.id
             LEFT JOIN products.products p ON i.product_id = p.id
             LEFT JOIN core.brands b ON p.brand_id = b.id

@@ -79,7 +79,6 @@ async def get_quickflip_opportunities(
     sources: Optional[str] = Query(default=None, description="Comma-separated list of sources (e.g., 'awin,webgains')"),
     limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of opportunities to return"),
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)  # Uncomment for authentication
 ):
     """Get QuickFlip opportunities with customizable filters"""
 
@@ -117,7 +116,6 @@ async def get_quickflip_opportunities(
 )
 async def get_opportunities_summary(
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Get summary statistics about available opportunities"""
 
@@ -155,7 +153,6 @@ async def get_opportunities_summary(
 async def get_opportunities_by_product(
     product_id: UUID,
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Get opportunities for a specific product"""
 
@@ -183,7 +180,6 @@ async def get_opportunities_by_source(
     source: str,
     limit: int = Query(default=20, ge=1, le=100, description="Maximum number of opportunities to return"),
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Get best opportunities from a specific source"""
 
@@ -215,7 +211,6 @@ async def mark_opportunity_acted(
     source: str,
     action: str = "purchased",
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Mark an opportunity as acted upon"""
 
@@ -253,7 +248,6 @@ async def import_market_prices_csv(
     file_path: str,
     source: str = "awin",
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Import market prices from CSV file"""
 
@@ -292,7 +286,6 @@ async def import_market_prices_csv(
 async def get_import_stats(
     source: Optional[str] = Query(default=None, description="Specific source to get stats for"),
     db: AsyncSession = Depends(get_db_session),
-    # user = Depends(require_authenticated_user)
 ):
     """Get statistics about imported market price data"""
 

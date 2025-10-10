@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Domain routers
-from domains.analytics.api.business_intelligence_api import router as business_intelligence_router
+# Business Intelligence router removed - async/greenlet issues
 from domains.analytics.api.router import router as analytics_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
@@ -38,7 +38,6 @@ from domains.suppliers.api.account_router import router as account_router
 from domains.suppliers.api.supplier_intelligence_api import router as supplier_intelligence_router
 
 # Local application imports
-from shared.auth.token_blacklist import initialize_token_blacklist, shutdown_token_blacklist
 from shared.config.settings import get_settings
 from shared.database.connection import db_manager
 from shared.error_handling.exceptions import (
@@ -140,34 +139,18 @@ async def lifespan(app: FastAPI):
     redis_url = os.getenv("REDIS_URL")  # Optional Redis connection
     await initialize_cache(redis_url)
 
-    # Initialize JWT token blacklist system
-    try:
-        # Try to reuse Redis connection for token blacklist
-        redis_client = None
-        if redis_url:
-            import redis.asyncio as redis
-
-            redis_client = redis.from_url(redis_url)
-        await initialize_token_blacklist(redis_client)
-    except ImportError:
-        # Redis not available, use in-memory blacklist only
-        await initialize_token_blacklist()
-
     # Setup database performance indexes (temporarily disabled)
     # db_optimizer = get_database_optimizer()
     # async with db_manager.get_session() as session:
     #     await db_optimizer.create_performance_indexes(session)
 
     logger.info(
-        "Monitoring, health checks, batch monitoring, event system, performance optimizations, and security systems initialized"
+        "Monitoring, health checks, batch monitoring, event system, and performance optimizations initialized"
     )
 
     yield
 
     logger.info("SoleFlipper API shutting down...")
-
-    # Shutdown security systems
-    await shutdown_token_blacklist()
 
     metrics_collector.stop_collection()
     await db_manager.close()
@@ -315,7 +298,7 @@ app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboar
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
 app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
-app.include_router(business_intelligence_router, tags=["Business Intelligence"])
+# Business Intelligence router removed - async/greenlet issues, use /api/v1/dashboard/metrics instead
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
 # app.include_router(batch_monitor_router, tags=["Batch Monitoring"])  # REMOVED: Development-only

@@ -57,7 +57,7 @@ class BudibaseDataSource(BaseModel):
     enabled: bool = Field(default=True, description="Data source enabled status")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "SoleFlipper API",
                 "type": "rest",
@@ -151,7 +151,7 @@ class BudibaseApp(BaseModel):
     created_by: Optional[str] = Field(None, description="Creator identifier")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "SoleFlipper Business App",
                 "description": "Professional sneaker resale management system",

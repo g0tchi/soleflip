@@ -50,24 +50,24 @@ async def get_dashboard_metrics(
             WITH 
             -- Sales summary statistics
             sales_summary AS (
-                SELECT 
+                SELECT
                     COUNT(*) as total_transactions,
                     SUM(sale_price) as total_revenue,
                     AVG(sale_price) as avg_sale_price,
                     SUM(net_profit) as total_profit,
                     COUNT(DISTINCT DATE_TRUNC('day', transaction_date)) as active_days
-                FROM sales.transactions 
+                FROM transactions.transactions
                 WHERE sale_price IS NOT NULL
             ),
             -- Top brands by revenue
             top_brands AS (
-                SELECT 
+                SELECT
                     b.name as brand_name,
                     COUNT(t.id) as transaction_count,
                     SUM(t.sale_price) as total_revenue,
                     AVG(t.sale_price) as avg_price,
                     ROW_NUMBER() OVER (ORDER BY SUM(t.sale_price) DESC) as rn
-                FROM sales.transactions t
+                FROM transactions.transactions t
                 JOIN products.inventory i ON t.inventory_id = i.id
                 JOIN products.products p ON i.product_id = p.id
                 LEFT JOIN core.brands b ON p.brand_id = b.id
@@ -76,14 +76,14 @@ async def get_dashboard_metrics(
             ),
             -- Recent activity
             recent_activity AS (
-                SELECT 
+                SELECT
                     t.transaction_date,
                     t.sale_price,
                     t.net_profit,
                     p.name as product_name,
                     b.name as brand_name,
                     ROW_NUMBER() OVER (ORDER BY t.transaction_date DESC) as rn
-                FROM sales.transactions t
+                FROM transactions.transactions t
                 JOIN products.inventory i ON t.inventory_id = i.id
                 JOIN products.products p ON i.product_id = p.id
                 LEFT JOIN core.brands b ON p.brand_id = b.id

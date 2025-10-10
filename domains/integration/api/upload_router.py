@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.integration.services.import_processor import ImportProcessor, SourceType
-# from shared.auth.dependencies import require_admin_role  # DISABLED
 from shared.database.connection import get_db_session
 
 logger = structlog.get_logger(__name__)
@@ -63,7 +62,6 @@ async def upload_stockx_file(
     validate_only: bool = Form(False),
     batch_size: int = Form(1000),
     import_processor: ImportProcessor = Depends(get_import_processor),
-    # current_user = Depends(require_admin_role),  # SECURITY: Require admin role - DISABLED
 ):
     """
     Handles the upload of a StockX sales history CSV file.
@@ -164,7 +162,6 @@ async def import_stockx_data(request: ImportRequest):
 async def import_stockx_data_real(
     request: ImportRequest,
     import_processor: ImportProcessor = Depends(get_import_processor),
-    # current_user = Depends(require_admin_role)  # SECURITY: Temporarily disabled for testing
 ):
     """
     Initiates a StockX data import for the specified date range.

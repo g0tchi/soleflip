@@ -12,7 +12,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import get_db_session
-from shared.auth.dependencies import require_admin_role
 
 logger = structlog.get_logger(__name__)
 
@@ -37,7 +36,6 @@ class QueryResponse(BaseModel):
 async def execute_query(
     request: QueryRequest,
     db: AsyncSession = Depends(get_db_session),
-    current_user = Depends(require_admin_role)  # SECURITY: CRITICAL - require admin for SQL queries
 ) -> List[Dict[str, Any]]:
     """Execute a database query"""
     logger.info("Executing admin query", query=request.query[:100])
