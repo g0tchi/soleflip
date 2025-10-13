@@ -402,19 +402,19 @@ def upgrade():
     # 3.2 PRODUCTS SCHEMA TABLES
     # ------------------------------------------------------------------------
 
-    # Sizes table (NOTE: Moving to products schema per architect recommendation)
-    # But keeping in public schema for backward compatibility with existing code
+    # products.sizes (moved from public schema per architect recommendation)
     op.create_table(
         'sizes',
         sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
         sa.Column('category_id', sa.UUID(), nullable=True),
         sa.Column('value', sa.String(20), nullable=False),
-        sa.Column('standardized_value', sa.Numeric(4, 1), nullable=True),  # For size matching
-        sa.Column('region', sa.String(10), nullable=False),  # US, EU, UK
+        sa.Column('standardized_value', sa.Numeric(4, 1), nullable=True),  # EU size for cross-region matching (37.5, 38.0, etc.)
+        sa.Column('region', sa.String(10), nullable=False),  # US, EU, UK, CM
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()'), nullable=False),
         sa.ForeignKeyConstraint(['category_id'], ['core.categories.id'], ondelete='SET NULL'),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        schema='products'
     )
 
     # products.products (with enrichment fields)
@@ -499,7 +499,7 @@ def upgrade():
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()'), nullable=False),
 
         sa.ForeignKeyConstraint(['product_id'], ['products.products.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['size_id'], ['sizes.id'], ondelete='RESTRICT'),
+        sa.ForeignKeyConstraint(['size_id'], ['products.sizes.id'], ondelete='RESTRICT'),
         sa.ForeignKeyConstraint(['supplier_id'], ['core.suppliers.id'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id'),
         schema='products'
@@ -725,7 +725,7 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['product_id'], ['products.products.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['supplier_id'], ['core.suppliers.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['size_id'], ['sizes.id'], ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['size_id'], ['products.sizes.id'], ondelete='SET NULL'),
 
         schema='integration'
     )
@@ -1497,7 +1497,7 @@ def upgrade():
             AND ps_retail.in_stock = true
 
         -- Retail sizes (optional)
-        LEFT JOIN sizes s_retail ON ps_retail.size_id = s_retail.id
+        LEFT JOIN products.sizes s_retail ON ps_retail.size_id = s_retail.id
 
         -- Resale prices
         JOIN integration.price_sources ps_resale
@@ -1506,7 +1506,7 @@ def upgrade():
             AND ps_resale.in_stock = true
 
         -- Resale sizes (optional)
-        LEFT JOIN sizes s_resale ON ps_resale.size_id = s_resale.id
+        LEFT JOIN products.sizes s_resale ON ps_resale.size_id = s_resale.id
 
         WHERE ps_resale.price_cents > ps_retail.price_cents  -- Only profitable opportunities
           AND (
@@ -1791,8 +1791,8 @@ def upgrade():
     """)
 
     op.execute("""
-        COMMENT ON COLUMN sizes.standardized_value IS
-        'Normalized size value for cross-region matching (e.g., US 9 = EU 42.5 = 42.5 standardized)';
+        COMMENT ON COLUMN products.sizes.standardized_value IS
+        'Normalized size value for cross-region matching (EU size as standard, e.g., US 9 = EU 42.5 = 42.5)';
     """)
 
     op.execute("""
@@ -1893,7 +1893,7 @@ def downgrade():
     # Products schema
     op.drop_table('inventory', schema='products')
     op.drop_table('products', schema='products')
-    op.drop_table('sizes')  # Public schema
+    op.drop_table('sizes', schema='products')
 
     # Core schema
     op.drop_table('supplier_history', schema='core')
