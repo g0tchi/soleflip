@@ -24,6 +24,7 @@ from domains.analytics.api.router import router as analytics_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.quickflip_router import router as quickflip_router
+from domains.integration.api.router import router as integration_router
 from domains.integration.api.upload_router import router as upload_router
 from domains.integration.api.webhooks import router as webhook_router
 from domains.integration.budibase.api.budibase_router import router as budibase_router
@@ -282,6 +283,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # Authentication routes (public)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(integration_router, prefix="/api/v1/integration", tags=["Integration"])
 app.include_router(webhook_router, prefix="/api/v1/integration", tags=["Integration"])
 app.include_router(
     upload_router, prefix="/api/v1/integration", tags=["Integration"]

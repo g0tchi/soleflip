@@ -17,8 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('inventory', sa.Column('external_ids', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
+    op.add_column('inventory', sa.Column('external_ids', postgresql.JSONB(astext_type=sa.Text()), nullable=True), schema='products')
 
 
 def downgrade():
-    op.drop_column('inventory', 'external_ids')
+    op.drop_column('inventory', 'external_ids', schema='products')

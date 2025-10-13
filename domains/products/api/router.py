@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.integration.services.stockx_service import StockXService
+from domains.integration.services.stockx_catalog_service import StockXCatalogService
 from domains.inventory.services.inventory_service import InventoryService
 from shared.database.connection import get_db_session
 
@@ -26,6 +27,11 @@ def get_inventory_service(db: AsyncSession = Depends(get_db_session)) -> Invento
 
 def get_stockx_service(db: AsyncSession = Depends(get_db_session)) -> StockXService:
     return StockXService(db)
+
+
+def get_catalog_service(db: AsyncSession = Depends(get_db_session)) -> StockXCatalogService:
+    stockx_service = StockXService(db)
+    return StockXCatalogService(stockx_service)
 
 
 @router.post(
@@ -360,6 +366,215 @@ async def get_enrichment_status(
     except Exception as e:
         logger.error("Failed to fetch enrichment status", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch enrichment status")
+
+
+# ============================================================================
+# StockX Catalog API v2 Endpoints (NEW - Uses StockXCatalogService)
+# ============================================================================
+
+
+@router.post(
+    "/catalog/enrich-by-sku",
+    status_code=200,
+    summary="Enrich Product by SKU using Catalog API v2",
+    description="Enriches a product by searching StockX Catalog API v2 by SKU, fetching complete details, variants, and market data. Updates database with enriched data.",
+    response_model=Dict[str, Any],
+)
+async def enrich_product_by_sku(
+    sku: str = Query(..., description="Product SKU to search and enrich"),
+    size: Optional[str] = Query(None, description="Specific size to get market data for"),
+    catalog_service: StockXCatalogService = Depends(get_catalog_service),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Complete product enrichment workflow:
+    1. Search catalog by SKU
+    2. Get product details
+    3. Get all variants (sizes)
+    4. Get market data for specific size (if provided)
+    5. Update database with enriched data
+    """
+    logger.info("Received request to enrich product by SKU", sku=sku, size=size)
+
+    try:
+        enriched_data = await catalog_service.enrich_product_by_sku(
+            sku=sku, size=size, db_session=db
+        )
+
+        if enriched_data.get("error"):
+            raise HTTPException(status_code=404, detail=enriched_data["error"])
+
+        return {
+            "success": True,
+            "message": "Product enrichment completed successfully",
+            "data": {
+                "sku": enriched_data.get("sku"),
+                "stockx_product_id": enriched_data.get("stockx_product_id"),
+                "product_title": enriched_data.get("product_details", {}).get("title"),
+                "brand": enriched_data.get("product_details", {}).get("brand"),
+                "total_variants": len(enriched_data.get("variants", [])),
+                "market_data_available": enriched_data.get("market_data") is not None,
+                "lowest_ask": (
+                    enriched_data.get("market_data", {}).get("lowestAskAmount")
+                    if enriched_data.get("market_data")
+                    else None
+                ),
+                "enrichment_timestamp": enriched_data.get("enrichment_timestamp"),
+            },
+            "full_data": enriched_data,  # Complete enriched data for debugging
+        }
+
+    except Exception as e:
+        logger.error("Failed to enrich product by SKU", sku=sku, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Enrichment failed: {str(e)}")
+
+
+@router.get(
+    "/catalog/search",
+    summary="Search StockX Catalog API v2",
+    description="Search StockX Catalog API v2 by SKU, GTIN, styleId, or freeform text query. Returns paginated results.",
+    response_model=Dict[str, Any],
+)
+async def search_catalog(
+    query: str = Query(..., min_length=1, description="SKU, GTIN, styleId, or product name"),
+    page_number: int = Query(1, ge=1, le=100, description="Page number (starts at 1)"),
+    page_size: int = Query(10, ge=1, le=50, description="Results per page (max 50)"),
+    catalog_service: StockXCatalogService = Depends(get_catalog_service),
+):
+    """
+    Search StockX catalog - useful for:
+    - Finding products by SKU before enrichment
+    - Exploring product catalog
+    - Verifying product existence
+    """
+    logger.info(
+        "Received catalog search request", query=query, page_number=page_number, page_size=page_size
+    )
+
+    try:
+        results = await catalog_service.search_catalog(
+            query=query, page_number=page_number, page_size=page_size
+        )
+
+        return {
+            "success": True,
+            "query": query,
+            "pagination": {
+                "page_number": results.get("pageNumber"),
+                "page_size": results.get("pageSize"),
+                "total_results": results.get("count"),
+                "has_next_page": results.get("hasNextPage"),
+            },
+            "products": results.get("products", []),
+        }
+
+    except Exception as e:
+        logger.error("Catalog search failed", query=query, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@router.get(
+    "/catalog/products/{product_id}",
+    summary="Get Product Details from Catalog API v2",
+    description="Get detailed product information including brand, title, style ID, product attributes, size chart, and eligibility flags.",
+    response_model=Dict[str, Any],
+)
+async def get_catalog_product_details(
+    product_id: str,
+    catalog_service: StockXCatalogService = Depends(get_catalog_service),
+):
+    """Get detailed product information from StockX Catalog API v2"""
+    logger.info("Received request for catalog product details", product_id=product_id)
+
+    try:
+        details = await catalog_service.get_product_details(product_id)
+        return {"success": True, "product": details}
+
+    except Exception as e:
+        logger.error(
+            "Failed to get product details", product_id=product_id, error=str(e), exc_info=True
+        )
+        raise HTTPException(status_code=404, detail=f"Product not found: {str(e)}")
+
+
+@router.get(
+    "/catalog/products/{product_id}/variants",
+    summary="Get Product Variants from Catalog API v2",
+    description="Get all variants (sizes) for a product with complete size information, GTINs, and eligibility flags.",
+    response_model=Dict[str, Any],
+)
+async def get_catalog_product_variants(
+    product_id: str,
+    catalog_service: StockXCatalogService = Depends(get_catalog_service),
+):
+    """Get all variants (sizes) for a product"""
+    logger.info("Received request for catalog product variants", product_id=product_id)
+
+    try:
+        variants = await catalog_service.get_product_variants(product_id)
+        return {"success": True, "product_id": product_id, "total_variants": len(variants), "variants": variants}
+
+    except Exception as e:
+        logger.error(
+            "Failed to get product variants", product_id=product_id, error=str(e), exc_info=True
+        )
+        raise HTTPException(status_code=404, detail=f"Variants not found: {str(e)}")
+
+
+@router.get(
+    "/catalog/products/{product_id}/variants/{variant_id}/market-data",
+    summary="Get Market Data for Variant from Catalog API v2",
+    description="Get real-time market data for a specific variant including lowest ask, highest bid, and StockX pricing recommendations.",
+    response_model=Dict[str, Any],
+)
+async def get_catalog_variant_market_data(
+    product_id: str,
+    variant_id: str,
+    currency_code: str = Query("EUR", description="Currency code (EUR, USD, GBP, etc.)"),
+    catalog_service: StockXCatalogService = Depends(get_catalog_service),
+):
+    """Get market data for a specific variant (size)"""
+    logger.info(
+        "Received request for variant market data",
+        product_id=product_id,
+        variant_id=variant_id,
+        currency=currency_code,
+    )
+
+    try:
+        market_data = await catalog_service.get_market_data(
+            product_id=product_id, variant_id=variant_id, currency_code=currency_code
+        )
+
+        return {
+            "success": True,
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "currency": market_data.get("currencyCode"),
+            "market_data": {
+                "lowest_ask": market_data.get("lowestAskAmount"),
+                "highest_bid": market_data.get("highestBidAmount"),
+                "sell_faster_price": market_data.get("sellFasterAmount"),
+                "earn_more_price": market_data.get("earnMoreAmount"),
+                "flex_lowest_ask": market_data.get("flexLowestAskAmount"),
+            },
+            "full_data": market_data,  # Complete market data for advanced use
+        }
+
+    except Exception as e:
+        logger.error(
+            "Failed to get market data",
+            product_id=product_id,
+            variant_id=variant_id,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=404, detail=f"Market data not found: {str(e)}")
+
+
+# ============================================================================
+# Legacy Stats Endpoint (Removed - Redundant with Dashboard)
+# ============================================================================
 
 
 # Stats endpoint removed - redundant with Dashboard
