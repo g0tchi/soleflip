@@ -21,9 +21,15 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
+# Copy requirements and source code structure for installation
 COPY pyproject.toml ./
 COPY README.md ./
+COPY main.py ./
+COPY domains/ ./domains/
+COPY shared/ ./shared/
+COPY scripts/ ./scripts/
+COPY tests/ ./tests/
+COPY migrations/ ./migrations/
 
 # Install Python dependencies
 RUN pip install -e .
@@ -56,8 +62,8 @@ FROM base as production
 # Copy source code
 COPY --chown=appuser:appuser . .
 
-# Install production dependencies only
-RUN pip install -e . --no-dev
+# Production dependencies are already installed in base stage
+# No need to reinstall
 
 # Switch to non-root user
 USER appuser

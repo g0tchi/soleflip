@@ -51,8 +51,13 @@ test_single_date.csv
 .env.local
 .env.production
 docker-compose.override.yml
+docker-compose.deploy.yml
 config/secrets.json
 *.key
 *.pem
 *.p12
 *.pfx
+
+# Deployment
+nas-deployment/.env
+nas-deployment/docker-compose.deploy.yml
