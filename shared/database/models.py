@@ -93,8 +93,8 @@ class EncryptedFieldMixin:
 
 
 class Brand(Base, TimestampMixin):
-    __tablename__ = "brands"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __tablename__ = "brand"
+    __table_args__ = {"schema": "catalog"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False, unique=True)
@@ -115,12 +115,12 @@ class BrandPattern(Base, TimestampMixin):
     __tablename__ = "brand_patterns"
     __table_args__ = (
         Column("priority", Integer, default=100, nullable=False),
-        {"schema": "core"} if IS_POSTGRES else {},
+        {"schema": "catalog"} if IS_POSTGRES else {},
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=False
     )
     pattern_type = Column(String(50), nullable=False, default="regex")
     pattern = Column(String(255), nullable=False, unique=True)
@@ -129,13 +129,13 @@ class BrandPattern(Base, TimestampMixin):
 
 
 class Category(Base, TimestampMixin):
-    __tablename__ = "categories"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __tablename__ = "category"
+    __table_args__ = {"schema": "catalog"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     slug = Column(String(100), nullable=False, unique=True)
-    parent_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")))
+    parent_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")))
     path = Column(String(500))
     parent = relationship("Category", remote_side=[id], back_populates="children")
     children = relationship("Category", back_populates="parent", overlaps="parent")
@@ -152,7 +152,7 @@ class Size(Base, TimestampMixin):
     __table_args__ = {"schema": "core"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")))
+    category_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")))
     value = Column(String(20), nullable=False)
     standardized_value = Column(Numeric(4, 1))
     region = Column(String(10), nullable=False)
@@ -161,8 +161,8 @@ class Size(Base, TimestampMixin):
 
 
 class Supplier(Base, TimestampMixin):
-    __tablename__ = "suppliers"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __tablename__ = "profile"
+    __table_args__ = {"schema": "supplier"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
@@ -224,8 +224,8 @@ class Supplier(Base, TimestampMixin):
 
 
 class Platform(Base, TimestampMixin):
-    __tablename__ = "platforms"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __tablename__ = "marketplace"
+    __table_args__ = {"schema": "platform"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False, unique=True)
@@ -272,22 +272,32 @@ class SystemConfig(Base, TimestampMixin):
 
 
 class Product(Base, TimestampMixin):
-    __tablename__ = "products"
-    __table_args__ = {"schema": "products"} if IS_POSTGRES else None
+    __tablename__ = "product"
+    __table_args__ = {"schema": "catalog"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sku = Column(String(100), nullable=False, unique=True)
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
     category_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")), nullable=False
     )
     name = Column(String(255), nullable=False)
     description = Column(Text)
     retail_price = Column(Numeric(10, 2))
     avg_resale_price = Column(Numeric(10, 2))
     release_date = Column(DateTime(timezone=True))
+
+    # StockX Enrichment Fields
+    stockx_product_id = Column(String(255), nullable=True, index=True, comment="StockX product UUID")
+    style_code = Column(String(100), nullable=True, comment="Product style code (e.g., SKU)")
+    enrichment_data = Column(JSONB, nullable=True, comment="Complete StockX product data")
+    lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Current lowest ask price")
+    highest_bid = Column(Numeric(10, 2), nullable=True, comment="Current highest bid price")
+    recommended_sell_faster = Column(Numeric(10, 2), nullable=True, comment="Recommended price for faster sale")
+    recommended_earn_more = Column(Numeric(10, 2), nullable=True, comment="Recommended price for maximum earnings")
+    last_enriched_at = Column(DateTime(timezone=True), nullable=True, comment="Last enrichment timestamp")
     brand = relationship("Brand", back_populates="products")
     category = relationship("Category", back_populates="products")
     inventory_items = relationship("InventoryItem", back_populates="product")
@@ -313,18 +323,18 @@ class Product(Base, TimestampMixin):
 
 
 class InventoryItem(Base, TimestampMixin):
-    __tablename__ = "inventory"
-    __table_args__ = {"schema": "products"} if IS_POSTGRES else None
+    __tablename__ = "stock"
+    __table_args__ = {"schema": "inventory"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
     size_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("sizes.id", "core")), nullable=False
     )
     supplier_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("suppliers.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=True
     )
     quantity = Column(Integer, nullable=False, default=1)
     purchase_price = Column(Numeric(10, 2))  # Net purchase price (without VAT)
@@ -386,15 +396,15 @@ class InventoryItem(Base, TimestampMixin):
 
 
 class Transaction(Base, TimestampMixin):
-    __tablename__ = "transactions"
-    __table_args__ = {"schema": "transactions"} if IS_POSTGRES else None
+    __tablename__ = "transaction"
+    __table_args__ = {"schema": "financial"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("inventory.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("stock.id", "inventory")), nullable=False
     )
     platform_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("platforms.id", "core")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=False
     )
     transaction_date = Column(DateTime(timezone=True), nullable=False)
     sale_price = Column(Numeric(10, 2), nullable=False)
@@ -411,12 +421,12 @@ class Transaction(Base, TimestampMixin):
 
 
 class Listing(Base, TimestampMixin):
-    __tablename__ = "listings"
-    __table_args__ = {"schema": "products"} if IS_POSTGRES else None
+    __tablename__ = "listing"
+    __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_item_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("inventory.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("stock.id", "inventory")), nullable=False
     )
 
     stockx_listing_id = Column(String(100), nullable=False, unique=True, index=True)
@@ -428,21 +438,25 @@ class Listing(Base, TimestampMixin):
     stockx_created_at = Column(DateTime(timezone=True))
     last_stockx_updated_at = Column(DateTime(timezone=True))
 
+    # Unified multi-platform pattern (v2.3.3)
+    platform_specific_data = Column(JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)")
     raw_data = Column(JSONB)
 
-    inventory_item = relationship("InventoryItem")  # Simplified relationship
+    # Relationships
+    inventory_item = relationship("InventoryItem")
+    pricing_history = relationship("PricingHistory", back_populates="listing")
 
 
 class Order(Base, TimestampMixin):
-    __tablename__ = "orders"
-    __table_args__ = {"schema": "transactions"} if IS_POSTGRES else None
+    __tablename__ = "order"
+    __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_item_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("inventory.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("stock.id", "inventory")), nullable=False
     )
     listing_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("listings.id", "products")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("listing.id", "sales")), nullable=True
     )
 
     stockx_order_number = Column(String(100), nullable=False, unique=True, index=True)
@@ -468,6 +482,8 @@ class Order(Base, TimestampMixin):
     payout_date = Column(DateTime(timezone=True), nullable=True)  # Date payout received
     shelf_life_days = Column(Integer, nullable=True)  # Days between purchase and sale
 
+    # Unified multi-platform pattern (v2.3.3)
+    platform_specific_data = Column(JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)")
     raw_data = Column(JSONB)
 
     inventory_item = relationship("InventoryItem")
@@ -545,7 +561,7 @@ class SystemLog(Base):
 class StockXPresaleMarking(Base, TimestampMixin):
     """Separate table for StockX presale markings without inventory constraints"""
     __tablename__ = "stockx_presale_markings"
-    __table_args__ = {"schema": "products"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "logging"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     stockx_listing_id = Column(String(100), nullable=False, unique=True, index=True)
@@ -579,7 +595,7 @@ class SourcePrice(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
     source = Column(String(100), nullable=False, comment="Data source: awin, webgains, scraping, etc.")
     supplier_name = Column(String(100), nullable=False, comment="Retailer/supplier name")
@@ -614,163 +630,21 @@ class SourcePrice(Base, TimestampMixin):
 
 
 # --- Selling & Order Management Models ---
-
-class StockXListing(Base, TimestampMixin):
-    """
-    StockX listing management for automated selling
-    Tracks listings created from QuickFlip opportunities
-    """
-    __tablename__ = "stockx_listings"
-    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
-    )
-    stockx_listing_id = Column(String(100), unique=True, nullable=False, comment="StockX API listing ID")
-    stockx_product_id = Column(String(100), nullable=False, comment="StockX product identifier")
-    variant_id = Column(String(100), nullable=True, comment="Size/color variant ID")
-
-    # Listing Details
-    ask_price = Column(Numeric(10, 2), nullable=False, comment="Current asking price")
-    original_ask_price = Column(Numeric(10, 2), nullable=True, comment="Initial asking price")
-    buy_price = Column(Numeric(10, 2), nullable=True, comment="Original purchase price")
-    expected_profit = Column(Numeric(10, 2), nullable=True, comment="Expected profit amount")
-    expected_margin = Column(Numeric(5, 2), nullable=True, comment="Expected profit margin %")
-
-    # Status Management
-    status = Column(String(20), nullable=False, default="active",
-                   comment="Listing status: active, inactive, sold, expired, cancelled")
-    is_active = Column(Boolean, nullable=False, default=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Market Data
-    current_lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Current market lowest ask")
-    current_highest_bid = Column(Numeric(10, 2), nullable=True, comment="Current market highest bid")
-    last_price_update = Column(DateTime(timezone=True), nullable=True)
-
-    # Source Tracking
-    source_opportunity_id = Column(UUID(as_uuid=True), nullable=True, comment="Original QuickFlip opportunity")
-    created_from = Column(String(50), nullable=True, default="manual", comment="Creation source: quickflip, manual, bulk")
-
-    # Timeline
-    listed_at = Column(DateTime(timezone=True), nullable=True, comment="When listed on StockX")
-    delisted_at = Column(DateTime(timezone=True), nullable=True, comment="When removed from StockX")
-
-    # Relationships
-    product = relationship("Product", backref="stockx_listings")
-    orders = relationship("StockXOrder", back_populates="listing", cascade="all, delete-orphan")
-    pricing_history = relationship("PricingHistory", back_populates="listing", cascade="all, delete-orphan")
-
-    def to_dict(self):
-        """Convert to dictionary for API responses"""
-        return {
-            "id": str(self.id),
-            "product_id": str(self.product_id),
-            "stockx_listing_id": self.stockx_listing_id,
-            "stockx_product_id": self.stockx_product_id,
-            "variant_id": self.variant_id,
-            "ask_price": float(self.ask_price) if self.ask_price else None,
-            "original_ask_price": float(self.original_ask_price) if self.original_ask_price else None,
-            "buy_price": float(self.buy_price) if self.buy_price else None,
-            "expected_profit": float(self.expected_profit) if self.expected_profit else None,
-            "expected_margin": float(self.expected_margin) if self.expected_margin else None,
-            "status": self.status,
-            "is_active": self.is_active,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "current_lowest_ask": float(self.current_lowest_ask) if self.current_lowest_ask else None,
-            "current_highest_bid": float(self.current_highest_bid) if self.current_highest_bid else None,
-            "last_price_update": self.last_price_update.isoformat() if self.last_price_update else None,
-            "source_opportunity_id": str(self.source_opportunity_id) if self.source_opportunity_id else None,
-            "created_from": self.created_from,
-            "listed_at": self.listed_at.isoformat() if self.listed_at else None,
-            "delisted_at": self.delisted_at.isoformat() if self.delisted_at else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-
-class StockXOrder(Base, TimestampMixin):
-    """
-    StockX order/sale tracking for profit calculation
-    Represents completed sales from listings
-    """
-    __tablename__ = "stockx_orders"
-    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    listing_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("stockx_listings.id", "platforms")),
-        nullable=False
-    )
-    stockx_order_number = Column(String(100), unique=True, nullable=False, comment="StockX order number")
-
-    # Sale Details
-    sale_price = Column(Numeric(10, 2), nullable=False, comment="Final sale price")
-    buyer_premium = Column(Numeric(10, 2), nullable=True, comment="StockX buyer premium")
-    seller_fee = Column(Numeric(10, 2), nullable=True, comment="StockX seller fee")
-    processing_fee = Column(Numeric(10, 2), nullable=True, comment="StockX processing fee")
-    net_proceeds = Column(Numeric(10, 2), nullable=True, comment="Net amount received")
-
-    # Profit Calculation
-    original_buy_price = Column(Numeric(10, 2), nullable=True, comment="Original purchase price")
-    gross_profit = Column(Numeric(10, 2), nullable=True, comment="Sale price - buy price")
-    net_profit = Column(Numeric(10, 2), nullable=True, comment="Net proceeds - buy price")
-    actual_margin = Column(Numeric(5, 2), nullable=True, comment="Actual profit margin %")
-    roi = Column(Numeric(5, 2), nullable=True, comment="Return on investment %")
-
-    # Status & Tracking
-    order_status = Column(String(20), nullable=True, comment="Order status from StockX")
-    shipping_status = Column(String(20), nullable=True, comment="Shipping status")
-    tracking_number = Column(String(100), nullable=True, comment="Shipping tracking number")
-
-    # Timeline
-    sold_at = Column(DateTime(timezone=True), nullable=False, comment="When the sale occurred")
-    shipped_at = Column(DateTime(timezone=True), nullable=True, comment="When item was shipped")
-    completed_at = Column(DateTime(timezone=True), nullable=True, comment="When order was completed")
-
-    # Relationships
-    listing = relationship("StockXListing", back_populates="orders")
-
-    def to_dict(self):
-        """Convert to dictionary for API responses"""
-        return {
-            "id": str(self.id),
-            "listing_id": str(self.listing_id),
-            "stockx_order_number": self.stockx_order_number,
-            "sale_price": float(self.sale_price) if self.sale_price else None,
-            "buyer_premium": float(self.buyer_premium) if self.buyer_premium else None,
-            "seller_fee": float(self.seller_fee) if self.seller_fee else None,
-            "processing_fee": float(self.processing_fee) if self.processing_fee else None,
-            "net_proceeds": float(self.net_proceeds) if self.net_proceeds else None,
-            "original_buy_price": float(self.original_buy_price) if self.original_buy_price else None,
-            "gross_profit": float(self.gross_profit) if self.gross_profit else None,
-            "net_profit": float(self.net_profit) if self.net_profit else None,
-            "actual_margin": float(self.actual_margin) if self.actual_margin else None,
-            "roi": float(self.roi) if self.roi else None,
-            "order_status": self.order_status,
-            "shipping_status": self.shipping_status,
-            "tracking_number": self.tracking_number,
-            "sold_at": self.sold_at.isoformat() if self.sold_at else None,
-            "shipped_at": self.shipped_at.isoformat() if self.shipped_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
+# NOTE: StockXListing and StockXOrder were removed in v2.3.3
+# Replaced by unified multi-platform pattern in sales.listing and sales.order
+# with platform_specific_data JSONB column for unlimited marketplace support
 
 class PricingHistory(Base, TimestampMixin):
     """
     Track pricing changes for listings to analyze pricing strategy performance
     """
     __tablename__ = "pricing_history"
-    __table_args__ = {"schema": "platforms"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     listing_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("stockx_listings.id", "platforms")),
+        ForeignKey(get_schema_ref("listing.id", "sales")),
         nullable=False
     )
 
@@ -781,7 +655,7 @@ class PricingHistory(Base, TimestampMixin):
     market_highest_bid = Column(Numeric(10, 2), nullable=True, comment="Market highest bid at time of change")
 
     # Relationships
-    listing = relationship("StockXListing", back_populates="pricing_history")
+    listing = relationship("Listing", back_populates="pricing_history")
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -799,10 +673,10 @@ class PricingHistory(Base, TimestampMixin):
 
 # Supplier Account Management Models
 class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
-    __tablename__ = "supplier_accounts"
+    __tablename__ = "account"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id" if IS_POSTGRES else "suppliers.id"), nullable=False)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"), nullable=False)
 
     # Account credentials
     email = Column(String(150), nullable=False)
@@ -860,7 +734,7 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     # Combined table args: schema and constraints
     __table_args__ = (
         UniqueConstraint('supplier_id', 'email', name='uq_supplier_account_email'),
-        {"schema": "core"} if IS_POSTGRES else {}
+        {"schema": "supplier"} if IS_POSTGRES else {}
     )
 
     def get_encrypted_password(self) -> str:
@@ -937,13 +811,13 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
 
 
 class AccountPurchaseHistory(Base, TimestampMixin):
-    __tablename__ = "account_purchase_history"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __tablename__ = "purchase_history"
+    __table_args__ = {"schema": "supplier"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("core.supplier_accounts.id" if IS_POSTGRES else "supplier_accounts.id"), nullable=False)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey("core.suppliers.id" if IS_POSTGRES else "suppliers.id"), nullable=False)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.products.id" if IS_POSTGRES else "products.id"), nullable=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("supplier.account.id" if IS_POSTGRES else "account.id"), nullable=False)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("catalog.product.id" if IS_POSTGRES else "product.id"), nullable=True)
 
     # Purchase details
     order_reference = Column(String(100), nullable=True)
@@ -987,7 +861,7 @@ class SupplierPerformance(Base):
     __table_args__ = {"schema": "core"} if IS_POSTGRES else None
 
     id = Column(Integer, primary_key=True)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("suppliers.id", "core")), nullable=False)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=False)
     month_year = Column(DateTime(timezone=True), nullable=False)
     total_orders = Column(Integer, nullable=True, default=0)
     avg_delivery_time = Column(Numeric(4, 1), nullable=True)
@@ -1023,12 +897,12 @@ class MarketplaceData(Base, TimestampMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_item_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("inventory.id", "products")),
+        ForeignKey(get_schema_ref("stock.id", "inventory")),
         nullable=False
     )
     platform_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("platforms.id", "core")),
+        ForeignKey(get_schema_ref("marketplace.id", "platform")),
         nullable=False
     )
     marketplace_listing_id = Column(String(255), comment="External listing identifier")
