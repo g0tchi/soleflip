@@ -4,21 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Common Development Commands
 
+### Quick Start
+```bash
+make quick-start        # Complete development setup (install deps + DB setup)
+make dev                # Start development server with hot reload
+make check              # Run all quality checks (lint + type + test)
+```
+
 ### Testing
 ```bash
 # Run all tests
-pytest
+pytest                  # Direct command
+make test               # Via Makefile
 
 # Run specific test categories
 pytest -m unit           # Unit tests only
 pytest -m integration    # Integration tests only
 pytest -m api           # API endpoint tests only
+pytest -m slow          # Slow/performance tests only
+pytest -m database      # Database-dependent tests
 
-# Run tests with coverage
+# Alternative: use Makefile shortcuts
+make test-unit          # Unit tests
+make test-integration   # Integration tests
+make test-api          # API tests
+
+# Coverage reports
 pytest --cov=domains --cov=shared --cov-report=html --cov-report=term-missing
+make test-cov           # Same via Makefile (generates htmlcov/ directory)
 
-# Single test file
+# Single test file or function
 pytest tests/test_specific.py
+pytest tests/test_specific.py::test_function_name
+
+# Watch mode (re-run on file changes)
+make test-watch
 ```
 
 ### Code Quality & Linting
@@ -62,41 +82,79 @@ make db-reset                   # Reset database (destroys all data)
 make dev                        # With hot reload and debug logging
 uvicorn main:app --reload --host 127.0.0.1 --port 8000 --log-level debug
 
+# Development with file watcher (auto-restart on changes)
+make dev-watch                  # Watches domains/, shared/, and root directory
+
 # Production server
 make run                        # Production settings
 uvicorn main:app --host 127.0.0.1 --port 8000
+
+# View API documentation
+make serve-docs                 # Starts server and displays doc URLs
+# Then visit: http://localhost:8000/docs (Swagger) or http://localhost:8000/redoc (ReDoc)
 ```
 
 ### Docker Operations
 ```bash
 # Docker workflow
 docker-compose up --build -d    # Start all services (API, DB, Metabase, n8n)
+make docker-up                  # Alternative via Makefile
 docker-compose down             # Stop services
+make docker-down                # Alternative via Makefile
 docker-compose logs -f          # View logs
+make docker-logs                # Alternative via Makefile
+
+# Build only the API image
+make docker-build
 
 # Individual services access
 # API: http://localhost:8000
 # API Docs: http://localhost:8000/docs
 # Metabase: http://localhost:6400
 # n8n: http://localhost:5678
-# Adminer: http://localhost:8220
+# Adminer (DB GUI): http://localhost:8220
+```
+
+### Utilities & Monitoring
+```bash
+# System monitoring
+make health                     # Check application health (/health endpoint)
+make status                     # Check import status
+make monitor                    # Monitor system resources (CPU, memory, DB connections)
+make logs                       # Show application logs (tail -f)
+
+# Maintenance
+make clean                      # Remove temp files (.pyc, __pycache__, caches)
+make backup                     # Create timestamped database backup
+make restore BACKUP_FILE=file   # Restore database from backup file
+
+# Security & performance
+make security-check             # Run pip-audit and bandit security scans
+make benchmark                  # Run performance benchmarks
+make env-check                  # Verify environment variables and dependencies
+
+# Complete checks
+make full-check                 # Clean + install-dev + check + test
+make deploy-check               # Pre-deployment validation (clean + test + security)
 ```
 
 ## Architecture Overview
 
 ### Domain-Driven Design Structure
-This codebase follows Domain-Driven Design (DDD) principles with clean separation of concerns (**v2.2.1 OPTIMIZED**):
+This codebase follows Domain-Driven Design (DDD) principles with clean separation of concerns (**v2.3.1 CURRENT**):
 
-- **domains/**: Business logic organized by domain
-  - `integration/`: StockX API integration, CSV imports, data processing
-  - `inventory/`: Product inventory management, dead stock analysis
-  - `pricing/`: Smart pricing engine, auto-listing service
-  - `products/`: Product catalog, brand intelligence system
-  - `analytics/`: Forecasting, KPI calculations
-  - `orders/`: Order management and tracking (replaces legacy selling domain)
-  - `dashboard/`: Dashboard data aggregation
-  - `auth/`: Authentication and authorization
+- **domains/**: Business logic organized by domain (each has `api/`, `services/`, `repositories/`, `events/`)
+  - `integration/`: StockX API integration, CSV imports, data processing (webhooks, Budibase, Metabase)
+  - `inventory/`: Product inventory management, dead stock analysis, predictive insights
+  - `pricing/`: Smart pricing engine, auto-listing service, condition-based pricing
+  - `products/`: Product catalog, brand intelligence system, brand extraction
+  - `analytics/`: Forecasting (ARIMA), KPI calculations, seasonal adjustments
+  - `orders/`: **Multi-platform order management** (StockX, eBay, GOAT/Alias unified table)
+  - `dashboard/`: Dashboard data aggregation and metrics
+  - `auth/`: Authentication and authorization (JWT, token blacklist)
   - `suppliers/`: Supplier account management
+  - `admin/`: Admin operations (security-restricted, not in production coverage)
+  - `sales/`: Legacy sales domain (mostly replaced by orders/)
 
 - **shared/**: Cross-cutting concerns and utilities
   - `database/`: Connection management, models, sessions
@@ -123,11 +181,22 @@ Business logic resides in service classes (e.g., `domains/pricing/services/smart
 FastAPI's dependency injection is used extensively. Common dependencies are in `shared/api/dependencies.py`.
 
 ### Database Schema
-- **PostgreSQL** with multi-schema architecture for data organization
-- **Alembic** for schema migrations with detailed timestamps
-- **SQLAlchemy 2.0** with async support and proper type hints
-- **Field encryption** for sensitive data using Fernet keys
-- **Multi-Platform Orders** (**v2.2.2 NEW**) - Unified `transactions.orders` table supports all marketplace platforms (StockX, eBay, GOAT, etc.) - see `context/orders-multi-platform-migration.md`
+- **PostgreSQL** with multi-schema architecture for data organization (schemas: `transactions`, `inventory`, `products`, `analytics`)
+- **Alembic** for schema migrations with detailed timestamps (auto-applied on startup)
+- **SQLAlchemy 2.0** with async support and proper type hints (`async with` pattern)
+- **Field encryption** for sensitive data using Fernet keys (`EncryptedFieldMixin`)
+- **Multi-Platform Orders** (**v2.3.1**) - Unified `transactions.orders` table supports all marketplace platforms (StockX, eBay, GOAT, etc.)
+- **Connection pooling** optimized for NAS/network environments (pool_size=15, max_overflow=20, pool_pre_ping=True)
+
+### Key Database Models (shared/database/models.py)
+- `Product` - Product catalog with brand, category, size information
+- `InventoryItem` - Stock/inventory tracking with location and condition
+- `Transaction` (orders table) - **Multi-platform unified orders** from StockX, eBay, GOAT, etc.
+- `Brand` - Brand intelligence data (founders, sustainability, collaborations)
+- `User` - User accounts with encrypted credentials
+- `Supplier` - Supplier information and account management
+- `Price` - Historical pricing data for analytics
+- All models use UUID primary keys and include `created_at`/`updated_at` timestamps
 
 ### Performance Considerations (**v2.2.1 ENHANCED**)
 - **Optimized Connection Pooling** - Enhanced async SQLAlchemy engine with 15% faster startup
@@ -157,8 +226,17 @@ STOCKX_CLIENT_SECRET=your_client_secret
 
 ### Development Setup
 1. Copy `.env.example` to `.env` and configure variables
-2. Run `make quick-start` for complete development setup
-3. Use `make dev` to start development server
+2. Generate encryption key: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+3. Run `make quick-start` for complete development setup (installs deps + creates DB)
+4. Use `make dev` to start development server
+5. Visit http://localhost:8000/docs for interactive API documentation
+
+### Optional ML/Analytics Dependencies
+For forecasting and advanced analytics features, install ML dependencies:
+```bash
+pip install -e ".[ml]"  # Installs scikit-learn, statsmodels, scipy
+```
+These enable ARIMA forecasting, gradient boosting, and seasonal adjustment features in the analytics domain.
 
 ## Code Style Guidelines
 
@@ -242,7 +320,181 @@ STOCKX_CLIENT_SECRET=your_client_secret
 - APM integration ready (`shared/monitoring/apm.py`)
 
 ### Database Performance
-- Connection pooling optimized for async workloads
+- Connection pooling optimized for async workloads (NAS-aware settings)
 - Query optimization utilities in `shared/performance/`
 - Bulk operations for large datasets
-- Streaming responses to prevent memory issues
+- Streaming responses to prevent memory issues (`shared/streaming/`)
+
+## Important Development Patterns
+
+### Adding a New Feature to a Domain
+1. **Create/update API endpoint** in `domains/{domain}/api/router.py`
+   - Define route with proper HTTP method and path
+   - Use Pydantic models for request/response validation
+   - Inject dependencies (DB session, services)
+
+2. **Implement service logic** in `domains/{domain}/services/{service_name}_service.py`
+   - Keep business logic in service layer, not in routes
+   - Use repository pattern for data access
+   - Handle errors with custom exceptions from `shared/error_handling/exceptions.py`
+
+3. **Create repository methods** in `domains/{domain}/repositories/{repository_name}_repository.py` if needed
+   - Inherit from `BaseRepository` for common CRUD operations
+   - Use async/await for all database operations
+   - Example: `async def get_by_id(self, id: UUID) -> Optional[Model]`
+
+4. **Write tests** in `tests/unit/` and `tests/integration/`
+   - Unit tests for services and repositories (isolated, mocked dependencies)
+   - Integration tests for API endpoints (full request/response cycle)
+   - Mark tests with appropriate markers: `@pytest.mark.unit`, `@pytest.mark.integration`
+
+5. **Run quality checks** before committing
+   ```bash
+   make format      # Auto-format code
+   make check       # Lint, type-check, and test
+   ```
+
+### Working with Database Migrations
+```bash
+# After modifying models in shared/database/models.py:
+make db-migrate  # Creates migration (will prompt for description)
+
+# Review the generated migration in migrations/versions/
+# Edit if needed (Alembic auto-generate isn't always perfect)
+
+# Test the migration
+make db-upgrade  # Apply migration
+make db-downgrade  # Rollback if needed
+
+# Run tests to verify
+make test
+```
+
+### Using Structured Logging
+```python
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+# Log with context
+logger.info(
+    "event_description",
+    user_id=user.id,
+    product_id=product.id,
+    duration_ms=45.2
+)
+
+# Error logging with exception
+try:
+    await risky_operation()
+except Exception as e:
+    logger.error("operation_failed", error=str(e), exc_info=True)
+```
+
+### Repository Pattern Example
+```python
+from shared.repositories.base_repository import BaseRepository
+from shared.database.models import Product
+
+class ProductRepository(BaseRepository[Product]):
+    def __init__(self, session: AsyncSession):
+        super().__init__(Product, session)
+
+    async def find_by_brand(self, brand: str) -> list[Product]:
+        stmt = select(Product).where(Product.brand == brand)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+```
+
+### Error Handling Pattern
+```python
+from shared.error_handling.exceptions import (
+    ResourceNotFoundException,
+    ValidationException,
+    BusinessRuleViolation
+)
+from shared.error_handling.error_codes import ErrorCode
+
+# In service layer
+async def get_product(self, product_id: UUID) -> Product:
+    product = await self.repository.get_by_id(product_id)
+    if not product:
+        raise ResourceNotFoundException(
+            message=f"Product {product_id} not found",
+            error_code=ErrorCode.RESOURCE_NOT_FOUND,
+            details={"product_id": str(product_id)}
+        )
+    return product
+```
+
+## Troubleshooting
+
+### Database Connection Issues
+```bash
+# Check PostgreSQL is running
+pg_isready
+
+# Verify database exists
+psql -l | grep soleflip
+
+# Test connection with environment
+make env-check
+
+# Reset database if corrupted (WARNING: destroys data)
+make db-reset
+```
+
+### Import Errors or Module Not Found
+```bash
+# Reinstall dependencies
+make install-dev
+
+# Clear Python caches
+make clean
+
+# Verify Python version (requires 3.11+)
+python --version
+```
+
+### Tests Failing After DB Schema Changes
+```bash
+# Ensure migrations are applied
+make db-upgrade
+
+# Reset test database
+ENVIRONMENT=testing make db-reset
+
+# Run tests with verbose output
+pytest -vv
+```
+
+### Linting/Formatting Errors
+```bash
+# Auto-fix most issues
+make format
+
+# Check what would be changed (without modifying)
+black --check .
+isort --check-only .
+ruff check .
+
+# View specific mypy errors
+mypy domains/ shared/ --show-error-codes
+```
+
+### Docker Services Not Starting
+```bash
+# View container logs
+make docker-logs
+
+# Restart services
+make docker-down
+make docker-up
+
+# Rebuild from scratch
+docker-compose down -v  # Remove volumes
+docker-compose up --build -d
+```
+
+Always use IDE diagnostics to validate code after implementation
+

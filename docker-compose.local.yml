@@ -1,0 +1,207 @@
+# Soleflip Local Development Stack
+# Optimized for local Linux development
+# PostgreSQL 17, Redis, n8n, Metabase, Adminer
+
+services:
+  # PostgreSQL 17 - Shared database for all services
+  postgres:
+    image: postgres:17-alpine
+    container_name: soleflip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soleflip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SoleFlip2025SecureDB!}
+      POSTGRES_DB: soleflip
+      # Performance tuning for local development
+      POSTGRES_MAX_CONNECTIONS: 100
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - soleflip-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soleflip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Caching & Queue Management
+  redis:
+    image: redis:7-alpine
+    container_name: soleflip-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "${REDIS_PASSWORD:-redis_dev_password}"
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - soleflip-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-redis_dev_password}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Soleflip API - FastAPI Application
+  soleflip-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: soleflip-api
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://soleflip:${POSTGRES_PASSWORD:-SoleFlip2025SecureDB!}@postgres:5432/soleflip
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379/0
+
+      # Security
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+
+      # Environment
+      ENVIRONMENT: development
+
+      # Optional integrations
+      STOCKX_CLIENT_ID: ${STOCKX_CLIENT_ID:-}
+      STOCKX_CLIENT_SECRET: ${STOCKX_CLIENT_SECRET:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - soleflip_logs:/app/logs
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Metabase - Business Intelligence
+  metabase:
+    image: metabase/metabase:latest
+    container_name: soleflip-metabase
+    restart: unless-stopped
+    environment:
+      # Metabase Application Database (PostgreSQL)
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: soleflip
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-SoleFlip2025SecureDB!}
+      MB_DB_HOST: postgres
+
+      # Java Options optimized for local dev
+      JAVA_OPTS: "-Xmx1g -Xms512m -XX:+UseG1GC"
+
+      # Timezone
+      MB_TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+    ports:
+      - "6400:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # n8n - Workflow Automation
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: soleflip-n8n
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: soleflip
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-SoleFlip2025SecureDB!}
+      DB_POSTGRESDB_SCHEMA: public
+
+      # n8n Configuration
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+
+      # Execution settings
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
+
+      # Performance tuning
+      N8N_METRICS: true
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_HEALTH_CHECK_ACTIVE: true
+
+      # Security
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-generate_with_openssl_rand_hex_32}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Adminer - Lightweight Database Management UI
+  adminer:
+    image: adminer:latest
+    container_name: soleflip-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: nette
+    ports:
+      - "8220:8080"
+    networks:
+      - soleflip-network
+    depends_on:
+      - postgres
+
+networks:
+  soleflip-network:
+    driver: bridge
+    name: soleflip-network
+
+volumes:
+  postgres_data:
+    driver: local
+    name: soleflip-postgres-data
+  redis_data:
+    driver: local
+    name: soleflip-redis-data
+  n8n_data:
+    driver: local
+    name: soleflip-n8n-data
+  metabase_data:
+    driver: local
+    name: soleflip-metabase-data
+  soleflip_logs:
+    driver: local
+    name: soleflip-api-logs

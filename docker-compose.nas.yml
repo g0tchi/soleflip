@@ -42,7 +42,7 @@ services:
   # Soleflip API - FastAPI Application
   soleflip-api:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
       target: production
     container_name: soleflip-api
