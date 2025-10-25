@@ -1,0 +1,390 @@
+"""
+Order Import Service
+Handles importing orders from external platforms (StockX, eBay, GOAT) into the database
+"""
+
+from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+import structlog
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared.database.models import Order, InventoryItem, Product, Size, Category, Brand
+from domains.products.services.brand_service import BrandExtractorService
+from domains.products.services.category_service import CategoryDetectionService
+
+logger = structlog.get_logger(__name__)
+
+
+class OrderImportService:
+    """Service for importing orders from external platforms into the database"""
+
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
+        # Initialize shared services for brand/category detection
+        self.brand_service = BrandExtractorService(db_session)
+        self.category_service = CategoryDetectionService(db_session)
+
+    async def import_stockx_orders(
+        self, orders_data: List[Dict[str, Any]], batch_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Import StockX orders into the database with upsert logic.
+
+        Args:
+            orders_data: List of order dictionaries from StockX API
+            batch_id: Optional batch ID for tracking imports
+
+        Returns:
+            Dictionary with import statistics
+        """
+        logger.info(
+            "Starting StockX order import",
+            order_count=len(orders_data),
+            batch_id=batch_id,
+        )
+
+        stats = {
+            "total_orders": len(orders_data),
+            "created": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": [],
+        }
+
+        for order_data in orders_data:
+            try:
+                result = await self._import_single_stockx_order(order_data)
+                if result == "created":
+                    stats["created"] += 1
+                elif result == "updated":
+                    stats["updated"] += 1
+                else:
+                    stats["skipped"] += 1
+
+            except Exception as e:
+                order_number = order_data.get("orderNumber", "unknown")
+                error_msg = f"Failed to import order {order_number}: {str(e)}"
+                stats["errors"].append(error_msg)
+                logger.error(
+                    "Order import failed",
+                    order_number=order_number,
+                    error=str(e),
+                    exc_info=True,
+                )
+
+        await self.db_session.commit()
+
+        logger.info(
+            "StockX order import completed",
+            batch_id=batch_id,
+            **stats,
+        )
+
+        return stats
+
+    async def _import_single_stockx_order(
+        self, order_data: Dict[str, Any]
+    ) -> str:
+        """
+        Import or update a single StockX order.
+
+        Args:
+            order_data: Order dictionary from StockX API
+
+        Returns:
+            "created", "updated", or "skipped"
+        """
+        order_number = order_data.get("orderNumber")
+        if not order_number:
+            logger.warning("Order missing orderNumber field", order_data=order_data)
+            return "skipped"
+
+        # Parse order data from StockX API response structure
+        amount_data = order_data.get("amount", {})
+        amount_value = amount_data.get("amount") if isinstance(amount_data, dict) else None
+        currency_code = amount_data.get("currency") if isinstance(amount_data, dict) else None
+
+        # Parse dates
+        created_at = self._parse_datetime(order_data.get("createdAt"))
+        updated_at = self._parse_datetime(order_data.get("updatedAt"))
+
+        # Try to match with inventory item (optional for now)
+        inventory_item_id = await self._find_matching_inventory_item(order_data)
+
+        # Prepare order record
+        order_values = {
+            "stockx_order_number": order_number,
+            "status": order_data.get("status", "UNKNOWN"),
+            "amount": Decimal(str(amount_value)) if amount_value is not None else None,
+            "currency_code": currency_code,
+            "inventory_type": order_data.get("inventoryType"),
+            "stockx_created_at": created_at,
+            "last_stockx_updated_at": updated_at,
+            "raw_data": order_data,  # Store complete API response
+            "platform_specific_data": {
+                "product_id": order_data.get("productId"),
+                "variant_id": order_data.get("variantId"),
+                "shipment_display_id": order_data.get("shipmentDisplayId"),
+            },
+            "updated_at": datetime.utcnow(),
+        }
+
+        # Only set inventory_item_id if we found a match
+        if inventory_item_id:
+            order_values["inventory_item_id"] = inventory_item_id
+
+        # Check if order already exists
+        stmt = select(Order).where(Order.stockx_order_number == order_number)
+        result = await self.db_session.execute(stmt)
+        existing_order = result.scalar_one_or_none()
+
+        if existing_order:
+            # Update existing order
+            for key, value in order_values.items():
+                if key != "stockx_order_number":  # Don't update the unique key
+                    setattr(existing_order, key, value)
+
+            logger.debug(
+                "Updated existing order",
+                order_number=order_number,
+                status=order_data.get("status"),
+            )
+            return "updated"
+        else:
+            # Create new order - inventory_item_id is required by schema
+            # For now, we create a placeholder inventory item or find one
+            if not inventory_item_id:
+                # Try to find or create a placeholder inventory item
+                inventory_item_id = await self._get_or_create_placeholder_inventory_item(
+                    order_data
+                )
+
+            order_values["inventory_item_id"] = inventory_item_id
+
+            # Create new order
+            new_order = Order(**order_values)
+            self.db_session.add(new_order)
+
+            logger.debug(
+                "Created new order",
+                order_number=order_number,
+                status=order_data.get("status"),
+            )
+            return "created"
+
+    async def _find_matching_inventory_item(
+        self, order_data: Dict[str, Any]
+    ) -> Optional[UUID]:
+        """
+        Try to find a matching inventory item for the order.
+
+        In the future, this could match based on:
+        - Product ID + variant ID
+        - SKU
+        - Size and product details
+
+        For now, returns None and we'll need to create placeholder items.
+        """
+        # TODO: Implement inventory matching logic
+        # This would require product catalog to be populated first
+        return None
+
+    async def _get_or_create_placeholder_inventory_item(
+        self, order_data: Dict[str, Any]
+    ) -> UUID:
+        """
+        Get or create a placeholder inventory item for orders without matched inventory.
+
+        Uses Gibson-optimized schema:
+        - Extracts nested product/variant data from StockX API
+        - Detects and creates Brand from product name
+        - Detects Category from product type
+        - Creates InventoryItem with proper foreign keys
+        """
+        order_number = order_data.get("orderNumber", "unknown")
+
+        # Extract nested product data from StockX API response
+        product_data = order_data.get("product", {})
+        variant_data = order_data.get("variant", {})
+
+        stockx_product_id = product_data.get("productId")
+        product_name = product_data.get("productName", "Unknown Product")
+        variant_id = variant_data.get("variantId")
+        variant_value = variant_data.get("variantValue")
+
+        # Extract size from variant data
+        size_value = variant_value or "Unknown"
+
+        # Check if placeholder already exists using external_ids
+        stmt = select(InventoryItem).where(
+            InventoryItem.external_ids.contains({"stockx_order_number": order_number})
+        )
+        result = await self.db_session.execute(stmt)
+        existing_item = result.scalar_one_or_none()
+
+        if existing_item:
+            logger.debug("Found existing placeholder", order_number=order_number)
+            return existing_item.id
+
+        # Get or create Product with brand and category detection
+        product_id = await self._get_or_create_product(
+            stockx_product_id=stockx_product_id,
+            product_name=product_name,
+        )
+
+        # Get or create Size
+        size_id = await self._get_or_create_size(
+            size_value=size_value or "Unknown",
+            region="US"  # Default to US sizing for StockX
+        )
+
+        # Create new placeholder inventory item with Gibson schema fields
+        placeholder = InventoryItem(
+            product_id=product_id,         # REQUIRED FK
+            size_id=size_id,              # REQUIRED FK
+            quantity=1,                    # REQUIRED
+            status="sold",                 # REQUIRED
+            location="StockX",
+            notes=f"Auto-created for StockX order {order_number}",
+            external_ids={                 # JSONB field for tracking
+                "stockx_order_number": order_number,
+                "stockx_product_id": stockx_product_id,
+                "stockx_variant_id": variant_id,
+                "is_placeholder": True,
+            }
+        )
+        self.db_session.add(placeholder)
+        await self.db_session.flush()  # Get the ID without committing
+
+        logger.debug(
+            "Created placeholder inventory item",
+            order_number=order_number,
+            inventory_item_id=str(placeholder.id),
+            product_id=str(product_id),
+            size_id=str(size_id),
+        )
+
+        return placeholder.id
+
+    async def _get_or_create_product(
+        self, stockx_product_id: Optional[str], product_name: str
+    ) -> UUID:
+        """
+        Find or create a Product with intelligent Brand and Category detection.
+
+        Uses shared services:
+        - BrandExtractorService: DB-driven pattern matching + intelligent fallback
+        - CategoryDetectionService: Keyword-based category classification
+
+        Gibson schema requirements:
+        - sku (VARCHAR, REQUIRED, UNIQUE)
+        - category_id (UUID, REQUIRED, FK)
+        - name (VARCHAR, REQUIRED)
+        - brand_id (UUID, OPTIONAL, FK)
+        """
+        # 1. Try to find existing product by StockX product ID
+        if stockx_product_id:
+            stmt = select(Product).where(Product.stockx_product_id == stockx_product_id)
+            result = await self.db_session.execute(stmt)
+            product = result.scalar_one_or_none()
+
+            if product:
+                logger.debug("Found existing product", stockx_product_id=stockx_product_id)
+                return product.id
+
+        # 2. Extract brand using shared service (DB patterns + intelligent fallback)
+        brand = await self.brand_service.extract_brand_from_name(
+            product_name, create_if_not_found=True
+        )
+
+        # 3. Detect category using shared service (keyword-based classification)
+        category = await self.category_service.detect_category_from_name(
+            product_name, create_if_not_found=True
+        )
+
+        # 4. Generate unique SKU
+        sku = f"STOCKX-{stockx_product_id}" if stockx_product_id else f"STOCKX-UNKNOWN-{product_name[:20]}"
+
+        # 5. Check if SKU already exists (SKU is UNIQUE)
+        stmt = select(Product).where(Product.sku == sku)
+        result = await self.db_session.execute(stmt)
+        existing_product = result.scalar_one_or_none()
+
+        if existing_product:
+            logger.debug("Found product by SKU", sku=sku)
+            return existing_product.id
+
+        # 6. Create new product with detected brand and category
+        product = Product(
+            sku=sku,
+            category_id=category.id if category else None,  # Category should always exist
+            brand_id=brand.id if brand else None,            # Brand is optional
+            name=product_name,
+            stockx_product_id=stockx_product_id,
+        )
+        self.db_session.add(product)
+        await self.db_session.flush()
+
+        logger.info(
+            "Created new product with brand/category",
+            product_id=str(product.id),
+            sku=sku,
+            name=product_name,
+            brand=brand.name if brand else "Unknown",
+            category=category.name if category else "Unknown"
+        )
+        return product.id
+
+    async def _get_or_create_size(
+        self, size_value: str, region: str = "US"
+    ) -> UUID:
+        """
+        Find or create a Size entry.
+
+        Gibson schema requirements:
+        - value (VARCHAR, REQUIRED)
+        - region (VARCHAR, REQUIRED)
+        - category_id (UUID, optional)
+        """
+        # Try to find existing size
+        stmt = select(Size).where(
+            Size.value == size_value,
+            Size.region == region
+        )
+        result = await self.db_session.execute(stmt)
+        size = result.scalar_one_or_none()
+
+        if size:
+            logger.debug("Found existing size", size_value=size_value, region=region)
+            return size.id
+
+        # Create new size
+        size = Size(
+            value=size_value,
+            region=region,
+            category_id=None  # Optional, can be set later
+        )
+        self.db_session.add(size)
+        await self.db_session.flush()
+
+        logger.debug("Created new size", size_id=str(size.id), value=size_value, region=region)
+        return size.id
+
+
+    @staticmethod
+    def _parse_datetime(date_string: Optional[str]) -> Optional[datetime]:
+        """Parse ISO format datetime string from StockX API"""
+        if not date_string:
+            return None
+
+        try:
+            # StockX uses ISO 8601 format with timezone
+            return datetime.fromisoformat(date_string.replace("Z", "+00:00"))
+        except (ValueError, AttributeError) as e:
+            logger.warning("Failed to parse datetime", date_string=date_string, error=str(e))
+            return None
