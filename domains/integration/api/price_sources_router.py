@@ -120,8 +120,8 @@ async def get_prices_by_source(
             p.sku as product_sku,
             b.name as brand_name
         FROM integration.price_sources ps
-        JOIN products.products p ON ps.product_id = p.id
-        LEFT JOIN core.brands b ON p.brand_id = b.id
+        JOIN catalog.product p ON ps.product_id = p.id
+        LEFT JOIN catalog.brand b ON p.brand_id = b.id
         WHERE ps.source_type = :source_type
     """
 
@@ -204,7 +204,7 @@ async def get_product_prices(
             ps.last_updated,
             s.name as supplier_name
         FROM integration.price_sources ps
-        JOIN products.products p ON ps.product_id = p.id
+        JOIN catalog.product p ON ps.product_id = p.id
         LEFT JOIN core.suppliers s ON ps.supplier_id = s.id
         WHERE p.ean = :ean
         ORDER BY ps.price_type, ps.price_cents ASC
@@ -300,7 +300,7 @@ async def get_price_history(
             p.ean as product_ean
         FROM integration.price_history ph
         JOIN integration.price_sources ps ON ph.price_source_id = ps.id
-        JOIN products.products p ON ps.product_id = p.id
+        JOIN catalog.product p ON ps.product_id = p.id
         WHERE ph.price_source_id = CAST(:price_source_id AS uuid)
         ORDER BY ph.recorded_at DESC
         LIMIT :limit

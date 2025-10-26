@@ -179,8 +179,8 @@ async def enrich_product_data(
                     products_query = text(
                         """
                         SELECT p.id, p.name, p.sku, b.name as brand_name
-                        FROM products.products p
-                        LEFT JOIN core.brands b ON p.brand_id = b.id
+                        FROM catalog.product p
+                        LEFT JOIN catalog.brand b ON p.brand_id = b.id
                         WHERE p.id = ANY(:product_ids)
                     """
                     )
@@ -190,8 +190,8 @@ async def enrich_product_data(
                     products_query = text(
                         """
                         SELECT p.id, p.name, p.sku, b.name as brand_name
-                        FROM products.products p  
-                        LEFT JOIN core.brands b ON p.brand_id = b.id
+                        FROM catalog.product p  
+                        LEFT JOIN catalog.brand b ON p.brand_id = b.id
                         WHERE p.sku IS NULL OR p.sku = '' 
                         OR p.description IS NULL 
                         OR p.retail_price IS NULL
@@ -223,7 +223,7 @@ async def enrich_product_data(
                             # Update product with enriched data
                             update_query = text(
                                 """
-                                UPDATE products.products 
+                                UPDATE catalog.product 
                                 SET 
                                     sku = COALESCE(sku, :sku),
                                     description = COALESCE(description, :description),
@@ -307,7 +307,7 @@ async def get_enrichment_status(
                 COUNT(CASE WHEN description IS NULL OR description = '' THEN 1 END) as products_needing_description,
                 COUNT(CASE WHEN retail_price IS NULL THEN 1 END) as products_needing_retail_price,
                 COUNT(CASE WHEN release_date IS NULL THEN 1 END) as products_needing_release_date
-            FROM products.products
+            FROM catalog.product
         """
         )
 
@@ -592,13 +592,13 @@ async def get_product_stats(
         # Get sales analytics from transactions
         sales_query = text(
             """
-            SELECT 
+            SELECT
                 COUNT(*) as total_transactions,
-                SUM(sale_price) as total_revenue,
-                AVG(sale_price) as avg_sale_price,
+                SUM(amount) as total_revenue,
+                AVG(amount) as avg_sale_price,
                 SUM(net_profit) as total_profit
-            FROM sales.transactions 
-            WHERE sale_price IS NOT NULL
+            FROM sales.order
+            WHERE amount IS NOT NULL
         """
         )
         sales_result = await db.execute(sales_query)
@@ -611,13 +611,13 @@ async def get_product_stats(
                 b.name as brand_name,
                 COUNT(t.id) as total_items,
                 COUNT(DISTINCT p.id) as total_products,
-                AVG(t.sale_price) as avg_price,
-                SUM(t.sale_price) as total_value
-            FROM sales.transactions t
-            JOIN products.inventory i ON t.inventory_id = i.id
-            JOIN products.products p ON i.product_id = p.id
-            LEFT JOIN core.brands b ON p.brand_id = b.id
-            WHERE t.sale_price IS NOT NULL AND b.name IS NOT NULL
+                AVG(t.amount) as avg_price,
+                SUM(t.amount) as total_value
+            FROM sales.order t
+            JOIN inventory.stock i ON t.inventory_item_id = i.id
+            JOIN catalog.product p ON i.product_id = p.id
+            LEFT JOIN catalog.brand b ON p.brand_id = b.id
+            WHERE t.amount IS NOT NULL AND b.name IS NOT NULL
             GROUP BY b.name
             ORDER BY total_value DESC
             LIMIT 10
@@ -641,12 +641,12 @@ async def get_product_stats(
             SELECT 
                 c.name as category_name,
                 COUNT(t.id) as item_count,
-                AVG(t.sale_price) as avg_price
-            FROM sales.transactions t
-            JOIN products.inventory i ON t.inventory_id = i.id
-            JOIN products.products p ON i.product_id = p.id
-            LEFT JOIN core.categories c ON p.category_id = c.id
-            WHERE t.sale_price IS NOT NULL AND c.name IS NOT NULL
+                AVG(t.amount) as avg_price
+            FROM sales.order t
+            JOIN inventory.stock i ON t.inventory_item_id = i.id
+            JOIN catalog.product p ON i.product_id = p.id
+            LEFT JOIN catalog.category c ON p.category_id = c.id
+            WHERE t.amount IS NOT NULL AND c.name IS NOT NULL
             GROUP BY c.name
             ORDER BY item_count DESC
             LIMIT 5

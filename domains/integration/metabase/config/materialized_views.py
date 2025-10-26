@@ -126,9 +126,9 @@ class MetabaseViewConfig:
                 MAX(o.sold_at) - MIN(o.sold_at) AS sales_duration
 
             FROM transactions.orders o
-            JOIN products.inventory i ON o.inventory_item_id = i.id
-            JOIN products.products prod ON i.product_id = prod.id
-            LEFT JOIN core.brands b ON prod.brand_id = b.id
+            JOIN inventory.stock i ON o.inventory_item_id = i.id
+            JOIN catalog.product prod ON i.product_id = prod.id
+            LEFT JOIN catalog.brand b ON prod.brand_id = b.id
             LEFT JOIN products.categories cat ON prod.category_id = cat.id
             WHERE o.status = 'completed'
             GROUP BY
@@ -171,10 +171,10 @@ class MetabaseViewConfig:
                     MIN(o.sold_at) AS first_sale,
                     MAX(o.sold_at) AS last_sale
 
-                FROM core.brands b
-                LEFT JOIN core.brands pb ON b.parent_brand_id = pb.id
-                JOIN products.products prod ON prod.brand_id = b.id
-                JOIN products.inventory i ON i.product_id = prod.id
+                FROM catalog.brand b
+                LEFT JOIN catalog.brand pb ON b.parent_brand_id = pb.id
+                JOIN catalog.product prod ON prod.brand_id = b.id
+                JOIN inventory.stock i ON i.product_id = prod.id
                 JOIN transactions.orders o ON o.inventory_item_id = i.id
                 WHERE o.status = 'completed'
                 GROUP BY b.id, b.name, b.segment, b.price_tier,
@@ -330,9 +330,9 @@ class MetabaseViewConfig:
                 i.created_at,
                 i.updated_at
 
-            FROM products.inventory i
-            JOIN products.products prod ON i.product_id = prod.id
-            LEFT JOIN core.brands b ON prod.brand_id = b.id
+            FROM inventory.stock i
+            JOIN catalog.product prod ON i.product_id = prod.id
+            LEFT JOIN catalog.brand b ON prod.brand_id = b.id
             LEFT JOIN products.categories cat ON prod.category_id = cat.id
             LEFT JOIN core.suppliers s ON i.supplier_id = s.id
             LEFT JOIN inventory_sales sales ON i.id = sales.inventory_item_id
@@ -385,9 +385,9 @@ class MetabaseViewConfig:
 
             FROM transactions.orders o
             JOIN core.platforms p ON o.platform_id = p.id
-            JOIN products.inventory i ON o.inventory_item_id = i.id
-            JOIN products.products prod ON i.product_id = prod.id
-            LEFT JOIN core.brands b ON prod.brand_id = b.id
+            JOIN inventory.stock i ON o.inventory_item_id = i.id
+            JOIN catalog.product prod ON i.product_id = prod.id
+            LEFT JOIN catalog.brand b ON prod.brand_id = b.id
             WHERE o.status = 'completed'
               AND o.buyer_destination_country IS NOT NULL
             GROUP BY o.buyer_destination_country, o.buyer_destination_city
@@ -442,9 +442,9 @@ class MetabaseViewConfig:
                 MAX(i.purchase_date) AS last_purchase
 
             FROM core.suppliers s
-            JOIN products.inventory i ON i.supplier_id = s.id
-            JOIN products.products prod ON i.product_id = prod.id
-            LEFT JOIN core.brands b ON prod.brand_id = b.id
+            JOIN inventory.stock i ON i.supplier_id = s.id
+            JOIN catalog.product prod ON i.product_id = prod.id
+            LEFT JOIN catalog.brand b ON prod.brand_id = b.id
             LEFT JOIN transactions.orders o ON o.inventory_item_id = i.id AND o.status = 'completed'
             GROUP BY s.id, s.business_name, s.contact_email, s.phone, s.country, s.rating
         """,

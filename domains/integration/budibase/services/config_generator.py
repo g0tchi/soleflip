@@ -208,7 +208,7 @@ class BudibaseConfigGenerator:
             },
             queries={
                 "getProducts": {
-                    "sql": "SELECT id, name, brand, sku FROM products.products LIMIT 100"
+                    "sql": "SELECT id, name, brand, sku FROM catalog.product LIMIT 100"
                 },
                 "getOrdersCount": {
                     "sql": "SELECT COUNT(*) as total_orders FROM orders.transactions WHERE created_at >= NOW() - INTERVAL '30 days'"

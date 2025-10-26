@@ -250,7 +250,7 @@ class UnifiedPriceImportService:
     async def _get_product_id_by_ean(self, ean: str) -> Optional[UUID]:
         """Get product ID by EAN"""
         result = await self.session.execute(
-            text("SELECT id FROM products.products WHERE ean = :ean"), {"ean": ean}
+            text("SELECT id FROM catalog.product WHERE ean = :ean"), {"ean": ean}
         )
         row = result.fetchone()
         return row[0] if row else None
@@ -270,7 +270,7 @@ class UnifiedPriceImportService:
 
         result = await self.session.execute(
             text("""
-                INSERT INTO products.products (
+                INSERT INTO catalog.product (
                     name, ean, sku,
                     brand_id, color, size,
                     description, image_url,
@@ -278,7 +278,7 @@ class UnifiedPriceImportService:
                 )
                 VALUES (
                     :name, :ean, :ean,
-                    (SELECT id FROM core.brands WHERE LOWER(name) = LOWER(:brand_name) LIMIT 1),
+                    (SELECT id FROM catalog.brand WHERE LOWER(name) = LOWER(:brand_name) LIMIT 1),
                     :color, :size,
                     :description, :image_url,
                     NOW(), NOW()

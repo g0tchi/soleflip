@@ -145,7 +145,7 @@ class AdvancedHealthChecker:
             async with db_manager.get_session() as session:
                 # Check if we can perform basic operations
                 result = await session.execute(
-                    text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'products'")
+                    text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'catalog'")
                 )
                 table_count = result.scalar()
                 
@@ -233,7 +233,7 @@ class AdvancedHealthChecker:
     async def _check_essential_tables(self) -> HealthCheckResult:
         """Check that essential tables exist and are accessible"""
         start_time = time.time()
-        essential_tables = ['products.products', 'products.inventory', 'users.users']
+        essential_tables = ['catalog.product', 'inventory.stock', 'auth.users']
         
         try:
             async with db_manager.get_session() as session:

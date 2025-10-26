@@ -277,10 +277,10 @@ async def stream_inventory_export(
             i.notes,
             i.created_at,
             i.updated_at
-        FROM products.inventory i
-        LEFT JOIN products.products p ON i.product_id = p.id
-        LEFT JOIN core.brands b ON p.brand_id = b.id
-        LEFT JOIN core.categories c ON p.category_id = c.id
+        FROM inventory.stock i
+        LEFT JOIN catalog.product p ON i.product_id = p.id
+        LEFT JOIN catalog.brand b ON p.brand_id = b.id
+        LEFT JOIN catalog.category c ON p.category_id = c.id
         ORDER BY i.created_at DESC
     """
     

@@ -56,7 +56,7 @@ async def get_dashboard_metrics(
                     AVG(sale_price) as avg_sale_price,
                     SUM(net_profit) as total_profit,
                     COUNT(DISTINCT DATE_TRUNC('day', transaction_date)) as active_days
-                FROM transactions.transactions
+                FROM sales.order
                 WHERE sale_price IS NOT NULL
             ),
             -- Top brands by revenue
@@ -67,10 +67,10 @@ async def get_dashboard_metrics(
                     SUM(t.sale_price) as total_revenue,
                     AVG(t.sale_price) as avg_price,
                     ROW_NUMBER() OVER (ORDER BY SUM(t.sale_price) DESC) as rn
-                FROM transactions.transactions t
-                JOIN products.inventory i ON t.inventory_id = i.id
-                JOIN products.products p ON i.product_id = p.id
-                LEFT JOIN core.brands b ON p.brand_id = b.id
+                FROM sales.order t
+                JOIN inventory.stock i ON t.inventory_item_id = i.id
+                JOIN catalog.product p ON i.product_id = p.id
+                LEFT JOIN catalog.brand b ON p.brand_id = b.id
                 WHERE t.sale_price IS NOT NULL AND b.name IS NOT NULL
                 GROUP BY b.name
             ),
@@ -83,10 +83,10 @@ async def get_dashboard_metrics(
                     p.name as product_name,
                     b.name as brand_name,
                     ROW_NUMBER() OVER (ORDER BY t.transaction_date DESC) as rn
-                FROM transactions.transactions t
-                JOIN products.inventory i ON t.inventory_id = i.id
-                JOIN products.products p ON i.product_id = p.id
-                LEFT JOIN core.brands b ON p.brand_id = b.id
+                FROM sales.order t
+                JOIN inventory.stock i ON t.inventory_item_id = i.id
+                JOIN catalog.product p ON i.product_id = p.id
+                LEFT JOIN catalog.brand b ON p.brand_id = b.id
                 WHERE t.sale_price IS NOT NULL
             ),
             -- Inventory counts
@@ -96,7 +96,7 @@ async def get_dashboard_metrics(
                     COUNT(CASE WHEN status = 'in_stock' THEN 1 END) as in_stock,
                     COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold,
                     COUNT(CASE WHEN status = 'listed_stockx' THEN 1 END) as listed
-                FROM products.inventory
+                FROM inventory.stock
             )
             -- Main query combining all data
             SELECT 

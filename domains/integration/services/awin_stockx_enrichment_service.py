@@ -335,7 +335,7 @@ class AwinStockXEnrichmentService:
         product_query = text("""
             SELECT p.id, ap.ean
             FROM integration.awin_products ap
-            JOIN products.products p ON ap.ean = p.ean
+            JOIN catalog.product p ON ap.ean = p.ean
             WHERE ap.id = :awin_product_id
         """)
 

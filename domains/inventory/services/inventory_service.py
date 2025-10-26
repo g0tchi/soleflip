@@ -1062,9 +1062,9 @@ class InventoryService:
                         SUM(i.quantity) as total_quantity,
                         AVG(i.purchase_price) as avg_price,
                         SUM(i.purchase_price * i.quantity) as total_value
-                    FROM products.inventory i
-                    JOIN products.products p ON i.product_id = p.id
-                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    FROM inventory.stock i
+                    JOIN catalog.product p ON i.product_id = p.id
+                    LEFT JOIN catalog.brand b ON p.brand_id = b.id
                     WHERE i.purchase_price IS NOT NULL
                     GROUP BY b.name
                     ORDER BY item_count DESC
@@ -1105,7 +1105,7 @@ class InventoryService:
                     SELECT 
                         status,
                         COUNT(*) as count
-                    FROM products.inventory
+                    FROM inventory.stock
                     GROUP BY status
                     ORDER BY count DESC
                     """
@@ -1144,9 +1144,9 @@ class InventoryService:
                         b.name as brand_name,
                         s.value as size_value,
                         'status_change' as activity_type
-                    FROM products.inventory i
-                    JOIN products.products p ON i.product_id = p.id
-                    LEFT JOIN core.brands b ON p.brand_id = b.id
+                    FROM inventory.stock i
+                    JOIN catalog.product p ON i.product_id = p.id
+                    LEFT JOIN catalog.brand b ON p.brand_id = b.id
                     LEFT JOIN core.sizes s ON i.size_id = s.id
                     WHERE i.updated_at > CURRENT_TIMESTAMP - INTERVAL '30 days'
                     ORDER BY i.updated_at DESC

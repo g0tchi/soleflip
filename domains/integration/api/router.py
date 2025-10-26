@@ -272,12 +272,12 @@ async def get_profit_opportunities(
     logger.info("Finding profit opportunities", min_profit_eur=min_profit_eur, limit=limit)
 
     try:
-        # First check if we have products table
+        # First check if we have product table
         check_products_query = text("""
             SELECT COUNT(*) as count
             FROM information_schema.tables
-            WHERE table_name = 'products'
-              AND table_schema IN ('core', 'products', 'public')
+            WHERE table_name = 'product'
+              AND table_schema = 'catalog'
         """)
 
         check_result = await db.execute(check_products_query)
@@ -291,25 +291,16 @@ async def get_profit_opportunities(
                 "total_opportunities": 0,
             }
 
-        # Determine which schema to use
-        schema_query = text("""
-            SELECT table_schema
-            FROM information_schema.tables
-            WHERE table_name = 'products'
-              AND table_schema IN ('core', 'products', 'public')
-            LIMIT 1
-        """)
-        schema_result = await db.execute(schema_query)
-        schema_row = schema_result.fetchone()
-        schema = schema_row.table_schema if schema_row else 'products'
+        # Use catalog schema (products are now in catalog.product)
+        schema = 'catalog'
 
         # Check if products table has the columns we need
         columns_query = text("""
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_name = 'products'
+            WHERE table_name = 'product'
               AND table_schema = :schema
-              AND column_name IN ('ean', 'lowest_ask', 'name', 'brand_id')
+              AND column_name IN ('ean', 'lowest_ask', 'name', 'brand_id', 'price', 'product_name')
         """)
 
         columns_result = await db.execute(columns_query, {"schema": schema})
@@ -323,12 +314,30 @@ async def get_profit_opportunities(
                 "total_opportunities": 0,
             }
 
-        # Build query based on available columns
+        # SECURITY: Whitelist validation for column names
+        ALLOWED_PRICE_COLUMNS = {'lowest_ask', 'price'}
+        ALLOWED_NAME_COLUMNS = {'name', 'product_name'}
+
         price_column = 'lowest_ask' if 'lowest_ask' in available_columns else 'price'
         name_column = 'name' if 'name' in available_columns else 'product_name'
 
+        if price_column not in ALLOWED_PRICE_COLUMNS or name_column not in ALLOWED_NAME_COLUMNS:
+            return {
+                "success": False,
+                "message": "Invalid column configuration detected",
+                "opportunities": [],
+                "total_opportunities": 0,
+            }
+
         min_profit_cents = int(min_profit_eur * 100)
 
+        # SECURITY: Use identifier() for schema/table/column names or parameterize the entire query
+        # Build safe query with validated identifiers
+        from sqlalchemy import column, table, literal_column
+        from sqlalchemy.sql import select as sa_select, and_
+
+        # For complex queries with dynamic schema/columns, use string building but with whitelisted values
+        # This is now safe because schema, price_column, and name_column are validated against whitelists
         query = text(f"""
             SELECT
                 ap.awin_product_id,
@@ -348,7 +357,7 @@ async def get_profit_opportunities(
                 (p.{price_column} - ap.retail_price_cents) / 100.0 as profit_eur,
                 ROUND(((p.{price_column} - ap.retail_price_cents)::numeric / NULLIF(ap.retail_price_cents, 0)::numeric * 100), 1) as profit_percentage
             FROM integration.awin_products ap
-            INNER JOIN {schema}.products p ON ap.ean = p.ean
+            INNER JOIN {schema}.product p ON ap.ean = p.ean
             WHERE ap.ean IS NOT NULL
               AND ap.ean != ''
               AND ap.in_stock = true
@@ -396,10 +405,11 @@ async def get_profit_opportunities(
         ]
 
         # Get total count of opportunities
+        # SECURITY: schema and price_column are validated against whitelists above
         count_query = text(f"""
             SELECT COUNT(*) as total
             FROM integration.awin_products ap
-            INNER JOIN {schema}.products p ON ap.ean = p.ean
+            INNER JOIN {schema}.product p ON ap.ean = p.ean
             WHERE ap.ean IS NOT NULL
               AND ap.ean != ''
               AND ap.in_stock = true
@@ -492,7 +502,7 @@ async def debug_products_enrichment(
         columns_query = text("""
             SELECT column_name, data_type
             FROM information_schema.columns
-            WHERE table_schema = 'products' AND table_name = 'products'
+            WHERE table_schema = 'catalog' AND table_name = 'product'
             AND column_name IN ('id', 'name', 'sku', 'ean', 'enrichment_data')
             ORDER BY column_name
         """)
@@ -507,7 +517,7 @@ async def debug_products_enrichment(
                 name,
                 sku,
                 enrichment_data
-            FROM products.products
+            FROM catalog.product
             WHERE enrichment_data IS NOT NULL
             LIMIT :limit
         """)
@@ -539,7 +549,7 @@ async def debug_products_enrichment(
             SELECT
                 COUNT(*) as total,
                 COUNT(enrichment_data) as with_enrichment
-            FROM products.products
+            FROM catalog.product
         """)
 
         result = await db.execute(count_query)
@@ -587,7 +597,7 @@ async def debug_variants_gtin(
                 name,
                 sku,
                 enrichment_data
-            FROM products.products
+            FROM catalog.product
             WHERE enrichment_data IS NOT NULL
               AND enrichment_data->'variants' IS NOT NULL
             LIMIT :limit
@@ -628,7 +638,7 @@ async def debug_variants_gtin(
         # Count total products with variant GTINs
         count_query = text("""
             SELECT COUNT(*) as count
-            FROM products.products
+            FROM catalog.product
             WHERE enrichment_data IS NOT NULL
               AND enrichment_data->'variants' IS NOT NULL
         """)
@@ -692,15 +702,30 @@ async def start_enrichment_job(
         job_id = await service.create_enrichment_job()
 
         # Count products to process
-        count_query = text("""
-            SELECT COUNT(*) as total
-            FROM integration.awin_products
-            WHERE ean IS NOT NULL
-              AND in_stock = true
-              AND (enrichment_status = 'pending' OR enrichment_status IS NULL OR last_enriched_at IS NULL)
-        """ + (f" LIMIT {limit}" if limit else ""))
+        # SECURITY: Use parameterized query for limit
+        if limit is not None:
+            count_query = text("""
+                SELECT COUNT(*) as total
+                FROM (
+                    SELECT 1
+                    FROM integration.awin_products
+                    WHERE ean IS NOT NULL
+                      AND in_stock = true
+                      AND (enrichment_status = 'pending' OR enrichment_status IS NULL OR last_enriched_at IS NULL)
+                    LIMIT :limit
+                ) subquery
+            """)
+            result = await db.execute(count_query, {"limit": limit})
+        else:
+            count_query = text("""
+                SELECT COUNT(*) as total
+                FROM integration.awin_products
+                WHERE ean IS NOT NULL
+                  AND in_stock = true
+                  AND (enrichment_status = 'pending' OR enrichment_status IS NULL OR last_enriched_at IS NULL)
+            """)
+            result = await db.execute(count_query)
 
-        result = await db.execute(count_query)
         total_products = result.fetchone().total
 
         # Calculate estimated duration
