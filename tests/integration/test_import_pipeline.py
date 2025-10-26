@@ -15,18 +15,18 @@ def mock_product_processor():
 
 
 @pytest.fixture
-def mock_transaction_processor():
-    """Fixture for a mocked TransactionProcessor."""
+def mock_order_processor():
+    """Fixture for a mocked OrderProcessor."""
     return AsyncMock()
 
 
 @pytest.fixture
-def import_processor(db_session, mock_product_processor, mock_transaction_processor):
+def import_processor(db_session, mock_product_processor, mock_order_processor):
     """Fixture for ImportProcessor with mocked dependencies."""
     return ImportProcessor(
         db_session=db_session,
         product_processor=mock_product_processor,
-        transaction_processor=mock_transaction_processor,
+        order_processor=mock_order_processor,
     )
 
 
@@ -36,7 +36,7 @@ class TestImportPipelineIntegration:
         self,
         import_processor,
         mock_product_processor,
-        mock_transaction_processor,
+        mock_order_processor,
         sample_stockx_csv_data,
     ):
         # Arrange
@@ -56,13 +56,13 @@ class TestImportPipelineIntegration:
         assert updated_batch.status == ImportStatus.COMPLETED.value
         assert updated_batch.processed_records == 2
         mock_product_processor.extract_products_from_batch.assert_awaited_once()
-        mock_transaction_processor.create_transactions_from_batch.assert_awaited_once()
+        mock_order_processor.create_transactions_from_batch.assert_awaited_once()
 
     async def test_notion_import_success(
         self,
         import_processor,
         mock_product_processor,
-        mock_transaction_processor,
+        mock_order_processor,
         sample_notion_json_data,
     ):
         # Arrange

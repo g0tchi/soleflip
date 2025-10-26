@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Order, InventoryItem, Product, Size, Category, Brand
+from shared.database.models import Order, InventoryItem, Product, Size, Category, Brand, Platform
 from domains.products.services.brand_service import BrandExtractorService
 from domains.products.services.category_service import CategoryDetectionService
 
@@ -28,6 +28,8 @@ class OrderImportService:
         # Initialize shared services for brand/category detection
         self.brand_service = BrandExtractorService(db_session)
         self.category_service = CategoryDetectionService(db_session)
+        # Cache for platform IDs
+        self._platform_cache: Dict[str, UUID] = {}
 
     async def import_stockx_orders(
         self, orders_data: List[Dict[str, Any]], batch_id: Optional[str] = None
@@ -116,9 +118,14 @@ class OrderImportService:
         # Try to match with inventory item (optional for now)
         inventory_item_id = await self._find_matching_inventory_item(order_data)
 
+        # Get StockX platform ID (Gibson Schema v2.4)
+        platform_id = await self._get_platform_id("stockx")
+
         # Prepare order record
         order_values = {
-            "stockx_order_number": order_number,
+            "platform_id": platform_id,  # Gibson v2.4 required field
+            "external_id": order_number,  # Generic platform order ID
+            "stockx_order_number": order_number,  # Keep for backward compatibility
             "status": order_data.get("status", "UNKNOWN"),
             "amount": Decimal(str(amount_value)) if amount_value is not None else None,
             "currency_code": currency_code,
@@ -385,6 +392,27 @@ class OrderImportService:
         logger.debug("Created new size", size_id=str(size.id), value=size_value, region=region)
         return size.id
 
+
+    async def _get_platform_id(self, platform_slug: str) -> UUID:
+        """
+        Get platform ID by slug (e.g., 'stockx', 'ebay', 'goat', 'alias').
+        Caches results to minimize database queries.
+
+        Gibson Schema v2.4 Compliance: All orders must have platform_id
+        """
+        if platform_slug in self._platform_cache:
+            return self._platform_cache[platform_slug]
+
+        stmt = select(Platform).where(Platform.slug == platform_slug)
+        result = await self.db_session.execute(stmt)
+        platform = result.scalar_one_or_none()
+
+        if not platform:
+            raise ValueError(f"Platform '{platform_slug}' not found in database")
+
+        self._platform_cache[platform_slug] = platform.id
+        logger.debug("Cached platform ID", platform_slug=platform_slug, platform_id=str(platform.id))
+        return platform.id
 
     @staticmethod
     def _parse_datetime(date_string: Optional[str]) -> Optional[datetime]:

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast
-from shared.database.models import Product, Transaction
+from shared.database.models import Product, Order, InventoryItem
 
 
 class ForecastRepository:
@@ -111,57 +111,61 @@ class ForecastRepository:
         end_date = date.today()
         start_date = end_date - timedelta(days=days_back)
 
-        # Base query for transactions
+        # Base query for orders (Gibson Schema v2.4)
         if aggregation == "daily":
-            date_trunc = func.date_trunc("day", Transaction.transaction_date)
+            date_trunc = func.date_trunc("day", Order.sold_at)
             date_format = "YYYY-MM-DD"
         elif aggregation == "weekly":
-            date_trunc = func.date_trunc("week", Transaction.transaction_date)
+            date_trunc = func.date_trunc("week", Order.sold_at)
             date_format = 'YYYY-"W"WW'
         elif aggregation == "monthly":
-            date_trunc = func.date_trunc("month", Transaction.transaction_date)
+            date_trunc = func.date_trunc("month", Order.sold_at)
             date_format = "YYYY-MM"
         else:
             raise ValueError(f"Invalid aggregation: {aggregation}")
 
-        # Build aggregation query based on entity type
+        # Build aggregation query based on entity type (Gibson Schema v2.4)
         if entity_type == "product":
+            # Order → InventoryItem → Product (Gibson multi-schema architecture)
             query = (
                 select(
                     func.to_char(date_trunc, date_format).label("period"),
                     date_trunc.label("period_date"),
-                    Transaction.product_id.label("entity_id"),
-                    func.count(Transaction.id).label("units_sold"),
-                    func.sum(Transaction.net_revenue).label("total_revenue"),
-                    func.avg(Transaction.net_revenue).label("avg_price"),
+                    InventoryItem.product_id.label("entity_id"),
+                    func.count(Order.id).label("units_sold"),
+                    func.sum(Order.net_proceeds).label("total_revenue"),
+                    func.avg(Order.net_proceeds).label("avg_price"),
                 )
-                .select_from(Transaction)
+                .select_from(Order)
+                .join(InventoryItem, Order.inventory_item_id == InventoryItem.id)
                 .where(
-                    Transaction.transaction_date.between(start_date, end_date),
-                    Transaction.status == "completed",
+                    Order.sold_at.between(start_date, end_date),
+                    Order.status == "completed",
                 )
-                .group_by(date_trunc, Transaction.product_id)
+                .group_by(date_trunc, InventoryItem.product_id)
                 .order_by(date_trunc.asc())
             )
 
             if entity_id:
-                query = query.where(Transaction.product_id == entity_id)
+                query = query.where(InventoryItem.product_id == entity_id)
 
         elif entity_type == "brand":
+            # Order → InventoryItem → Product → Brand (Gibson multi-schema)
             query = (
                 select(
                     func.to_char(date_trunc, date_format).label("period"),
                     date_trunc.label("period_date"),
                     Product.brand_id.label("entity_id"),
-                    func.count(Transaction.id).label("units_sold"),
-                    func.sum(Transaction.net_revenue).label("total_revenue"),
-                    func.avg(Transaction.net_revenue).label("avg_price"),
+                    func.count(Order.id).label("units_sold"),
+                    func.sum(Order.net_proceeds).label("total_revenue"),
+                    func.avg(Order.net_proceeds).label("avg_price"),
                 )
-                .select_from(Transaction)
-                .join(Product, Transaction.product_id == Product.id)
+                .select_from(Order)
+                .join(InventoryItem, Order.inventory_item_id == InventoryItem.id)
+                .join(Product, InventoryItem.product_id == Product.id)
                 .where(
-                    Transaction.transaction_date.between(start_date, end_date),
-                    Transaction.status == "completed",
+                    Order.sold_at.between(start_date, end_date),
+                    Order.status == "completed",
                 )
                 .group_by(date_trunc, Product.brand_id)
                 .order_by(date_trunc.asc())
@@ -171,20 +175,22 @@ class ForecastRepository:
                 query = query.where(Product.brand_id == entity_id)
 
         elif entity_type == "category":
+            # Order → InventoryItem → Product → Category (Gibson multi-schema)
             query = (
                 select(
                     func.to_char(date_trunc, date_format).label("period"),
                     date_trunc.label("period_date"),
                     Product.category_id.label("entity_id"),
-                    func.count(Transaction.id).label("units_sold"),
-                    func.sum(Transaction.net_revenue).label("total_revenue"),
-                    func.avg(Transaction.net_revenue).label("avg_price"),
+                    func.count(Order.id).label("units_sold"),
+                    func.sum(Order.net_proceeds).label("total_revenue"),
+                    func.avg(Order.net_proceeds).label("avg_price"),
                 )
-                .select_from(Transaction)
-                .join(Product, Transaction.product_id == Product.id)
+                .select_from(Order)
+                .join(InventoryItem, Order.inventory_item_id == InventoryItem.id)
+                .join(Product, InventoryItem.product_id == Product.id)
                 .where(
-                    Transaction.transaction_date.between(start_date, end_date),
-                    Transaction.status == "completed",
+                    Order.sold_at.between(start_date, end_date),
+                    Order.status == "completed",
                 )
                 .group_by(date_trunc, Product.category_id)
                 .order_by(date_trunc.asc())

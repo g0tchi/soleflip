@@ -9,7 +9,7 @@ sys.path.append(".")
 
 from sqlalchemy import text
 
-from domains.sales.services.transaction_processor import TransactionProcessor
+from domains.sales.services.order_processor import OrderProcessor
 from shared.database.connection import DatabaseManager, db_manager
 
 
@@ -22,7 +22,7 @@ async def create_alias_transactions():
     db = DatabaseManager()
     await db.initialize()
 
-    # Also initialize the global db_manager used by TransactionProcessor
+    # Also initialize the global db_manager used by OrderProcessor
     await db_manager.initialize()
 
     try:
@@ -51,8 +51,8 @@ async def create_alias_transactions():
 
         # Create transaction processor and process the batch
         print("\nStarting transaction creation...")
-        processor = TransactionProcessor()
-        stats = await processor.create_transactions_from_batch(batch_id)
+        processor = OrderProcessor()
+        stats = await processor.create_orders_from_batch(batch_id)
 
         print("\nTransaction creation completed!")
         print("Stats:")

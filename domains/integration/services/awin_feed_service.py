@@ -6,6 +6,7 @@ import asyncio
 import csv
 import gzip
 import httpx
+import os
 from datetime import datetime
 from typing import List, Dict, Optional
 from sqlalchemy import text
@@ -18,7 +19,9 @@ class AwinFeedImportService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.api_key = "5a6669927305f35249c39e6b3e0a724c"
+        self.api_key = os.getenv("AWIN_API_KEY")
+        if not self.api_key:
+            raise ValueError("AWIN_API_KEY environment variable is required")
         self.base_url = "https://productdata.awin.com/datafeed/download"
 
     async def download_feed(

@@ -386,8 +386,13 @@ class SmartPricingService:
         price_changes = [
             (recent_prices[i] - recent_prices[i+1]) / recent_prices[i+1] * 100
             for i in range(len(recent_prices) - 1)
+            if recent_prices[i+1] and recent_prices[i+1] > 0  # Prevent division by zero
         ]
-        
+
+        # Need at least 2 price changes to analyze trend
+        if len(price_changes) < 2:
+            return MarketCondition.STABLE
+
         avg_change = sum(price_changes) / len(price_changes)
         volatility = sum(abs(change) for change in price_changes) / len(price_changes)
         
