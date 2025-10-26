@@ -48,27 +48,33 @@ async def execute_query(
                 status_code=400, detail="Only SELECT queries are allowed for security reasons"
             )
 
-        # SECURITY: Validate query against whitelist to prevent SQL injection
+        # SECURITY: Use predefined queries to prevent SQL injection
+        # Map query identifiers to actual SQL queries
         allowed_queries = {
-            "SELECT COUNT(*) FROM products",
-            "SELECT COUNT(*) FROM import_batches", 
-            "SELECT status, COUNT(*) FROM import_batches GROUP BY status",
-            "SELECT COUNT(*) FROM inventory_items",
-            "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100"
+            "count_products": "SELECT COUNT(*) FROM products",
+            "count_import_batches": "SELECT COUNT(*) FROM import_batches",
+            "import_batch_status": "SELECT status, COUNT(*) FROM import_batches GROUP BY status",
+            "count_inventory": "SELECT COUNT(*) FROM inventory_items",
+            "recent_logs": "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100"
         }
-        
-        if request.query not in allowed_queries:
-            raise HTTPException(
-                status_code=403, 
-                detail="Query not allowed. Only predefined queries are permitted for security."
-            )
-        
+
+        # Check if query is in allowed list (exact match)
+        sql_query = allowed_queries.get(request.query)
+        if not sql_query:
+            # For backward compatibility, also check if the query itself matches
+            if request.query not in allowed_queries.values():
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Query not allowed. Allowed query IDs: {', '.join(allowed_queries.keys())}"
+                )
+            sql_query = request.query
+
         # Execute the whitelisted query
         import time
 
         start_time = time.time()
 
-        result = await db.execute(text(request.query))
+        result = await db.execute(text(sql_query))
         
         # STREAMING OPTIMIZATION: Use fetchmany() for memory-efficient processing
         execution_time = (time.time() - start_time) * 1000

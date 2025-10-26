@@ -35,13 +35,13 @@ class PriceRule(Base, TimestampMixin):
 
     # Scope filters
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
     category_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")), nullable=True
     )
     platform_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("platforms.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=True
     )
 
     # Pricing parameters
@@ -99,7 +99,7 @@ class BrandMultiplier(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=False
     )
     multiplier_type = Column(String(50), nullable=False)  # 'premium', 'discount', 'seasonal'
     multiplier_value = Column(Numeric(4, 3), nullable=False)
@@ -135,15 +135,15 @@ class PriceHistory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
     inventory_item_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("inventory.id", "products")),
+        ForeignKey(get_schema_ref("stock.id", "inventory")),
         nullable=True,
     )
     platform_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("platforms.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=True
     )
 
     price_date = Column(Date, nullable=False)
@@ -169,7 +169,7 @@ class MarketPrice(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
     platform_name = Column(String(50), nullable=False)
     size_value = Column(String(20), nullable=True)
@@ -216,16 +216,16 @@ class SalesForecast(Base):
 
     # Forecast dimensions
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=True
     )
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
     category_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")), nullable=True
     )
     platform_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("platforms.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=True
     )
 
     forecast_level = Column(
@@ -320,13 +320,13 @@ class DemandPattern(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=True
     )
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
     category_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")), nullable=True
     )
 
     analysis_level = Column(String(20), nullable=False)
@@ -359,16 +359,16 @@ class PricingKPI(Base):
 
     # Aggregation dimensions
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("products.id", "products")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=True
     )
     brand_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("brands.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
     category_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("categories.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")), nullable=True
     )
     platform_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("platforms.id", "core")), nullable=True
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=True
     )
     aggregation_level = Column(String(20), nullable=False)
 

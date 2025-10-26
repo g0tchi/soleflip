@@ -214,6 +214,7 @@ class OrderImportService:
 
         stockx_product_id = product_data.get("productId")
         product_name = product_data.get("productName", "Unknown Product")
+        style_code = product_data.get("styleId")  # Real manufacturer SKU
         variant_id = variant_data.get("variantId")
         variant_value = variant_data.get("variantValue")
 
@@ -235,6 +236,7 @@ class OrderImportService:
         product_id = await self._get_or_create_product(
             stockx_product_id=stockx_product_id,
             product_name=product_name,
+            style_code=style_code,
         )
 
         # Get or create Size
@@ -272,7 +274,7 @@ class OrderImportService:
         return placeholder.id
 
     async def _get_or_create_product(
-        self, stockx_product_id: Optional[str], product_name: str
+        self, stockx_product_id: Optional[str], product_name: str, style_code: Optional[str] = None
     ) -> UUID:
         """
         Find or create a Product with intelligent Brand and Category detection.
@@ -282,10 +284,11 @@ class OrderImportService:
         - CategoryDetectionService: Keyword-based category classification
 
         Gibson schema requirements:
-        - sku (VARCHAR, REQUIRED, UNIQUE)
+        - sku (VARCHAR, REQUIRED, UNIQUE) - Uses style_code if available, otherwise generates from stockx_product_id
         - category_id (UUID, REQUIRED, FK)
         - name (VARCHAR, REQUIRED)
         - brand_id (UUID, OPTIONAL, FK)
+        - style_code (VARCHAR, OPTIONAL) - Real manufacturer product code
         """
         # 1. Try to find existing product by StockX product ID
         if stockx_product_id:
@@ -307,8 +310,13 @@ class OrderImportService:
             product_name, create_if_not_found=True
         )
 
-        # 4. Generate unique SKU
-        sku = f"STOCKX-{stockx_product_id}" if stockx_product_id else f"STOCKX-UNKNOWN-{product_name[:20]}"
+        # 4. Generate SKU - prefer real style_code, fallback to generated SKU
+        if style_code:
+            sku = style_code  # Use real manufacturer SKU (e.g., "DV0982-100", "ID2350")
+        elif stockx_product_id:
+            sku = f"STOCKX-{stockx_product_id}"  # Fallback for items without style_code
+        else:
+            sku = f"STOCKX-UNKNOWN-{product_name[:20]}"  # Last resort
 
         # 5. Check if SKU already exists (SKU is UNIQUE)
         stmt = select(Product).where(Product.sku == sku)
@@ -326,6 +334,7 @@ class OrderImportService:
             brand_id=brand.id if brand else None,            # Brand is optional
             name=product_name,
             stockx_product_id=stockx_product_id,
+            style_code=style_code,  # Store the real manufacturer code
         )
         self.db_session.add(product)
         await self.db_session.flush()
@@ -334,6 +343,7 @@ class OrderImportService:
             "Created new product with brand/category",
             product_id=str(product.id),
             sku=sku,
+            style_code=style_code,
             name=product_name,
             brand=brand.name if brand else "Unknown",
             category=category.name if category else "Unknown"

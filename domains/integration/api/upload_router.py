@@ -158,84 +158,92 @@ async def import_stockx_data(request: ImportRequest):
     return {"status": "success", "message": f"Would import from {request.from_date} to {request.to_date}"}
 
 
-@router.post("/stockx/import-real", response_model=ImportResponse, tags=["StockX Integration"])
-async def import_stockx_data_real(
+@router.post("/stockx/import-orders", response_model=ImportResponse, tags=["StockX Integration"])
+async def import_stockx_orders(
     request: ImportRequest,
-    import_processor: ImportProcessor = Depends(get_import_processor),
+    db: AsyncSession = Depends(get_db_session),
 ):
     """
-    Initiates a StockX data import for the specified date range.
-    This endpoint is expected by the Tauri GUI.
+    Imports StockX orders for the specified date range directly into the database.
+    This endpoint fetches orders from the StockX API and stores them in the sales.order table.
     """
     try:
         # Validate date format
         from_date = datetime.strptime(request.from_date, "%Y-%m-%d")
         to_date = datetime.strptime(request.to_date, "%Y-%m-%d")
 
-        # Create an import batch for the date range
-        batch = await import_processor.create_initial_batch(
-            source_type=SourceType.STOCKX,
-            filename=f"stockx_import_{request.from_date}_to_{request.to_date}",
+        logger.info(
+            "Starting StockX order import",
+            from_date=request.from_date,
+            to_date=request.to_date,
         )
 
-        # Fetch real StockX data for the specified date range
+        # Fetch StockX orders via API
         from domains.integration.services.stockx_service import StockXService
+        from domains.orders.services.order_import_service import OrderImportService
 
-        stockx_service = StockXService(import_processor.db_session)
+        stockx_service = StockXService(db)
+        order_import_service = OrderImportService(db)
 
         try:
             # Get sales history from StockX API
-            stockx_data = await stockx_service.get_sales_history(
+            stockx_orders = await stockx_service.get_sales_history(
                 start_date=from_date, end_date=to_date
             )
 
-            if not stockx_data:
-                return ImportResponse(
-                    status="error",
-                    message=f"No StockX data found for period {request.from_date} to {request.to_date}",
-                    batch_id=str(batch.id),
-                )
-
-            # Process the real StockX import
-            try:
-                await import_processor.process_import(
-                    batch_id=batch.id,
-                    source_type=SourceType.STOCKX,
-                    data=stockx_data,
-                    raw_data=stockx_data,
-                    retry_count=0
-                )
-                logger.info("Import processing completed successfully", batch_id=str(batch.id))
-            except Exception as e:
-                logger.error(
-                    "Import processing failed", batch_id=str(batch.id), error=str(e), exc_info=True
+            if not stockx_orders:
+                logger.warning(
+                    "No StockX orders found for date range",
+                    from_date=request.from_date,
+                    to_date=request.to_date,
                 )
                 return ImportResponse(
-                    status="error",
-                    message=f"Import processing failed: {str(e)}",
-                    batch_id=str(batch.id),
+                    status="success",
+                    message=f"No orders found for period {request.from_date} to {request.to_date}",
+                    batch_id="",  # No batch created
                 )
 
-        except Exception as e:
-            logger.error("Failed to fetch StockX data", error=str(e), exc_info=True)
-            return ImportResponse(
-                status="error",
-                message=f"Failed to fetch StockX data: {str(e)}",
-                batch_id=str(batch.id),
+            logger.info(
+                "Fetched StockX orders from API",
+                order_count=len(stockx_orders),
             )
 
-        return ImportResponse(
-            status="success",
-            message=f"StockX import initiated for period {request.from_date} to {request.to_date}",
-            batch_id=str(batch.id),
-        )
+            # Import orders directly into database
+            import_stats = await order_import_service.import_stockx_orders(
+                orders_data=stockx_orders
+            )
+
+            logger.info("StockX order import completed", **import_stats)
+
+            # Build response message
+            message_parts = [
+                f"Imported {import_stats['created']} new orders",
+                f"Updated {import_stats['updated']} existing orders",
+            ]
+
+            if import_stats["errors"]:
+                message_parts.append(f"{len(import_stats['errors'])} errors occurred")
+
+            return ImportResponse(
+                status="success" if not import_stats["errors"] else "partial_success",
+                message=f"{', '.join(message_parts)} for period {request.from_date} to {request.to_date}",
+                batch_id="",  # Not using batch system anymore
+            )
+
+        except Exception as e:
+            logger.error("Failed to import StockX orders", error=str(e), exc_info=True)
+            return ImportResponse(
+                status="error",
+                message=f"Failed to import StockX orders: {str(e)}",
+                batch_id="",
+            )
 
     except ValueError as e:
         raise HTTPException(
             status_code=400, detail=f"Invalid date format. Use YYYY-MM-DD format. Error: {e}"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to initiate StockX import: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to initiate StockX order import: {str(e)}")
 
 
 @router.get("/import/{batch_id}/status", response_model=ImportStatus, tags=["Import Status"])

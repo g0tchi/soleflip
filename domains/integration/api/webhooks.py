@@ -19,6 +19,7 @@ from shared.database.models import SystemConfig
 from ..repositories.import_repository import ImportRepository
 from ..services.import_processor import ImportProcessor, ImportStatus, SourceType
 from ..services.stockx_service import StockXService
+from domains.orders.services.order_import_service import OrderImportService
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +34,10 @@ def get_import_processor(db: AsyncSession = Depends(get_db_session)) -> ImportPr
 
 def get_stockx_service(db: AsyncSession = Depends(get_db_session)) -> StockXService:
     return StockXService(db)
+
+
+def get_order_import_service(db: AsyncSession = Depends(get_db_session)) -> OrderImportService:
+    return OrderImportService(db)
 
 
 def get_import_repository(db: AsyncSession = Depends(get_db_session)) -> ImportRepository:
@@ -68,20 +73,21 @@ class ImportStatusResponse(BaseModel):
 
 
 @router.post(
-    "/stockx/import-orders",
+    "/stockx/import-orders-background",
     response_model=StockXImportResponse,
     status_code=202,
     tags=["StockX Integration", "Import"],
 )
-async def stockx_import_orders_webhook(
+async def stockx_import_orders_webhook_background(
     request: StockXImportRequest,
     background_tasks: BackgroundTasks,
     stockx_service: StockXService = Depends(get_stockx_service),
+    order_import_service: OrderImportService = Depends(get_order_import_service),
     import_processor: ImportProcessor = Depends(get_import_processor),
 ):
     """
     Triggers a background task to import historical orders from the StockX API
-    for a given date range.
+    for a given date range. Uses OrderImportService for proper API JSON handling.
     """
     logger.info(
         "StockX API import triggered via webhook",
@@ -89,6 +95,7 @@ async def stockx_import_orders_webhook(
         to_date=request.to_date,
     )
 
+    # Create tracking batch for monitoring
     batch = await import_processor.create_initial_batch(
         source_type=SourceType.STOCKX,
         filename=f"stockx_api_import_{request.from_date}_to_{request.to_date}.json",
@@ -96,9 +103,11 @@ async def stockx_import_orders_webhook(
 
     async def run_import_task(batch_id: UUID):
         try:
+            # Fetch orders from StockX API
             orders_data = await stockx_service.get_historical_orders(
                 from_date=request.from_date, to_date=request.to_date
             )
+
             if not orders_data:
                 logger.info("No new orders found from StockX API.", batch_id=str(batch_id))
                 await import_processor.update_batch_status(
@@ -106,13 +115,31 @@ async def stockx_import_orders_webhook(
                 )
                 return
 
-            await import_processor.process_import(
-                batch_id=batch_id,
-                source_type=SourceType.STOCKX,
-                data=orders_data,
-                raw_data=orders_data,
-                retry_count=0  # Start with zero retries
+            # Update batch status to processing
+            await import_processor.update_batch_status(
+                batch_id, ImportStatus.PROCESSING, total_records=len(orders_data)
             )
+
+            # Import orders using OrderImportService (handles API JSON structure)
+            import_stats = await order_import_service.import_stockx_orders(
+                orders_data=orders_data,
+                batch_id=str(batch_id)
+            )
+
+            # Update batch with results
+            await import_processor.update_batch_status(
+                batch_id,
+                ImportStatus.COMPLETED,
+                processed_records=import_stats["created"] + import_stats["updated"],
+                error_records=len(import_stats.get("errors", []))
+            )
+
+            logger.info(
+                "StockX API import completed successfully",
+                batch_id=str(batch_id),
+                **import_stats
+            )
+
         except Exception as e:
             logger.error(
                 "StockX API import background task failed",
@@ -120,12 +147,7 @@ async def stockx_import_orders_webhook(
                 error=str(e),
                 exc_info=True,
             )
-            # The ImportProcessor will handle retry logic automatically
-            # Only update to FAILED if retries are exhausted
-            from shared.database.models import ImportBatch
-            batch_record = await import_processor.db_session.get(ImportBatch, batch_id)
-            if batch_record and batch_record.status not in ["retrying", "processing"]:
-                await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
+            await import_processor.update_batch_status(batch_id, ImportStatus.FAILED)
 
     background_tasks.add_task(run_import_task, batch.id)
 

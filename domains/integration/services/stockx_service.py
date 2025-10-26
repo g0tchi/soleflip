@@ -600,3 +600,44 @@ class StockXService:
             except asyncio.TimeoutError:
                 logger.error(f"Request timeout on {endpoint}")
                 raise
+
+    async def get_sales_history(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        order_status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetches sales history (completed orders) from StockX API for a given date range.
+        This is a convenience wrapper around get_historical_orders() specifically for sales history.
+
+        Args:
+            start_date: Start date for sales history
+            end_date: End date for sales history
+            order_status: Optional order status filter (e.g., 'COMPLETED', 'SHIPPED')
+
+        Returns:
+            List of order dictionaries from StockX API
+        """
+        logger.info(
+            "Fetching sales history from StockX API",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            order_status=order_status
+        )
+
+        # Use get_historical_orders which handles pagination and authentication
+        orders = await self.get_historical_orders(
+            from_date=start_date.date() if hasattr(start_date, 'date') else start_date,
+            to_date=end_date.date() if hasattr(end_date, 'date') else end_date,
+            order_status=order_status or "COMPLETED",  # Default to completed orders for sales history
+        )
+
+        logger.info(
+            "Successfully fetched sales history",
+            order_count=len(orders),
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+
+        return orders
