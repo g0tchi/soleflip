@@ -1,0 +1,162 @@
+{
+  "name": "Daily Dead Stock Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "schedule-daily",
+      "name": "Daily at 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  p.name as product_name,\n  p.brand,\n  i.size,\n  i.condition,\n  i.purchase_cost,\n  i.created_at,\n  EXTRACT(DAY FROM NOW() - i.created_at) as days_in_stock,\n  i.location\nFROM inventory.inventory_items i\nJOIN products.products p ON i.product_id = p.id\nWHERE i.status = 'available'\n  AND i.created_at < NOW() - INTERVAL '90 days'\nORDER BY i.created_at ASC\nLIMIT 50",
+        "options": {}
+      },
+      "id": "find-dead-stock",
+      "name": "Find Dead Stock",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as total_items,\n  SUM(purchase_cost) as total_value,\n  AVG(EXTRACT(DAY FROM NOW() - created_at)) as avg_days\nFROM inventory.inventory_items\nWHERE status = 'available'\n  AND created_at < NOW() - INTERVAL '90 days'",
+        "options": {}
+      },
+      "id": "dead-stock-stats",
+      "name": "Calculate Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 450],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verarbeite Dead Stock Daten\nconst items = $input.first().json;\nconst stats = $input.last().json;\n\n// Formatiere Items für Slack\nconst topItems = items.slice(0, 10).map(item => {\n  return `• *${item.product_name}* (${item.brand}) - Size ${item.size}\\n  💰 €${item.purchase_cost} | 📅 ${item.days_in_stock} days | 📍 ${item.location}`;\n}).join('\\n\\n');\n\nreturn {\n  json: {\n    total_items: stats.total_items,\n    total_value: parseFloat(stats.total_value).toFixed(2),\n    avg_days: parseInt(stats.avg_days),\n    top_items: topItems,\n    has_dead_stock: stats.total_items > 0\n  }\n};"
+      },
+      "id": "format-report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 375]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_dead_stock }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-stock",
+      "name": "Has Dead Stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [850, 375]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#inventory-alerts",
+          "mode": "name"
+        },
+        "text": "=🚨 **Dead Stock Alert!**\n\n📊 *Summary:*\n• Total Items: {{ $json.total_items }}\n• Total Value: €{{ $json.total_value }}\n• Average Age: {{ $json.avg_days }} days\n\n🔝 *Top 10 Items:*\n{{ $json.top_items }}\n\n💡 _Consider price reductions or promotions for these items_"
+      },
+      "id": "slack-alert",
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1050, 300],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Daily at 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Find Dead Stock",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Calculate Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Dead Stock": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Stats": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {
+            "node": "Has Dead Stock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dead Stock?": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "name": "StockX Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stockx-webhook",
+        "responseMode": "responseNode",
+        "options": {
+          "noResponseBody": false
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "StockX Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [250, 400],
+      "webhookId": "stockx-events"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and extract StockX webhook data\nconst body = $input.first().json.body;\n\n// StockX webhook structure\nconst eventType = body.event_type || 'unknown';\nconst orderId = body.data?.order_id || body.order_id;\nconst status = body.data?.status || body.status;\nconst trackingNumber = body.data?.tracking_number;\n\nif (!orderId) {\n  throw new Error('Missing order_id in webhook payload');\n}\n\nreturn {\n  json: {\n    event_type: eventType,\n    order_id: orderId,\n    status: status,\n    tracking_number: trackingNumber,\n    raw_data: body,\n    received_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "validate-webhook",
+      "name": "Validate Webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:8000/api/integration/stockx/webhook",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "process-event",
+      "name": "Process Event in API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [650, 400],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event_type }}",
+              "operation": "equals",
+              "value2": "order.shipped"
+            }
+          ]
+        }
+      },
+      "id": "is-shipped",
+      "name": "Is Shipped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#orders",
+          "mode": "name"
+        },
+        "text": "=📦 **Order Shipped!**\n\n*Order ID:* {{ $json.order_id }}\n*Tracking:* {{ $json.tracking_number }}\n*Status:* {{ $json.status }}\n\n_Order is on its way!_ 🚚"
+      },
+      "id": "notify-shipped",
+      "name": "Notify Shipped",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1050, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'success', message: 'Webhook processed', order_id: $json.order_id }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 500]
+    }
+  ],
+  "connections": {
+    "StockX Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Event in API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Event in API": {
+      "main": [
+        [
+          {
+            "node": "Is Shipped?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Shipped?": {
+      "main": [
+        [
+          {
+            "node": "Notify Shipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  }
+}

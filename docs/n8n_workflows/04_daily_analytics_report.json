@@ -1,0 +1,165 @@
+{
+  "name": "Daily Analytics Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-morning",
+      "name": "Daily at 8:30 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as orders_today,\n  SUM(final_price) as revenue_today,\n  AVG(final_price) as avg_order_value,\n  COUNT(DISTINCT customer_id) as unique_customers\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE\n  AND created_at < CURRENT_DATE + INTERVAL '1 day'\n  AND status IN ('completed', 'shipped')",
+        "options": {}
+      },
+      "id": "today-kpis",
+      "name": "Today KPIs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as orders_yesterday,\n  SUM(final_price) as revenue_yesterday\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND created_at < CURRENT_DATE\n  AND status IN ('completed', 'shipped')",
+        "options": {}
+      },
+      "id": "yesterday-kpis",
+      "name": "Yesterday KPIs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 500],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  p.name,\n  p.brand,\n  COUNT(*) as units_sold,\n  SUM(o.final_price) as total_revenue\nFROM transactions.orders o\nJOIN products.products p ON o.product_id = p.id\nWHERE o.created_at >= CURRENT_DATE\n  AND o.created_at < CURRENT_DATE + INTERVAL '1 day'\n  AND o.status IN ('completed', 'shipped')\nGROUP BY p.id, p.name, p.brand\nORDER BY units_sold DESC\nLIMIT 5",
+        "options": {}
+      },
+      "id": "top-products",
+      "name": "Top Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 700],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all analytics data\nconst today = $('Today KPIs').first().json;\nconst yesterday = $('Yesterday KPIs').first().json;\nconst topProducts = $('Top Products').all().map(p => p.json);\n\n// Calculate changes\nconst orderChange = ((today.orders_today - yesterday.orders_yesterday) / yesterday.orders_yesterday * 100).toFixed(1);\nconst revenueChange = ((today.revenue_today - yesterday.revenue_yesterday) / yesterday.revenue_yesterday * 100).toFixed(1);\n\n// Format top products\nconst topProductsList = topProducts.map((p, i) => \n  `${i+1}. *${p.name}* (${p.brand}) - ${p.units_sold} units | €${parseFloat(p.total_revenue).toFixed(2)}`\n).join('\\n');\n\nconst orderEmoji = orderChange >= 0 ? '📈' : '📉';\nconst revenueEmoji = revenueChange >= 0 ? '💰' : '💸';\n\nreturn {\n  json: {\n    orders_today: today.orders_today || 0,\n    revenue_today: parseFloat(today.revenue_today || 0).toFixed(2),\n    avg_order: parseFloat(today.avg_order_value || 0).toFixed(2),\n    unique_customers: today.unique_customers || 0,\n    order_change: orderChange,\n    revenue_change: revenueChange,\n    order_emoji: orderEmoji,\n    revenue_emoji: revenueEmoji,\n    top_products: topProductsList\n  }\n};"
+      },
+      "id": "combine-data",
+      "name": "Combine Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#daily-reports",
+          "mode": "name"
+        },
+        "text": "=📊 **Daily Analytics Report**\n_{{ $now.format('dddd, DD MMMM YYYY') }}_\n\n*Yesterday's Performance:*\n{{ $json.order_emoji }} Orders: {{ $json.orders_today }} ({{ $json.order_change }}% vs day before)\n{{ $json.revenue_emoji }} Revenue: €{{ $json.revenue_today }} ({{ $json.revenue_change }}% vs day before)\n👥 Unique Customers: {{ $json.unique_customers }}\n💳 Avg Order Value: €{{ $json.avg_order }}\n\n*🏆 Top 5 Products:*\n{{ $json.top_products }}\n\n_Have a great day!_ ☕"
+      },
+      "id": "slack-report",
+      "name": "Send Daily Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [850, 500],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Daily at 8:30 AM": {
+      "main": [
+        [
+          {
+            "node": "Today KPIs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Yesterday KPIs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Top Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Today KPIs": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yesterday KPIs": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Top Products": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Analytics": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "timezone": "Europe/Berlin"
+  }
+}

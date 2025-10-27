@@ -1,0 +1,190 @@
+{
+  "name": "Smart Price Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-2h",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  p.id,\n  p.name,\n  p.brand,\n  p.style_code,\n  i.size,\n  i.condition,\n  i.purchase_cost,\n  COALESCE(i.listed_price, 0) as current_price,\n  i.id as inventory_id\nFROM inventory.inventory_items i\nJOIN products.products p ON i.product_id = p.id\nWHERE i.status = 'listed'\n  AND i.listed_price > 0\nORDER BY RANDOM()\nLIMIT 50",
+        "options": {}
+      },
+      "id": "get-listed-products",
+      "name": "Get Listed Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 400],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:8000/api/pricing/market-price",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\n  \"product_id\": \"{{ $json.id }}\",\n  \"size\": \"{{ $json.size }}\",\n  \"condition\": \"{{ $json.condition }}\"\n}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "retry": {
+              "maxRetries": 2
+            }
+          }
+        }
+      },
+      "id": "get-market-price",
+      "name": "Get Market Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [650, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate price differences\nconst items = $input.all();\nconst alerts = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Skip if no market price returned\n  if (!data.market_price || data.market_price === 0) continue;\n  \n  const currentPrice = parseFloat(data.current_price);\n  const marketPrice = parseFloat(data.market_price);\n  const purchaseCost = parseFloat(data.purchase_cost);\n  \n  // Calculate differences\n  const priceDiff = ((currentPrice - marketPrice) / marketPrice * 100).toFixed(1);\n  const profitMargin = ((currentPrice - purchaseCost) / currentPrice * 100).toFixed(1);\n  \n  // Alert if price is >10% above market or <5% profit margin\n  if (Math.abs(priceDiff) > 10 || profitMargin < 5) {\n    alerts.push({\n      product_name: data.name,\n      brand: data.brand,\n      size: data.size,\n      condition: data.condition,\n      current_price: currentPrice.toFixed(2),\n      market_price: marketPrice.toFixed(2),\n      purchase_cost: purchaseCost.toFixed(2),\n      price_diff: priceDiff,\n      profit_margin: profitMargin,\n      inventory_id: data.inventory_id,\n      alert_type: Math.abs(priceDiff) > 10 ? 'price_mismatch' : 'low_margin'\n    });\n  }\n}\n\nreturn alerts.map(alert => ({ json: alert }));"
+      },
+      "id": "analyze-prices",
+      "name": "Analyze Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "has-alerts",
+      "name": "Has Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format price alerts for Slack\nconst alerts = $input.all().map(a => a.json);\n\n// Group by alert type\nconst priceMismatches = alerts.filter(a => a.alert_type === 'price_mismatch');\nconst lowMargins = alerts.filter(a => a.alert_type === 'low_margin');\n\nconst formatAlert = (alert) => {\n  const emoji = alert.price_diff > 0 ? '📈' : '📉';\n  return `${emoji} *${alert.product_name}* (${alert.brand}) - Size ${alert.size}\\n  💰 Listed: €${alert.current_price} | 📊 Market: €${alert.market_price}\\n  📉 Diff: ${alert.price_diff}% | 💵 Margin: ${alert.profit_margin}%`;\n};\n\nlet message = '🔔 **Price Alerts!**\\n\\n';\n\nif (priceMismatches.length > 0) {\n  message += `⚠️ *Price Mismatches (${priceMismatches.length}):*\\n`;\n  message += priceMismatches.slice(0, 5).map(formatAlert).join('\\n\\n');\n  message += '\\n\\n';\n}\n\nif (lowMargins.length > 0) {\n  message += `💸 *Low Profit Margins (${lowMargins.length}):*\\n`;\n  message += lowMargins.slice(0, 5).map(formatAlert).join('\\n\\n');\n}\n\nmessage += '\\n\\n💡 _Review pricing strategy for these items_';\n\nreturn {\n  json: {\n    message: message,\n    total_alerts: alerts.length,\n    price_mismatches: priceMismatches.length,\n    low_margins: lowMargins.length\n  }\n};"
+      },
+      "id": "format-alerts",
+      "name": "Format Alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#pricing-alerts",
+          "mode": "name"
+        },
+        "text": "={{ $json.message }}"
+      },
+      "id": "slack-price-alert",
+      "name": "Send Price Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1450, 300],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Get Listed Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Listed Products": {
+      "main": [
+        [
+          {
+            "node": "Get Market Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Market Price": {
+      "main": [
+        [
+          {
+            "node": "Analyze Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Prices": {
+      "main": [
+        [
+          {
+            "node": "Has Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Alerts?": {
+      "main": [
+        [
+          {
+            "node": "Format Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alerts": {
+      "main": [
+        [
+          {
+            "node": "Send Price Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  }
+}
