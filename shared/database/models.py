@@ -149,7 +149,7 @@ class Category(Base, TimestampMixin):
 
 class Size(Base, TimestampMixin):
     __tablename__ = "sizes"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "catalog"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")))

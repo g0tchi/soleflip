@@ -10,7 +10,9 @@
       "Bash(docker exec:*)",
       "Bash(./venv/bin/alembic upgrade:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(python3:*)",
+      "Bash(source:*)"
     ],
     "deny": [],
     "ask": []
