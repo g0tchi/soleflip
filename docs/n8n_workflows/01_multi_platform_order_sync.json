@@ -65,21 +65,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format order data for Discord\nconst summary = $('Check New Orders').first().json;\nconst orders = $input.all().map(item => item.json);\n\n// Build order list\nconst orderList = orders.map(order => {\n  const platform = order.source?.toUpperCase() || 'UNKNOWN';\n  const emoji = {\n    'STOCKX': '🟢',\n    'EBAY': '🔵',\n    'GOAT': '🟣',\n    'ALIAS': '🟠'\n  }[platform] || '⚪';\n  \n  return `${emoji} **${platform}** | ${order.product_name || 'Unknown Product'} (${order.brand || 'N/A'})\\n   Size: ${order.size || 'N/A'} | €${parseFloat(order.final_price || 0).toFixed(2)} | Status: ${order.status}`;\n}).join('\\n\\n');\n\n// Create Discord embed\nconst embed = {\n  title: '📦 New Orders Detected!',\n  description: `**${summary.new_orders} new order(s)** in the last 15 minutes`,\n  color: 3066993, // Green\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `🟢 StockX: ${summary.stockx_orders}\\n🔵 eBay: ${summary.ebay_orders}\\n🟣 GOAT: ${summary.goat_orders}`,\n      inline: true\n    },\n    {\n      name: '💰 Revenue',\n      value: `Total: €${parseFloat(summary.total_revenue || 0).toFixed(2)}\\nAverage: €${parseFloat(summary.avg_order_value || 0).toFixed(2)}`,\n      inline: true\n    },\n    {\n      name: '📋 Recent Orders',\n      value: orderList || 'No order details available'\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Order Monitor'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
-      },
-      "id": "format-discord",
-      "name": "Format Discord Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 200]
-    },
-    {
-      "parameters": {
         "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
         "method": "POST",
         "sendBody": true,
         "contentType": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [{\n    \"title\": \"📦 New Orders Detected!\",\n    \"description\": \"**\" + $('Check New Orders').first().json.new_orders + \" new order(s)** in the last 15 minutes\",\n    \"color\": 3066993,\n    \"fields\": [\n      {\n        \"name\": \"📊 Summary\",\n        \"value\": \"🟢 StockX: \" + $('Check New Orders').first().json.stockx_orders + \"\\n🔵 eBay: \" + $('Check New Orders').first().json.ebay_orders + \"\\n🟣 GOAT: \" + $('Check New Orders').first().json.goat_orders,\n        \"inline\": true\n      },\n      {\n        \"name\": \"💰 Revenue\",\n        \"value\": \"Total: €\" + $('Check New Orders').first().json.total_revenue.toFixed(2) + \"\\nAverage: €\" + $('Check New Orders').first().json.avg_order_value.toFixed(2),\n        \"inline\": true\n      }\n    ],\n    \"timestamp\": new Date().toISOString(),\n    \"footer\": {\n      \"text\": \"SoleFlipper Order Monitor\"\n    }\n  }]\n}",
         "options": {
           "timeout": 10000
         }
@@ -88,7 +79,7 @@
       "name": "Send to Discord",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [1250, 200],
+      "position": [1050, 200],
       "onError": "continueRegularOutput"
     }
   ],
@@ -127,17 +118,6 @@
       ]
     },
     "Get Order Details": {
-      "main": [
-        [
-          {
-            "node": "Format Discord Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Discord Message": {
       "main": [
         [
           {
