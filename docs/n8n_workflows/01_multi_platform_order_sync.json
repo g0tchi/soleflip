@@ -1,5 +1,5 @@
 {
-  "name": "Multi-Platform Order Sync",
+  "name": "Multi-Platform Order Monitor",
   "nodes": [
     {
       "parameters": {
@@ -20,79 +20,15 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8000/api/integration/stockx/orders/sync",
-        "method": "POST",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000,
-          "retry": {
-            "retry": {
-              "maxRetries": 3,
-              "retryInterval": 5000
-            }
-          }
-        }
-      },
-      "id": "stockx-sync",
-      "name": "Sync StockX Orders",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [450, 200],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "url": "http://localhost:8000/api/integration/ebay/orders/sync",
-        "method": "POST",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000,
-          "retry": {
-            "retry": {
-              "maxRetries": 3,
-              "retryInterval": 5000
-            }
-          }
-        }
-      },
-      "id": "ebay-sync",
-      "name": "Sync eBay Orders",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [450, 400],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  COUNT(*) as new_orders,\n  SUM(CASE WHEN source = 'stockx' THEN 1 ELSE 0 END) as stockx_orders,\n  SUM(CASE WHEN source = 'ebay' THEN 1 ELSE 0 END) as ebay_orders\nFROM transactions.orders \nWHERE created_at > NOW() - INTERVAL '15 minutes'",
+        "query": "SELECT \n  COUNT(*) as new_orders,\n  SUM(CASE WHEN source = 'stockx' THEN 1 ELSE 0 END) as stockx_orders,\n  SUM(CASE WHEN source = 'ebay' THEN 1 ELSE 0 END) as ebay_orders,\n  SUM(CASE WHEN source = 'goat' THEN 1 ELSE 0 END) as goat_orders,\n  SUM(final_price) as total_revenue,\n  AVG(final_price) as avg_order_value\nFROM transactions.orders \nWHERE created_at > NOW() - INTERVAL '15 minutes'\n  AND status NOT IN ('cancelled', 'refunded')",
         "options": {}
       },
       "id": "check-orders",
       "name": "Check New Orders",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [650, 300],
+      "position": [450, 300],
       "retryOnFail": true,
       "maxTries": 2
     },
@@ -112,57 +48,52 @@
       "name": "Has New Orders?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [850, 300]
+      "position": [650, 300]
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "#orders",
-          "mode": "name"
-        },
-        "text": "=✅ **Order Sync Complete!**\n\n📦 *New Orders:* {{ $json.new_orders }}\n🛍️ *StockX:* {{ $json.stockx_orders }}\n🛒 *eBay:* {{ $json.ebay_orders }}\n⏰ *Synced:* {{ $now.format('DD.MM.YYYY HH:mm:ss') }}"
+        "operation": "executeQuery",
+        "query": "SELECT \n  o.id,\n  o.source,\n  o.order_number,\n  p.name as product_name,\n  p.brand,\n  o.size,\n  o.final_price,\n  o.status,\n  o.created_at\nFROM transactions.orders o\nLEFT JOIN products.products p ON o.product_id = p.id\nWHERE o.created_at > NOW() - INTERVAL '15 minutes'\n  AND o.status NOT IN ('cancelled', 'refunded')\nORDER BY o.created_at DESC\nLIMIT 10",
+        "options": {}
       },
-      "id": "slack-notify",
-      "name": "Notify Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [1050, 200],
+      "id": "get-order-details",
+      "name": "Get Order Details",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [850, 200],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format order data for Discord\nconst summary = $('Check New Orders').first().json;\nconst orders = $input.all().map(item => item.json);\n\n// Build order list\nconst orderList = orders.map(order => {\n  const platform = order.source?.toUpperCase() || 'UNKNOWN';\n  const emoji = {\n    'STOCKX': '🟢',\n    'EBAY': '🔵',\n    'GOAT': '🟣',\n    'ALIAS': '🟠'\n  }[platform] || '⚪';\n  \n  return `${emoji} **${platform}** | ${order.product_name || 'Unknown Product'} (${order.brand || 'N/A'})\\n   Size: ${order.size || 'N/A'} | €${parseFloat(order.final_price || 0).toFixed(2)} | Status: ${order.status}`;\n}).join('\\n\\n');\n\n// Create Discord embed\nconst embed = {\n  title: '📦 New Orders Detected!',\n  description: `**${summary.new_orders} new order(s)** in the last 15 minutes`,\n  color: 3066993, // Green\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `🟢 StockX: ${summary.stockx_orders}\\n🔵 eBay: ${summary.ebay_orders}\\n🟣 GOAT: ${summary.goat_orders}`,\n      inline: true\n    },\n    {\n      name: '💰 Revenue',\n      value: `Total: €${parseFloat(summary.total_revenue || 0).toFixed(2)}\\nAverage: €${parseFloat(summary.avg_order_value || 0).toFixed(2)}`,\n      inline: true\n    },\n    {\n      name: '📋 Recent Orders',\n      value: orderList || 'No order details available'\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Order Monitor'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
+      },
+      "id": "format-discord",
+      "name": "Format Discord Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "discord-webhook",
+      "name": "Send to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1250, 200],
       "onError": "continueRegularOutput"
     }
   ],
   "connections": {
     "Every 15 Minutes": {
-      "main": [
-        [
-          {
-            "node": "Sync StockX Orders",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Sync eBay Orders",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sync StockX Orders": {
-      "main": [
-        [
-          {
-            "node": "Check New Orders",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sync eBay Orders": {
       "main": [
         [
           {
@@ -188,7 +119,29 @@
       "main": [
         [
           {
-            "node": "Notify Slack",
+            "node": "Get Order Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order Details": {
+      "main": [
+        [
+          {
+            "node": "Format Discord Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Discord Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Discord",
             "type": "main",
             "index": 0
           }

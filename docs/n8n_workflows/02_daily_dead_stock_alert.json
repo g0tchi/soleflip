@@ -47,7 +47,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Verarbeite Dead Stock Daten\nconst items = $input.first().json;\nconst stats = $input.last().json;\n\n// Formatiere Items für Slack\nconst topItems = items.slice(0, 10).map(item => {\n  return `• *${item.product_name}* (${item.brand}) - Size ${item.size}\\n  💰 €${item.purchase_cost} | 📅 ${item.days_in_stock} days | 📍 ${item.location}`;\n}).join('\\n\\n');\n\nreturn {\n  json: {\n    total_items: stats.total_items,\n    total_value: parseFloat(stats.total_value).toFixed(2),\n    avg_days: parseInt(stats.avg_days),\n    top_items: topItems,\n    has_dead_stock: stats.total_items > 0\n  }\n};"
+        "jsCode": "// Verarbeite Dead Stock Daten\nconst items = $('Find Dead Stock').all().map(i => i.json);\nconst stats = $('Calculate Stats').first().json;\n\n// Formatiere Items für Discord\nconst topItems = items.slice(0, 10).map((item, index) => {\n  return `${index + 1}. **${item.product_name}** (${item.brand}) - Size ${item.size}\\n   💰 €${parseFloat(item.purchase_cost).toFixed(2)} | 📅 ${Math.floor(item.days_in_stock)} days | 📍 ${item.location || 'N/A'}`;\n}).join('\\n\\n');\n\nconst totalValue = parseFloat(stats.total_value || 0).toFixed(2);\nconst avgDays = Math.floor(stats.avg_days || 0);\nconst totalItems = stats.total_items || 0;\n\n// Create Discord embed\nconst embed = {\n  title: '🚨 Dead Stock Alert',\n  description: `**${totalItems} items** have been in stock for over 90 days`,\n  color: 15158332, // Red\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `Total Items: **${totalItems}**\\nTotal Value: **€${totalValue}**\\nAverage Age: **${avgDays} days**`,\n      inline: false\n    },\n    {\n      name: '🔝 Top 10 Items',\n      value: topItems || 'No dead stock items found'\n    },\n    {\n      name: '💡 Recommendation',\n      value: 'Consider price reductions or promotions for these items to improve inventory turnover',\n      inline: false\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Dead Stock Monitor'\n  }\n};\n\nreturn {\n  json: {\n    has_dead_stock: totalItems > 0,\n    embeds: [embed]\n  }\n};"
       },
       "id": "format-report",
       "name": "Format Report",
@@ -74,20 +74,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "#inventory-alerts",
-          "mode": "name"
-        },
-        "text": "=🚨 **Dead Stock Alert!**\n\n📊 *Summary:*\n• Total Items: {{ $json.total_items }}\n• Total Value: €{{ $json.total_value }}\n• Average Age: {{ $json.avg_days }} days\n\n🔝 *Top 10 Items:*\n{{ $json.top_items }}\n\n💡 _Consider price reductions or promotions for these items_"
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ embeds: $json.embeds }) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
-      "id": "slack-alert",
-      "name": "Send Slack Alert",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
+      "id": "discord-alert",
+      "name": "Send Discord Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
       "position": [1050, 300],
       "onError": "continueRegularOutput"
     }
@@ -146,7 +145,7 @@
       "main": [
         [
           {
-            "node": "Send Slack Alert",
+            "node": "Send Discord Alert",
             "type": "main",
             "index": 0
           }

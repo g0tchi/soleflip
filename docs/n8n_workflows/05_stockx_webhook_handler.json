@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate and extract StockX webhook data\nconst body = $input.first().json.body;\n\n// StockX webhook structure\nconst eventType = body.event_type || 'unknown';\nconst orderId = body.data?.order_id || body.order_id;\nconst status = body.data?.status || body.status;\nconst trackingNumber = body.data?.tracking_number;\n\nif (!orderId) {\n  throw new Error('Missing order_id in webhook payload');\n}\n\nreturn {\n  json: {\n    event_type: eventType,\n    order_id: orderId,\n    status: status,\n    tracking_number: trackingNumber,\n    raw_data: body,\n    received_at: new Date().toISOString()\n  }\n};"
+        "jsCode": "const body = $input.first().json.body;\n\nconst eventType = body.event_type || 'unknown';\nconst orderId = body.data?.order_id || body.order_id;\nconst status = body.data?.status || body.status;\nconst trackingNumber = body.data?.tracking_number;\n\nif (!orderId) {\n  throw new Error('Missing order_id in webhook payload');\n}\n\nreturn {\n  json: {\n    event_type: eventType,\n    order_id: orderId,\n    status: status,\n    tracking_number: trackingNumber,\n    raw_data: body,\n    received_at: new Date().toISOString()\n  }\n};"
       },
       "id": "validate-webhook",
       "name": "Validate Webhook",
@@ -29,7 +29,7 @@
     },
     {
       "parameters": {
-        "url": "=http://localhost:8000/api/integration/stockx/webhook",
+        "url": "=http://localhost:8000/api/integration/webhooks/stockx",
         "method": "POST",
         "sendBody": true,
         "contentType": "json",
@@ -67,21 +67,30 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "#orders",
-          "mode": "name"
-        },
-        "text": "=📦 **Order Shipped!**\n\n*Order ID:* {{ $json.order_id }}\n*Tracking:* {{ $json.tracking_number }}\n*Status:* {{ $json.status }}\n\n_Order is on its way!_ 🚚"
+        "jsCode": "const data = $input.first().json;\n\nconst embed = {\n  title: '📦 Order Shipped!',\n  description: `StockX order has been shipped`,\n  color: 5763719, // Green\n  fields: [\n    {\n      name: 'Order ID',\n      value: `**${data.order_id}**`,\n      inline: true\n    },\n    {\n      name: 'Status',\n      value: `**${data.status}**`,\n      inline: true\n    },\n    {\n      name: 'Tracking Number',\n      value: data.tracking_number ? `**${data.tracking_number}**` : 'Not available',\n      inline: false\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'Order is on its way! 🚚'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
       },
-      "id": "notify-shipped",
-      "name": "Notify Shipped",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [1050, 200],
+      "id": "format-notification",
+      "name": "Format Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "notify-discord",
+      "name": "Notify Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1250, 200],
       "onError": "continueRegularOutput"
     },
     {
@@ -142,7 +151,18 @@
       "main": [
         [
           {
-            "node": "Notify Shipped",
+            "node": "Format Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Notification": {
+      "main": [
+        [
+          {
+            "node": "Notify Discord",
             "type": "main",
             "index": 0
           }

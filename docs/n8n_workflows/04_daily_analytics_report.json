@@ -23,11 +23,11 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  COUNT(*) as orders_today,\n  SUM(final_price) as revenue_today,\n  AVG(final_price) as avg_order_value,\n  COUNT(DISTINCT customer_id) as unique_customers\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE\n  AND created_at < CURRENT_DATE + INTERVAL '1 day'\n  AND status IN ('completed', 'shipped')",
+        "query": "SELECT \n  COUNT(*) as orders_today,\n  SUM(final_price) as revenue_today,\n  AVG(final_price) as avg_order_value,\n  COUNT(DISTINCT customer_id) as unique_customers\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND created_at < CURRENT_DATE\n  AND status IN ('completed', 'shipped')",
         "options": {}
       },
-      "id": "today-kpis",
-      "name": "Today KPIs",
+      "id": "yesterday-kpis",
+      "name": "Yesterday KPIs",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [450, 300],
@@ -36,11 +36,11 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  COUNT(*) as orders_yesterday,\n  SUM(final_price) as revenue_yesterday\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND created_at < CURRENT_DATE\n  AND status IN ('completed', 'shipped')",
+        "query": "SELECT \n  COUNT(*) as orders_day_before,\n  SUM(final_price) as revenue_day_before\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '2 days'\n  AND created_at < CURRENT_DATE - INTERVAL '1 day'\n  AND status IN ('completed', 'shipped')",
         "options": {}
       },
-      "id": "yesterday-kpis",
-      "name": "Yesterday KPIs",
+      "id": "day-before-kpis",
+      "name": "Day Before KPIs",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [450, 500],
@@ -49,7 +49,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  p.name,\n  p.brand,\n  COUNT(*) as units_sold,\n  SUM(o.final_price) as total_revenue\nFROM transactions.orders o\nJOIN products.products p ON o.product_id = p.id\nWHERE o.created_at >= CURRENT_DATE\n  AND o.created_at < CURRENT_DATE + INTERVAL '1 day'\n  AND o.status IN ('completed', 'shipped')\nGROUP BY p.id, p.name, p.brand\nORDER BY units_sold DESC\nLIMIT 5",
+        "query": "SELECT \n  p.name,\n  p.brand,\n  COUNT(*) as units_sold,\n  SUM(o.final_price) as total_revenue\nFROM transactions.orders o\nJOIN products.products p ON o.product_id = p.id\nWHERE o.created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND o.created_at < CURRENT_DATE\n  AND o.status IN ('completed', 'shipped')\nGROUP BY p.id, p.name, p.brand\nORDER BY units_sold DESC\nLIMIT 5",
         "options": {}
       },
       "id": "top-products",
@@ -61,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Combine all analytics data\nconst today = $('Today KPIs').first().json;\nconst yesterday = $('Yesterday KPIs').first().json;\nconst topProducts = $('Top Products').all().map(p => p.json);\n\n// Calculate changes\nconst orderChange = ((today.orders_today - yesterday.orders_yesterday) / yesterday.orders_yesterday * 100).toFixed(1);\nconst revenueChange = ((today.revenue_today - yesterday.revenue_yesterday) / yesterday.revenue_yesterday * 100).toFixed(1);\n\n// Format top products\nconst topProductsList = topProducts.map((p, i) => \n  `${i+1}. *${p.name}* (${p.brand}) - ${p.units_sold} units | €${parseFloat(p.total_revenue).toFixed(2)}`\n).join('\\n');\n\nconst orderEmoji = orderChange >= 0 ? '📈' : '📉';\nconst revenueEmoji = revenueChange >= 0 ? '💰' : '💸';\n\nreturn {\n  json: {\n    orders_today: today.orders_today || 0,\n    revenue_today: parseFloat(today.revenue_today || 0).toFixed(2),\n    avg_order: parseFloat(today.avg_order_value || 0).toFixed(2),\n    unique_customers: today.unique_customers || 0,\n    order_change: orderChange,\n    revenue_change: revenueChange,\n    order_emoji: orderEmoji,\n    revenue_emoji: revenueEmoji,\n    top_products: topProductsList\n  }\n};"
+        "jsCode": "const yesterday = $('Yesterday KPIs').first().json;\nconst dayBefore = $('Day Before KPIs').first().json;\nconst topProducts = $('Top Products').all().map(p => p.json);\n\nconst orderChange = ((yesterday.orders_today - dayBefore.orders_day_before) / (dayBefore.orders_day_before || 1) * 100).toFixed(1);\nconst revenueChange = ((yesterday.revenue_today - dayBefore.revenue_day_before) / (dayBefore.revenue_day_before || 1) * 100).toFixed(1);\n\nconst topProductsList = topProducts.map((p, i) => \n  `${i+1}. **${p.name}** (${p.brand}) - ${p.units_sold} units | €${parseFloat(p.total_revenue).toFixed(2)}`\n).join('\\n');\n\nconst orderEmoji = orderChange >= 0 ? '📈' : '📉';\nconst revenueEmoji = revenueChange >= 0 ? '💰' : '💸';\n\nconst embed = {\n  title: '📊 Daily Analytics Report',\n  description: `Report for ${new Date(Date.now() - 86400000).toLocaleDateString('de-DE')}`,\n  color: 3447003, // Blue\n  fields: [\n    {\n      name: '📦 Orders',\n      value: `${orderEmoji} **${yesterday.orders_today || 0}** (${orderChange}% vs day before)`,\n      inline: true\n    },\n    {\n      name: '💰 Revenue',\n      value: `${revenueEmoji} **€${parseFloat(yesterday.revenue_today || 0).toFixed(2)}** (${revenueChange}% vs day before)`,\n      inline: true\n    },\n    {\n      name: '👥 Customers',\n      value: `**${yesterday.unique_customers || 0}** unique`,\n      inline: true\n    },\n    {\n      name: '💳 Avg Order Value',\n      value: `**€${parseFloat(yesterday.avg_order_value || 0).toFixed(2)}**`,\n      inline: true\n    },\n    {\n      name: '🏆 Top 5 Products',\n      value: topProductsList || 'No sales yesterday'\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'Have a great day! ☕'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
       },
       "id": "combine-data",
       "name": "Combine Analytics",
@@ -71,20 +71,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "#daily-reports",
-          "mode": "name"
-        },
-        "text": "=📊 **Daily Analytics Report**\n_{{ $now.format('dddd, DD MMMM YYYY') }}_\n\n*Yesterday's Performance:*\n{{ $json.order_emoji }} Orders: {{ $json.orders_today }} ({{ $json.order_change }}% vs day before)\n{{ $json.revenue_emoji }} Revenue: €{{ $json.revenue_today }} ({{ $json.revenue_change }}% vs day before)\n👥 Unique Customers: {{ $json.unique_customers }}\n💳 Avg Order Value: €{{ $json.avg_order }}\n\n*🏆 Top 5 Products:*\n{{ $json.top_products }}\n\n_Have a great day!_ ☕"
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
-      "id": "slack-report",
+      "id": "discord-report",
       "name": "Send Daily Report",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
       "position": [850, 500],
       "onError": "continueRegularOutput"
     }
@@ -94,12 +93,12 @@
       "main": [
         [
           {
-            "node": "Today KPIs",
+            "node": "Yesterday KPIs",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Yesterday KPIs",
+            "node": "Day Before KPIs",
             "type": "main",
             "index": 0
           },
@@ -111,7 +110,7 @@
         ]
       ]
     },
-    "Today KPIs": {
+    "Yesterday KPIs": {
       "main": [
         [
           {
@@ -122,7 +121,7 @@
         ]
       ]
     },
-    "Yesterday KPIs": {
+    "Day Before KPIs": {
       "main": [
         [
           {

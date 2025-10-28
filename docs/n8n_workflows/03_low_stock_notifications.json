@@ -36,7 +36,7 @@
         "conditions": {
           "number": [
             {
-              "value1": "={{ $json.length }}",
+              "value1": "={{ $input.all().length }}",
               "operation": "larger",
               "value2": 0
             }
@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format low stock items\nconst items = $input.all().map(item => item.json);\n\nconst formattedItems = items.slice(0, 10).map(item => {\n  const urgency = item.stock_count === 1 ? '🔴 CRITICAL' : '🟡 LOW';\n  return `${urgency} *${item.name}* (${item.brand})\\n  📦 Stock: ${item.stock_count} | 📈 Sales (30d): ${item.recent_sales} | 💰 Avg Cost: €${parseFloat(item.avg_cost).toFixed(2)}`;\n}).join('\\n\\n');\n\nreturn {\n  json: {\n    total_products: items.length,\n    critical_items: items.filter(i => i.stock_count === 1).length,\n    items_list: formattedItems\n  }\n};"
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nconst formattedItems = items.slice(0, 10).map((item, index) => {\n  const urgency = item.stock_count === 1 ? '🔴 CRITICAL' : '🟡 LOW';\n  return `${urgency} **${item.name}** (${item.brand})\\n   📦 Stock: ${item.stock_count} | 📈 Sales (30d): ${item.recent_sales} | 💰 Avg Cost: €${parseFloat(item.avg_cost).toFixed(2)}`;\n}).join('\\n\\n');\n\nconst criticalItems = items.filter(i => i.stock_count === 1).length;\n\nconst embed = {\n  title: '⚠️ Low Stock Alert',\n  description: `**${items.length} products** are running low on stock`,\n  color: 16776960, // Yellow\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `Total Products: **${items.length}**\\nCritical (1 item): **${criticalItems}**`,\n      inline: false\n    },\n    {\n      name: '📦 Top Items',\n      value: formattedItems\n    },\n    {\n      name: '💡 Recommendation',\n      value: 'Consider restocking these popular items to avoid lost sales',\n      inline: false\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Low Stock Monitor'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
       },
       "id": "format-alert",
       "name": "Format Alert",
@@ -61,20 +61,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "#inventory-alerts",
-          "mode": "name"
-        },
-        "text": "=⚠️ **Low Stock Alert!**\n\n📊 *Summary:*\n• Total Products: {{ $json.total_products }}\n• Critical (1 item): {{ $json.critical_items }}\n\n📦 *Top Items:*\n{{ $json.items_list }}\n\n💡 _Consider restocking these popular items_"
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
       },
-      "id": "slack-low-stock",
+      "id": "discord-alert",
       "name": "Send Alert",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
       "position": [1050, 200],
       "onError": "continueRegularOutput"
     }
