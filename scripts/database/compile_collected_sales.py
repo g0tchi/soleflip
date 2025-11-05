@@ -39,10 +39,9 @@ def format_for_sync(sales):
 
     for i, (title, url, highlight) in enumerate(sales):
         # Escape single quotes
-        highlight_escaped = highlight.replace("'", "\\'")
+        highlight.replace("'", "\\'")
 
         # Use unique key for duplicates
-        key = f"{title}-{i}" if i > 0 else title
 
         output += f"    ('{title}', '{url}',\n"
         output += f"     '''{highlight}'''),\n\n"

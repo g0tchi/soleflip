@@ -39,7 +39,7 @@ async def create_timex_sale():
         inventory_id = inventory[0]
         purchase_price = inventory[1]  # net
         gross_purchase_price = inventory[2]  # gross
-        product_id = inventory[3]
+        inventory[3]
 
         print(f"[OK] Found inventory item: {inventory_id}")
         print(f"     Purchase price (net): {purchase_price} EUR")
@@ -61,7 +61,7 @@ async def create_timex_sale():
         net_profit = net_proceeds - gross_purchase_price
         roi = (net_profit / gross_purchase_price * 100) if gross_purchase_price else 0
 
-        print(f"\n[INFO] Sale details:")
+        print("\n[INFO] Sale details:")
         print(f"     Sale price: {sale_price} EUR")
         print(f"     Seller fee (9.5%): {seller_fee:.2f} EUR")
         print(f"     Processing fee: {processing_fee} EUR")
@@ -148,7 +148,7 @@ async def create_timex_sale():
             }
         )
         await session.commit()
-        print(f"[OK] Created transaction record")
+        print("[OK] Created transaction record")
 
         # Update inventory status to sold
         await session.execute(
@@ -165,13 +165,13 @@ async def create_timex_sale():
             }
         )
         await session.commit()
-        print(f"[OK] Updated inventory status to 'sold'")
+        print("[OK] Updated inventory status to 'sold'")
 
         print(f"\n{'='*60}")
         print("[SUCCESS] Timex sale recorded successfully!")
         print(f"{'='*60}")
-        print(f"\nSummary:")
-        print(f"  Product: Timex Camper x Stranger Things")
+        print("\nSummary:")
+        print("  Product: Timex Camper x Stranger Things")
         print(f"  Order: {order_number}")
         print(f"  Purchase: {gross_purchase_price} EUR (gross)")
         print(f"  Sale: {sale_price} EUR")

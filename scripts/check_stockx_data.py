@@ -2,7 +2,7 @@
 Check StockX product data availability for Awin matching
 """
 import asyncio
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from shared.database.connection import db_manager
 
 
@@ -31,7 +31,7 @@ async def main():
                 print("Cannot perform StockX matching without product data")
                 return
 
-            print(f"\n[OK] Found products table(s):")
+            print("\n[OK] Found products table(s):")
             for table in tables:
                 print(f"    {table[1]}.{table[0]}")
 
@@ -44,7 +44,7 @@ async def main():
             print("=" * 80)
 
             result = await session.execute(
-                text(f"""
+                text("""
                     SELECT column_name, data_type, is_nullable
                     FROM information_schema.columns
                     WHERE table_schema = :schema

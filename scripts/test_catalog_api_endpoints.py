@@ -10,7 +10,6 @@ Tests all 5 new endpoints:
 """
 
 import asyncio
-import os
 from dotenv import load_dotenv
 
 import httpx

@@ -270,7 +270,7 @@ class MetabaseViewManager:
             # Hourly views - Every hour at :00
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.HOURLY):
                 try:
-                    result = await session.execute(text("""
+                    await session.execute(text("""
                         SELECT cron.schedule(
                             :job_name,
                             '0 * * * *',
@@ -287,7 +287,7 @@ class MetabaseViewManager:
             # Daily views - Every day at 2 AM
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.DAILY):
                 try:
-                    result = await session.execute(text("""
+                    await session.execute(text("""
                         SELECT cron.schedule(
                             :job_name,
                             '0 2 * * *',
@@ -304,7 +304,7 @@ class MetabaseViewManager:
             # Weekly views - Every Monday at 3 AM
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.WEEKLY):
                 try:
-                    result = await session.execute(text("""
+                    await session.execute(text("""
                         SELECT cron.schedule(
                             :job_name,
                             '0 3 * * 1',

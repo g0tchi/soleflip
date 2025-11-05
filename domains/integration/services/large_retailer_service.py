@@ -94,7 +94,7 @@ class LargeRetailerImportService:
         
         try:
             # Create import batch record
-            batch = await self._create_import_batch(
+            await self._create_import_batch(
                 batch_id=batch_id,
                 source_type=f"retailer_{retailer_name.lower()}",
                 filename=file_name,
@@ -156,7 +156,7 @@ class LargeRetailerImportService:
         
         try:
             # Create import batch record
-            batch = await self._create_import_batch(
+            await self._create_import_batch(
                 batch_id=batch_id,
                 source_type=f"retailer_{retailer_name.lower()}",
                 filename=file_name,
@@ -213,7 +213,7 @@ class LargeRetailerImportService:
         
         try:
             # Create import batch record
-            batch = await self._create_import_batch(
+            await self._create_import_batch(
                 batch_id=batch_id,
                 source_type=f"retailer_{retailer_name.lower()}_api",
                 filename=None,

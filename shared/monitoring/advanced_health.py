@@ -242,7 +242,7 @@ class AdvancedHealthChecker:
                 for table in essential_tables:
                     try:
                         schema, table_name = table.split('.')
-                        result = await session.execute(
+                        await session.execute(
                             text(f"SELECT COUNT(*) FROM {schema}.{table_name} LIMIT 1")
                         )
                         table_status[table] = "accessible"

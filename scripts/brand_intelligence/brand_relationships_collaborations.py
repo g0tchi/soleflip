@@ -88,8 +88,8 @@ async def create_brand_relationships():
     print("\n3. Adding brand collaborations...")
 
     # Get brand IDs for collaborations
-    nike_id = await conn.fetchval("SELECT id FROM core.brands WHERE name = 'Nike'")
-    adidas_id = await conn.fetchval("SELECT id FROM core.brands WHERE name = 'Adidas'")
+    await conn.fetchval("SELECT id FROM core.brands WHERE name = 'Nike'")
+    await conn.fetchval("SELECT id FROM core.brands WHERE name = 'Adidas'")
 
     # Famous collaborations (we'll create some collaborator brands)
     famous_collabs = [

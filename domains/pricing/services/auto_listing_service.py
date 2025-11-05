@@ -563,7 +563,7 @@ class AutoListingService:
             # Import StockX service
             from domains.integration.services.stockx_service import StockXService
             
-            stockx_service = StockXService(self.db_session)
+            StockXService(self.db_session)
             
             # Calculate expiration date
             expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)

@@ -87,7 +87,7 @@ async def refresh_stockx_token():
                         print("   The refresh token in database remains valid and can be reused.")
 
                     else:
-                        print(f"\n[ERROR] Token refresh failed!")
+                        print("\n[ERROR] Token refresh failed!")
                         print(f"Status Code: {response.status_code}")
                         print(f"Response: {response.text}\n")
 

@@ -612,7 +612,7 @@ async def sync_inventory_from_stockx(
                                 logger.warning(f"Failed to fetch product details for {stockx_product_id}: {product_error}")
                         
                         # Create inventory item (mock for now)
-                        inventory_item_data = {
+                        {
                             "product_name": product_name,
                             "size": variant_data.get("variantValue", "Unknown"),
                             "current_price": float(listing.get("amount", 0)),

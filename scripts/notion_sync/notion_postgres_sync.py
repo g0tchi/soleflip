@@ -300,7 +300,7 @@ class NotionPostgresSyncAnalyzer:
         logger.info("=== BUSINESS INTELLIGENCE SYNC SIMULATION ===")
 
         for match in matches[:3]:  # Sample first 3 matches
-            notion = match['notion']
+            match['notion']
             postgres = match['postgres']
 
             # Calculate missing business metrics (Notion → PostgreSQL)

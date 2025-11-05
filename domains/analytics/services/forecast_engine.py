@@ -380,7 +380,6 @@ class ForecastEngine:
                     last_features[0, trend_idx] += 1
 
         # Calculate confidence intervals using prediction quantiles with list comprehensions
-        n_trees = model.n_estimators
         
         # PERFORMANCE OPTIMIZATION: Use nested list comprehensions for tree predictions
         tree_predictions = [

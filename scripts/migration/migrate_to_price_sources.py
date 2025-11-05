@@ -11,9 +11,7 @@ Options:
 """
 import asyncio
 import argparse
-from datetime import datetime
-from typing import Dict, List, Any
-from uuid import UUID
+from typing import Dict, Any
 
 import structlog
 from sqlalchemy import text

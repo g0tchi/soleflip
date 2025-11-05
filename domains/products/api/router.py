@@ -671,7 +671,7 @@ async def get_product_stats(
 
         # Get inventory counts for status breakdown
         inventory_summary = await inventory_service.get_detailed_summary()
-        inventory_summary_dict = inventory_summary if isinstance(inventory_summary, dict) else {}
+        inventory_summary if isinstance(inventory_summary, dict) else {}
 
         return {
             "timestamp": datetime.utcnow().isoformat() + "Z",

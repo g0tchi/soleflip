@@ -146,9 +146,9 @@ class NotionPostgresSyncService:
             status = properties.get('Status', 'unknown')
 
             # Extract Calculated Fields (will be recalculated for validation)
-            profit_notion = properties.get('Profit', 0.0)
-            roi_notion = properties.get('ROI', 0.0)
-            shelf_life_notion = properties.get('Shelf Life', 0)
+            properties.get('Profit', 0.0)
+            properties.get('ROI', 0.0)
+            properties.get('Shelf Life', 0)
 
             # Recalculate to verify Notion formulas
             profit_calculated = net_sale - net_buy
@@ -423,7 +423,7 @@ class NotionPostgresSyncService:
 
             # Parse properties from search result highlight
             # The highlight contains the property data
-            page_url = result.get('url', '')
+            result.get('url', '')
             page_id = result.get('id', '')
 
             logger.info(f"Processing page: {page_id}")
