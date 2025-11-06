@@ -405,16 +405,10 @@ class StockXService:
             logger.info("StockX listing created successfully", listing_id=response_data.get("listingId"))
             return response_data
         except httpx.HTTPStatusError as e:
-            logger.error("Failed to create StockX listing", 
-                        status_code=e.response.status_code, 
+            logger.error("Failed to create StockX listing",
+                        status_code=e.response.status_code,
                         response=e.response.text)
             raise
-            logger.warning(
-                "Received an unexpected HTTP status error during StockX catalog search.",
-                status_code=e.response.status_code,
-                query=query,
-            )
-            return None
 
     async def get_market_data_from_stockx(
         self, product_id: str, currency_code: Optional[str] = None

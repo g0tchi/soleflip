@@ -4,9 +4,12 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import ImportBatch, ImportRecord
+
+logger = structlog.get_logger(__name__)
 
 
 class AwinConnector:
