@@ -202,9 +202,17 @@ class InventoryService:
                 from domains.integration.services.stockx_service import StockXService
                 stockx_service = StockXService(self.db_session)
 
-            # Get all current StockX listings
-            listings = await stockx_service.get_all_listings()
-            self.logger.info(f"Found {len(listings)} StockX listings to sync")
+            # Get all ACTIVE StockX listings only (not history)
+            all_listings = await stockx_service.get_all_listings()
+            # Filter for ACTIVE and PENDING listings only
+            listings = [
+                listing for listing in all_listings
+                if listing.get("status", "").upper() in ["ACTIVE", "PENDING"]
+            ]
+            self.logger.info(
+                f"Found {len(listings)} active StockX listings to sync "
+                f"(filtered from {len(all_listings)} total listings)"
+            )
 
             # Get or create default category and brand
             default_category = await self._get_default_category()
@@ -1627,8 +1635,9 @@ class InventoryService:
             platform = Platform(
                 name="StockX",
                 slug="stockx",
-                url="https://stockx.com",
-                is_active=True
+                fee_percentage=10.0,  # StockX typical 10% seller fee
+                supports_fees=True,
+                active=True
             )
             self.db_session.add(platform)
             await self.db_session.flush()

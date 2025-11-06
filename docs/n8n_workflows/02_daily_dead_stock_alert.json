@@ -1,0 +1,161 @@
+{
+  "name": "Daily Dead Stock Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "schedule-daily",
+      "name": "Daily at 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  p.name as product_name,\n  p.brand,\n  i.size,\n  i.condition,\n  i.purchase_cost,\n  i.created_at,\n  EXTRACT(DAY FROM NOW() - i.created_at) as days_in_stock,\n  i.location\nFROM inventory.inventory_items i\nJOIN products.products p ON i.product_id = p.id\nWHERE i.status = 'available'\n  AND i.created_at < NOW() - INTERVAL '90 days'\nORDER BY i.created_at ASC\nLIMIT 50",
+        "options": {}
+      },
+      "id": "find-dead-stock",
+      "name": "Find Dead Stock",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as total_items,\n  SUM(purchase_cost) as total_value,\n  AVG(EXTRACT(DAY FROM NOW() - created_at)) as avg_days\nFROM inventory.inventory_items\nWHERE status = 'available'\n  AND created_at < NOW() - INTERVAL '90 days'",
+        "options": {}
+      },
+      "id": "dead-stock-stats",
+      "name": "Calculate Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 450],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verarbeite Dead Stock Daten\nconst items = $('Find Dead Stock').all().map(i => i.json);\nconst stats = $('Calculate Stats').first().json;\n\n// Formatiere Items für Discord\nconst topItems = items.slice(0, 10).map((item, index) => {\n  return `${index + 1}. **${item.product_name}** (${item.brand}) - Size ${item.size}\\n   💰 €${parseFloat(item.purchase_cost).toFixed(2)} | 📅 ${Math.floor(item.days_in_stock)} days | 📍 ${item.location || 'N/A'}`;\n}).join('\\n\\n');\n\nconst totalValue = parseFloat(stats.total_value || 0).toFixed(2);\nconst avgDays = Math.floor(stats.avg_days || 0);\nconst totalItems = stats.total_items || 0;\n\n// Create Discord embed\nconst embed = {\n  title: '🚨 Dead Stock Alert',\n  description: `**${totalItems} items** have been in stock for over 90 days`,\n  color: 15158332, // Red\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `Total Items: **${totalItems}**\\nTotal Value: **€${totalValue}**\\nAverage Age: **${avgDays} days**`,\n      inline: false\n    },\n    {\n      name: '🔝 Top 10 Items',\n      value: topItems || 'No dead stock items found'\n    },\n    {\n      name: '💡 Recommendation',\n      value: 'Consider price reductions or promotions for these items to improve inventory turnover',\n      inline: false\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Dead Stock Monitor'\n  }\n};\n\nreturn {\n  json: {\n    has_dead_stock: totalItems > 0,\n    embeds: [embed]\n  }\n};"
+      },
+      "id": "format-report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 375]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_dead_stock }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-stock",
+      "name": "Has Dead Stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [850, 375]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ embeds: $json.embeds }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "discord-alert",
+      "name": "Send Discord Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1050, 300],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Daily at 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Find Dead Stock",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Calculate Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Dead Stock": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Stats": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {
+            "node": "Has Dead Stock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dead Stock?": {
+      "main": [
+        [
+          {
+            "node": "Send Discord Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}

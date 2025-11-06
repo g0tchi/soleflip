@@ -1,0 +1,131 @@
+{
+  "name": "Low Stock Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-6h",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH product_stock AS (\n  SELECT \n    p.id,\n    p.name,\n    p.brand,\n    COUNT(i.id) as stock_count,\n    AVG(i.purchase_cost) as avg_cost\n  FROM products.products p\n  LEFT JOIN inventory.inventory_items i ON p.id = i.product_id AND i.status = 'available'\n  GROUP BY p.id, p.name, p.brand\n  HAVING COUNT(i.id) > 0 AND COUNT(i.id) < 3\n),\nrecent_sales AS (\n  SELECT \n    product_id,\n    COUNT(*) as sales_last_30_days\n  FROM transactions.orders\n  WHERE created_at > NOW() - INTERVAL '30 days'\n    AND status IN ('completed', 'shipped')\n  GROUP BY product_id\n)\nSELECT \n  ps.*,\n  COALESCE(rs.sales_last_30_days, 0) as recent_sales\nFROM product_stock ps\nLEFT JOIN recent_sales rs ON ps.id = rs.product_id\nWHERE COALESCE(rs.sales_last_30_days, 0) > 2\nORDER BY recent_sales DESC, stock_count ASC\nLIMIT 20",
+        "options": {}
+      },
+      "id": "find-low-stock",
+      "name": "Find Low Stock Items",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "has-items",
+      "name": "Has Low Stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nconst formattedItems = items.slice(0, 10).map((item, index) => {\n  const urgency = item.stock_count === 1 ? '🔴 CRITICAL' : '🟡 LOW';\n  return `${urgency} **${item.name}** (${item.brand})\\n   📦 Stock: ${item.stock_count} | 📈 Sales (30d): ${item.recent_sales} | 💰 Avg Cost: €${parseFloat(item.avg_cost).toFixed(2)}`;\n}).join('\\n\\n');\n\nconst criticalItems = items.filter(i => i.stock_count === 1).length;\n\nconst embed = {\n  title: '⚠️ Low Stock Alert',\n  description: `**${items.length} products** are running low on stock`,\n  color: 16776960, // Yellow\n  fields: [\n    {\n      name: '📊 Summary',\n      value: `Total Products: **${items.length}**\\nCritical (1 item): **${criticalItems}**`,\n      inline: false\n    },\n    {\n      name: '📦 Top Items',\n      value: formattedItems\n    },\n    {\n      name: '💡 Recommendation',\n      value: 'Consider restocking these popular items to avoid lost sales',\n      inline: false\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'SoleFlipper Low Stock Monitor'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
+      },
+      "id": "format-alert",
+      "name": "Format Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "discord-alert",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1050, 200],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Find Low Stock Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Low Stock Items": {
+      "main": [
+        [
+          {
+            "node": "Has Low Stock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Low Stock?": {
+      "main": [
+        [
+          {
+            "node": "Format Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all"
+  }
+}

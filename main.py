@@ -35,8 +35,7 @@ from domains.orders.api.router import router as orders_router
 from domains.pricing.api.router import router as pricing_router
 from domains.products.api.router import router as products_router
 from domains.products.events import get_product_event_handler
-from domains.suppliers.api.account_router import router as account_router
-from domains.suppliers.api.supplier_intelligence_api import router as supplier_intelligence_router
+from domains.suppliers.api.router import router as suppliers_router
 
 # Local application imports
 from shared.config.settings import get_settings
@@ -293,8 +292,7 @@ app.include_router(quickflip_router, prefix="/api/v1/quickflip", tags=["QuickFli
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 # Legacy selling routes removed - use /api/v1/transactions and /api/v1/orders instead
-app.include_router(account_router, prefix="/api/v1/suppliers/accounts", tags=["Supplier Accounts"])
-app.include_router(supplier_intelligence_router, tags=["Supplier Intelligence"])
+app.include_router(suppliers_router)
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk

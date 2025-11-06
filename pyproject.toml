@@ -46,7 +46,11 @@ dependencies = [
     # Async HTTP client
     "httpx>=0.25.0",
     "requests>=2.31.0", # Added for setup scripts
-    
+    "aiohttp>=3.9.0",  # Async HTTP client for scripts and load testing
+
+    # Async file operations
+    "aiofiles>=23.2.0",  # Async file I/O for streaming processor
+
     # Logging and monitoring
     "structlog>=23.2.0",
     
@@ -54,6 +58,15 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "cryptography>=41.0.0",
     "python-slugify>=8.0.0",
+    "python-dateutil>=2.8.0",  # Date utilities (explicit for reliability)
+    "typing-extensions>=4.8.0",  # Extended typing support (explicit for reliability)
+
+    # HTTP and networking
+    "urllib3>=2.0.0",  # HTTP client library (explicit for reliability)
+    "starlette>=0.27.0",  # ASGI framework (explicit, used by FastAPI)
+
+    # Data processing and scientific
+    "numpy>=1.24.0",  # Numerical computing (explicit, used by pandas)
 
     # Authentication
     "pyjwt>=2.8.0",
@@ -203,7 +216,8 @@ module = [
     "cryptography.*",
     "structlog.*",
     "alembic.*",
-    "psutil.*"
+    "psutil.*",
+    "aiofiles.*",
 ]
 ignore_missing_imports = true
 

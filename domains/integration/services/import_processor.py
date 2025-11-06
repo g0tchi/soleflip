@@ -17,7 +17,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.products.services.product_processor import ProductProcessor
-from domains.sales.services.transaction_processor import TransactionProcessor
+from domains.sales.services.order_processor import OrderProcessor
 from shared.database.models import ImportBatch, ImportRecord
 
 from .parsers import CSVParser, ExcelParser, JSONParser
@@ -63,11 +63,11 @@ class ImportProcessor:
         self,
         db_session: AsyncSession,
         product_processor: Optional[ProductProcessor] = None,
-        transaction_processor: Optional[TransactionProcessor] = None,
+        order_processor: Optional[OrderProcessor] = None,
     ):
         self.db_session = db_session
         self.product_processor = product_processor or ProductProcessor(db_session)
-        self.transaction_processor = transaction_processor or TransactionProcessor(db_session)
+        self.order_processor = order_processor or OrderProcessor(db_session)
         # ... (rest of __init__ is the same)
         self.validators = {
             SourceType.STOCKX: StockXValidator(db_session),
@@ -160,7 +160,7 @@ class ImportProcessor:
             )
 
             await self._extract_products_from_batch(batch_id, processed_count)
-            await self._create_transactions_from_batch(batch_id, processed_count)
+            await self._create_orders_from_batch(batch_id, processed_count)
 
             await self.update_batch_status(
                 batch_id,
@@ -271,11 +271,11 @@ class ImportProcessor:
         except Exception as e:
             logger.error("Product extraction failed", batch_id=batch_id, error=str(e))
 
-    async def _create_transactions_from_batch(self, batch_id: UUID, processed_count: int):
+    async def _create_orders_from_batch(self, batch_id: UUID, processed_count: int):
         if processed_count == 0:
             return
         try:
-            await self.transaction_processor.create_transactions_from_batch(str(batch_id))
+            await self.order_processor.create_orders_from_batch(str(batch_id))
         except Exception as e:
             logger.error("Transaction creation failed", batch_id=batch_id, error=str(e))
 

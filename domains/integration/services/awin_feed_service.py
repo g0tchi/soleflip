@@ -5,6 +5,7 @@ Handles downloading, parsing, and importing product data from Awin affiliate fee
 import csv
 import gzip
 import httpx
+import os
 from typing import List, Dict, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,9 @@ class AwinFeedImportService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.api_key = "5a6669927305f35249c39e6b3e0a724c"
+        self.api_key = os.getenv("AWIN_API_KEY")
+        if not self.api_key:
+            raise ValueError("AWIN_API_KEY environment variable is required")
         self.base_url = "https://productdata.awin.com/datafeed/download"
 
     async def download_feed(

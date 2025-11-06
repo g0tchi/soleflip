@@ -27,6 +27,7 @@ class ValidationUtils:
         """
         Normalize currency values to Decimal.
         Handles strings, floats, ints, and existing Decimals.
+        Supports both American (1,234.56) and European (1.234,56) formats.
 
         Args:
             value: Currency value to normalize
@@ -44,10 +45,41 @@ class ValidationUtils:
             return Decimal(str(value))
 
         if isinstance(value, str):
-            # Remove currency symbols and spaces using compiled regex
-            clean_value = _CURRENCY_CLEAN_PATTERN.sub("", value.strip())
+            # Remove currency symbols and spaces
+            clean_value = value.strip()
+            # Remove currency symbols (€, $, £, etc.) and whitespace
+            clean_value = re.sub(r'[€$£¥\s]', '', clean_value)
+
             if not clean_value:
                 return None
+
+            # Detect format by checking positions of comma and period
+            has_comma = ',' in clean_value
+            has_period = '.' in clean_value
+
+            if has_comma and has_period:
+                # Both present - last one is decimal separator
+                last_comma = clean_value.rfind(',')
+                last_period = clean_value.rfind('.')
+
+                if last_comma > last_period:
+                    # European format: 1.234,56
+                    clean_value = clean_value.replace('.', '').replace(',', '.')
+                else:
+                    # American format: 1,234.56
+                    clean_value = clean_value.replace(',', '')
+            elif has_comma:
+                # Only comma - check if it's thousands or decimal separator
+                # If there are 3 digits after comma, it's likely thousands separator
+                # Otherwise, it's a decimal separator (European format)
+                parts = clean_value.split(',')
+                if len(parts) == 2 and len(parts[1]) <= 2:
+                    # European decimal: 180,50
+                    clean_value = clean_value.replace(',', '.')
+                else:
+                    # American thousands: 1,234
+                    clean_value = clean_value.replace(',', '')
+            # If only period, it's already in American format (1234.56)
 
             try:
                 return Decimal(clean_value)

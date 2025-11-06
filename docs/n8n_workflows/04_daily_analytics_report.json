@@ -1,0 +1,164 @@
+{
+  "name": "Daily Analytics Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-morning",
+      "name": "Daily at 8:30 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as orders_today,\n  SUM(final_price) as revenue_today,\n  AVG(final_price) as avg_order_value,\n  COUNT(DISTINCT customer_id) as unique_customers\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND created_at < CURRENT_DATE\n  AND status IN ('completed', 'shipped')",
+        "options": {}
+      },
+      "id": "yesterday-kpis",
+      "name": "Yesterday KPIs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  COUNT(*) as orders_day_before,\n  SUM(final_price) as revenue_day_before\nFROM transactions.orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '2 days'\n  AND created_at < CURRENT_DATE - INTERVAL '1 day'\n  AND status IN ('completed', 'shipped')",
+        "options": {}
+      },
+      "id": "day-before-kpis",
+      "name": "Day Before KPIs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 500],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  p.name,\n  p.brand,\n  COUNT(*) as units_sold,\n  SUM(o.final_price) as total_revenue\nFROM transactions.orders o\nJOIN products.products p ON o.product_id = p.id\nWHERE o.created_at >= CURRENT_DATE - INTERVAL '1 day'\n  AND o.created_at < CURRENT_DATE\n  AND o.status IN ('completed', 'shipped')\nGROUP BY p.id, p.name, p.brand\nORDER BY units_sold DESC\nLIMIT 5",
+        "options": {}
+      },
+      "id": "top-products",
+      "name": "Top Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 700],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const yesterday = $('Yesterday KPIs').first().json;\nconst dayBefore = $('Day Before KPIs').first().json;\nconst topProducts = $('Top Products').all().map(p => p.json);\n\nconst orderChange = ((yesterday.orders_today - dayBefore.orders_day_before) / (dayBefore.orders_day_before || 1) * 100).toFixed(1);\nconst revenueChange = ((yesterday.revenue_today - dayBefore.revenue_day_before) / (dayBefore.revenue_day_before || 1) * 100).toFixed(1);\n\nconst topProductsList = topProducts.map((p, i) => \n  `${i+1}. **${p.name}** (${p.brand}) - ${p.units_sold} units | €${parseFloat(p.total_revenue).toFixed(2)}`\n).join('\\n');\n\nconst orderEmoji = orderChange >= 0 ? '📈' : '📉';\nconst revenueEmoji = revenueChange >= 0 ? '💰' : '💸';\n\nconst embed = {\n  title: '📊 Daily Analytics Report',\n  description: `Report for ${new Date(Date.now() - 86400000).toLocaleDateString('de-DE')}`,\n  color: 3447003, // Blue\n  fields: [\n    {\n      name: '📦 Orders',\n      value: `${orderEmoji} **${yesterday.orders_today || 0}** (${orderChange}% vs day before)`,\n      inline: true\n    },\n    {\n      name: '💰 Revenue',\n      value: `${revenueEmoji} **€${parseFloat(yesterday.revenue_today || 0).toFixed(2)}** (${revenueChange}% vs day before)`,\n      inline: true\n    },\n    {\n      name: '👥 Customers',\n      value: `**${yesterday.unique_customers || 0}** unique`,\n      inline: true\n    },\n    {\n      name: '💳 Avg Order Value',\n      value: `**€${parseFloat(yesterday.avg_order_value || 0).toFixed(2)}**`,\n      inline: true\n    },\n    {\n      name: '🏆 Top 5 Products',\n      value: topProductsList || 'No sales yesterday'\n    }\n  ],\n  timestamp: new Date().toISOString(),\n  footer: {\n    text: 'Have a great day! ☕'\n  }\n};\n\nreturn {\n  json: {\n    embeds: [embed]\n  }\n};"
+      },
+      "id": "combine-data",
+      "name": "Combine Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "discord-report",
+      "name": "Send Daily Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [850, 500],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Daily at 8:30 AM": {
+      "main": [
+        [
+          {
+            "node": "Yesterday KPIs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Day Before KPIs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Top Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yesterday KPIs": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Day Before KPIs": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Top Products": {
+      "main": [
+        [
+          {
+            "node": "Combine Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Analytics": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "timezone": "Europe/Berlin"
+  }
+}

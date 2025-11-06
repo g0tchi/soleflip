@@ -149,7 +149,7 @@ class Category(Base, TimestampMixin):
 
 class Size(Base, TimestampMixin):
     __tablename__ = "sizes"
-    __table_args__ = {"schema": "core"} if IS_POSTGRES else None
+    __table_args__ = {"schema": "catalog"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("category.id", "catalog")))
@@ -459,11 +459,22 @@ class Order(Base, TimestampMixin):
         UUID(as_uuid=True), ForeignKey(get_schema_ref("listing.id", "sales")), nullable=True
     )
 
-    stockx_order_number = Column(String(100), nullable=False, unique=True, index=True)
+    # Multi-platform support (Gibson v2.4)
+    platform_id = Column(UUID(as_uuid=True), nullable=False, index=True, comment="Platform (StockX, eBay, GOAT, Alias)")
+    external_id = Column(String(200), nullable=True, index=True, comment="Platform-specific order ID")
+
+    stockx_order_number = Column(String(100), nullable=True, unique=True, index=True)  # Now nullable
     status = Column(String(50), nullable=False, index=True)
     amount = Column(Numeric(10, 2))
     currency_code = Column(String(10))
     inventory_type = Column(String(50))
+
+    # Multi-platform fields (added in Gibson migration)
+    platform_fee = Column(Numeric(10, 2), nullable=True, comment="Platform transaction fee")
+    shipping_cost = Column(Numeric(10, 2), nullable=True, comment="Shipping cost")
+    buyer_destination_country = Column(String(100), nullable=True)
+    buyer_destination_city = Column(String(200), nullable=True)
+    notes = Column(Text, nullable=True)
 
     shipping_label_url = Column(String(512))
     shipping_document_path = Column(String(512))  # For locally stored PDFs
