@@ -28,6 +28,8 @@ soleflip_demo.db
 # Claude/MCP Configuration
 .mcp.json
 .claude/.mcp.json
+.claude/settings.local.json
+PR_DESCRIPTION.md
 
 # OS
 .DS_Store
