@@ -7,7 +7,6 @@ from typing import Optional
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from slugify import slugify
 
 from shared.database.models import Category
 

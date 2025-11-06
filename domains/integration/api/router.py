@@ -2,11 +2,9 @@
 API Router for Integration-related endpoints (Awin, StockX matching, etc.)
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 from uuid import UUID
-import asyncio
-import json
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
@@ -333,8 +331,6 @@ async def get_profit_opportunities(
 
         # SECURITY: Use identifier() for schema/table/column names or parameterize the entire query
         # Build safe query with validated identifiers
-        from sqlalchemy import column, table, literal_column
-        from sqlalchemy.sql import select as sa_select, and_
 
         # For complex queries with dynamic schema/columns, use string building but with whitelisted values
         # This is now safe because schema, price_column, and name_column are validated against whitelists

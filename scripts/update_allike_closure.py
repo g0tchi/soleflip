@@ -82,7 +82,7 @@ async def main():
             return
 
         # Supplier found
-        print(f"\n[OK] Found CTBI/Allike Store:")
+        print("\n[OK] Found CTBI/Allike Store:")
         print(f"  ID: {supplier[0]}")
         print(f"  Name: {supplier[1]}")
         print(f"  Slug: {supplier[2]}")

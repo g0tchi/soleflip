@@ -2,12 +2,10 @@
 Awin Product Feed Import Service
 Handles downloading, parsing, and importing product data from Awin affiliate feeds
 """
-import asyncio
 import csv
 import gzip
 import httpx
 import os
-from datetime import datetime
 from typing import List, Dict, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -466,7 +464,7 @@ async def sync_awin_feed(merchant_ids: List[int] = [10597]):
         print("=" * 80)
         print(f"Imported: {imported_count} products")
         print(f"Matched: {matched_count} products by EAN")
-        print(f"\nStatistics:")
+        print("\nStatistics:")
         print(f"  Total Products: {stats['total_products']}")
         print(f"  Brands: {stats['total_brands']}")
         print(f"  In Stock: {stats['in_stock_count']}")

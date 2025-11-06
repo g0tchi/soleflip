@@ -651,7 +651,7 @@ class PredictiveInsightsService:
                 # Alert for slow-moving inventory
                 if days_to_clear > 120:  # More than 4 months to clear
                     market_data = await self._get_stockx_market_data(product.sku)
-                    current_price = getattr(product, 'current_price', Decimal('100'))
+                    getattr(product, 'current_price', Decimal('100'))
                     
                     # Calculate clearance scenarios
                     discount_scenarios = [

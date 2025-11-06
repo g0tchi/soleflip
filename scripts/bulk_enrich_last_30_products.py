@@ -69,7 +69,7 @@ async def enrich_single_product(
     product_name = product["name"]
 
     try:
-        logger.info(f"Starting enrichment", sku=sku, product_name=product_name)
+        logger.info("Starting enrichment", sku=sku, product_name=product_name)
 
         # Perform enrichment
         enriched_data = await catalog_service.enrich_product_by_sku(
@@ -79,7 +79,7 @@ async def enrich_single_product(
         )
 
         if enriched_data.get("error"):
-            logger.warning(f"Product not found on StockX", sku=sku, error=enriched_data["error"])
+            logger.warning("Product not found on StockX", sku=sku, error=enriched_data["error"])
             return {
                 "sku": sku,
                 "status": "not_found",
@@ -91,7 +91,7 @@ async def enrich_single_product(
         variants_count = len(enriched_data.get("variants", []))
 
         logger.info(
-            f"Product enriched successfully",
+            "Product enriched successfully",
             sku=sku,
             stockx_product_id=stockx_product_id,
             variants_count=variants_count
@@ -106,7 +106,7 @@ async def enrich_single_product(
         }
 
     except Exception as e:
-        logger.error(f"Failed to enrich product", sku=sku, error=str(e), exc_info=True)
+        logger.error("Failed to enrich product", sku=sku, error=str(e), exc_info=True)
         return {
             "sku": sku,
             "status": "error",

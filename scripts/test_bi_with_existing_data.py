@@ -103,7 +103,7 @@ def main():
             print(f"  {i+1}. {item['product_name']} - Size {item['size']} - Price: {item['purchase_price']} EUR")
 
     # Test dashboard API
-    dashboard_result = test_dashboard_api()
+    test_dashboard_api()
 
     # Simulate BI calculations for a few items
     print("\n[SIMULATION] Simulating BI calculations for sample items...")

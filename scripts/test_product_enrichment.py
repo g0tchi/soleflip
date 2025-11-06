@@ -56,7 +56,7 @@ async def test_enrichment():
                 page_size=3
             )
 
-            print(f"\n=== SEARCH RESULTS ===")
+            print("\n=== SEARCH RESULTS ===")
             print(f"Total results: {search_results.get('count', 0)}")
             print(f"Products found: {len(search_results.get('products', []))}")
 
@@ -80,7 +80,7 @@ async def test_enrichment():
             logger.info(f"Step 2: Getting product details for ID: {product_id}")
             product_details = await catalog_service.get_product_details(product_id)
 
-            print(f"\n=== PRODUCT DETAILS ===")
+            print("\n=== PRODUCT DETAILS ===")
             print(f"Product ID: {product_details.get('productId')}")
             print(f"Title: {product_details.get('title')}")
             print(f"Brand: {product_details.get('brand')}")
@@ -89,10 +89,10 @@ async def test_enrichment():
             print(f"URL Key: {product_details.get('urlKey')}")
 
             # Step 3: Get all variants
-            logger.info(f"Step 3: Getting all variants")
+            logger.info("Step 3: Getting all variants")
             variants = await catalog_service.get_product_variants(product_id)
 
-            print(f"\n=== VARIANTS ===")
+            print("\n=== VARIANTS ===")
             print(f"Total variants: {len(variants)}")
 
             # Show first 5 variants
@@ -130,23 +130,23 @@ async def test_enrichment():
             print(f"Earn More: {market_data.get('earnMoreAmount')} EUR")
 
             # Step 5: Complete enrichment
-            logger.info(f"Step 5: Running complete enrichment workflow")
+            logger.info("Step 5: Running complete enrichment workflow")
             enriched_data = await catalog_service.enrich_product_by_sku(
                 sku=test_sku,
                 size=test_size,
                 db_session=session
             )
 
-            print(f"\n=== ENRICHMENT COMPLETE ===")
+            print("\n=== ENRICHMENT COMPLETE ===")
             print(f"SKU: {test_sku}")
             print(f"StockX Product ID: {enriched_data.get('stockx_product_id')}")
             print(f"Variants: {len(enriched_data.get('variants', []))}")
             print(f"Market Data Available: {enriched_data.get('market_data') is not None}")
 
-            print(f"\n[SUCCESS] Product enrichment completed successfully!")
+            print("\n[SUCCESS] Product enrichment completed successfully!")
 
         except Exception as e:
-            logger.error(f"Enrichment test failed", error=str(e), exc_info=True)
+            logger.error("Enrichment test failed", error=str(e), exc_info=True)
             print(f"\n[ERROR] {e}")
             raise
 

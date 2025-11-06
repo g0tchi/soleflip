@@ -25,6 +25,10 @@ soleflip_demo.db
 *.swp
 *.swo
 
+# Claude/MCP Configuration
+.mcp.json
+.claude/.mcp.json
+
 # OS
 .DS_Store
 Thumbs.db

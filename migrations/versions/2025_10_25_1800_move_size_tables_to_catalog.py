@@ -22,7 +22,6 @@ Foreign key updates:
 Note: core.sizes (legacy) and core.size_validation_log remain in core schema.
 """
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'move_size_tables_to_catalog'

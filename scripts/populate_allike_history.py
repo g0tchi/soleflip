@@ -171,7 +171,7 @@ async def main():
             {"supplier_id": supplier_id}
         )
         sup_data = result.fetchone()
-        print(f"Supplier Data:")
+        print("Supplier Data:")
         print(f"  Founded: {sup_data[0]}")
         print(f"  Founder: {sup_data[1]}")
         print(f"  Instagram: {sup_data[2]}")
@@ -189,7 +189,7 @@ async def main():
             {"supplier_id": supplier_id}
         )
         hist_data = result.fetchone()
-        print(f"History Timeline:")
+        print("History Timeline:")
         print(f"  Total Events: {hist_data[0]}")
         print(f"  First Event: {hist_data[1]}")
         print(f"  Last Event: {hist_data[2]}\n")

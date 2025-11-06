@@ -513,7 +513,7 @@ class RetailerPersistenceStage:
                     if product:
                         # Create or update inventory
                         if record.get('inventory'):
-                            inventory = await self._create_or_update_inventory(
+                            await self._create_or_update_inventory(
                                 inventory_repo, product.id, record['inventory']
                             )
                         

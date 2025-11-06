@@ -86,7 +86,7 @@ def main():
     print("\nNOTION_SALES_RAW = [")
     for sku, url, highlight in valid_sales:
         # Escape quotes in highlight
-        highlight_escaped = highlight.replace("'", "\\'")
+        highlight.replace("'", "\\'")
         print(f"    ('{sku}', '{url}',")
         print(f"     '''{highlight}'''),")
     print("]")
