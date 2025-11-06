@@ -45,6 +45,43 @@ async def get_brand_service(db: AsyncSession = Depends(get_db_session)) -> Brand
 
 # Pagination Dependencies
 class PaginationParams:
+    """
+    Pagination parameters for list endpoints.
+
+    Provides consistent pagination across all API endpoints with validation
+    and conversion utilities.
+
+    Attributes:
+        skip (int): Number of items to skip (offset). Default: 0, Min: 0
+        limit (int): Number of items to return per page. Default: 100, Min: 1, Max: 1000
+
+    Example:
+        ```python
+        from fastapi import Depends
+        from shared.api.dependencies import PaginationParams
+
+        @router.get("/products")
+        async def list_products(pagination: PaginationParams = Depends()):
+            products = await get_products(
+                offset=pagination.skip,
+                limit=pagination.limit
+            )
+            return products
+        ```
+
+    Query Parameters:
+        - skip: Offset for pagination (e.g., skip=50 for page 2 with limit=50)
+        - limit: Page size (number of items to return)
+
+    Validation:
+        - skip must be >= 0
+        - limit must be between 1 and 1000 (prevents excessive data retrieval)
+
+    Notes:
+        - Use with ResponseFormatter.format_list_response() for consistent responses
+        - Automatically validates and converts query parameters
+    """
+
     def __init__(
         self,
         skip: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
@@ -54,6 +91,17 @@ class PaginationParams:
         self.limit = limit
 
     def to_dict(self) -> Dict[str, int]:
+        """
+        Convert pagination parameters to dictionary.
+
+        Returns:
+            Dict with 'skip' and 'limit' keys
+
+        Example:
+            >>> pagination = PaginationParams(skip=10, limit=50)
+            >>> pagination.to_dict()
+            {'skip': 10, 'limit': 50}
+        """
         return {"skip": self.skip, "limit": self.limit}
 
 
@@ -80,6 +128,64 @@ async def validate_inventory_item_id(
 
 # Search and Filter Dependencies
 class SearchParams:
+    """
+    Multi-field search and filter parameters for list endpoints.
+
+    Provides comprehensive filtering capabilities across product, inventory,
+    and order endpoints with validation and utility methods.
+
+    Attributes:
+        query (Optional[str]): Free-text search query (searches name, SKU, description)
+        brand (Optional[str]): Filter by brand name (case-insensitive)
+        category (Optional[str]): Filter by category
+        status (Optional[str]): Filter by status (e.g., "active", "sold", "pending")
+        size (Optional[str]): Filter by size (e.g., "US 10", "M", "38 EU")
+        min_price (Optional[float]): Minimum price filter (inclusive)
+        max_price (Optional[float]): Maximum price filter (inclusive)
+
+    Example:
+        ```python
+        from fastapi import Depends
+        from shared.api.dependencies import SearchParams
+
+        @router.get("/products")
+        async def search_products(search: SearchParams = Depends()):
+            filters = {}
+            if search.brand:
+                filters['brand'] = search.brand
+            if search.min_price:
+                filters['price__gte'] = search.min_price
+
+            if search.has_filters():
+                products = await filter_products(filters)
+            else:
+                products = await get_all_products()
+
+            return products
+        ```
+
+    Query Parameters:
+        - q: Search term (searches multiple fields)
+        - brand: Brand name filter
+        - category: Category filter
+        - status: Status filter
+        - size: Size filter
+        - min_price: Minimum price (>=0)
+        - max_price: Maximum price (>=0)
+
+    Methods:
+        has_filters(): Returns True if any filter is applied
+        to_dict(): Returns all filters as dictionary
+
+    Validation:
+        - min_price and max_price must be >= 0 if provided
+        - All parameters are optional (None by default)
+
+    Notes:
+        - Combine with PaginationParams for paginated filtered results
+        - Use has_filters() to optimize queries (skip filtering if no filters applied)
+    """
+
     def __init__(
         self,
         q: Annotated[Optional[str], Query(description="Search query")] = None,
@@ -103,6 +209,25 @@ class SearchParams:
         self.max_price = max_price
 
     def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert search parameters to dictionary.
+
+        Returns:
+            Dict containing all search/filter parameters (including None values)
+
+        Example:
+            >>> search = SearchParams(brand="Nike", min_price=100.0)
+            >>> search.to_dict()
+            {
+                'query': None,
+                'brand': 'Nike',
+                'category': None,
+                'status': None,
+                'size': None,
+                'min_price': 100.0,
+                'max_price': None
+            }
+        """
         return {
             "query": self.query,
             "brand": self.brand,
@@ -114,7 +239,25 @@ class SearchParams:
         }
 
     def has_filters(self) -> bool:
-        """Check if any filters are applied"""
+        """
+        Check if any filters are applied.
+
+        Returns:
+            True if at least one filter parameter is not None
+
+        Example:
+            >>> search = SearchParams(brand="Nike")
+            >>> search.has_filters()
+            True
+
+            >>> search = SearchParams()
+            >>> search.has_filters()
+            False
+
+        Notes:
+            Use this to optimize database queries - skip complex filtering
+            logic if no filters are applied.
+        """
         return any(
             [
                 self.query,
@@ -130,6 +273,43 @@ class SearchParams:
 
 # Request Headers Dependencies
 class RequestHeaders:
+    """
+    HTTP request headers dependency for logging and monitoring.
+
+    Captures common request headers for logging, tracing, and authentication
+    purposes. Used for request correlation and debugging.
+
+    Attributes:
+        user_agent (Optional[str]): Client user agent string (e.g., browser, app version)
+        request_id (Optional[str]): Request ID for tracing (X-Request-ID header)
+        authorization (Optional[str]): Authorization header (JWT bearer token)
+
+    Example:
+        ```python
+        from fastapi import Depends
+        from shared.api.dependencies import RequestHeaders
+
+        @router.get("/products")
+        async def get_products(headers: RequestHeaders = Depends()):
+            logger.info(
+                "Request received",
+                request_id=headers.request_id,
+                user_agent=headers.user_agent
+            )
+            # ... endpoint logic
+        ```
+
+    Headers:
+        - User-Agent: Identifies client application
+        - X-Request-ID: Unique request identifier for tracing
+        - Authorization: JWT token for authentication
+
+    Notes:
+        - Use with log_api_access() dependency for automatic logging
+        - request_id useful for distributed tracing and debugging
+        - authorization header parsed by auth middleware
+    """
+
     def __init__(
         self,
         user_agent: Annotated[Optional[str], Header()] = None,
@@ -177,6 +357,57 @@ async def validate_inventory_operation(
 
 # File Upload Dependencies
 class UploadParams:
+    """
+    File upload and import configuration parameters.
+
+    Controls behavior of CSV/data import operations including batch processing,
+    validation-only mode, and overwrite settings.
+
+    Attributes:
+        batch_size (int): Number of rows to process per batch. Default: 1000, Min: 1, Max: 10000
+        validate_only (bool): If True, only validate data without importing. Default: False
+        overwrite_existing (bool): If True, overwrite existing records with same ID/SKU. Default: False
+
+    Example:
+        ```python
+        from fastapi import Depends, UploadFile
+        from shared.api.dependencies import UploadParams
+
+        @router.post("/upload")
+        async def upload_file(
+            file: UploadFile,
+            params: UploadParams = Depends()
+        ):
+            if params.validate_only:
+                return await validate_csv(file, batch_size=params.batch_size)
+            else:
+                return await import_csv(
+                    file,
+                    batch_size=params.batch_size,
+                    overwrite=params.overwrite_existing
+                )
+        ```
+
+    Query Parameters:
+        - batch_size: Rows per batch (affects memory usage and transaction size)
+        - validate_only: Dry-run mode for validation
+        - overwrite_existing: Update behavior for duplicate records
+
+    Batch Size Guidelines:
+        - Small files (<1000 rows): Use default (1000)
+        - Medium files (1000-10000 rows): Use 2000-5000
+        - Large files (>10000 rows): Use 500-1000 (memory optimization)
+
+    Validation:
+        - batch_size must be between 1 and 10000
+        - All boolean flags default to False (safe defaults)
+
+    Notes:
+        - validate_only useful for testing imports before committing
+        - overwrite_existing=False prevents accidental data loss
+        - Larger batch_size = faster but more memory usage
+    """
+
     def __init__(
         self,
         batch_size: Annotated[
@@ -208,12 +439,90 @@ async def log_api_access(
 
 # Error Handling Dependencies
 class ErrorContext:
+    """
+    Error context helper for standardized error responses.
+
+    Provides consistent error handling and logging across API endpoints
+    with structured error messages and status codes.
+
+    Attributes:
+        operation (str): Operation being performed (e.g., "create", "update", "delete")
+        resource_type (str): Type of resource (e.g., "product", "inventory", "order")
+
+    Example:
+        ```python
+        from shared.api.dependencies import ErrorContext
+
+        @router.post("/products")
+        async def create_product(product_data: ProductCreate):
+            error_context = ErrorContext("create", "product")
+            try:
+                product = await service.create_product(product_data)
+                return product
+            except ValueError as e:
+                raise error_context.create_error_response(e, status_code=400)
+            except Exception as e:
+                raise error_context.create_error_response(e)
+        ```
+
+    Methods:
+        create_error_response(error, status_code=500): Create HTTPException with logging
+
+    Error Response Format:
+        ```json
+        {
+            "detail": "Failed to create product"
+        }
+        ```
+
+    Logging:
+        Automatically logs errors with structured context:
+        - operation: What was being attempted
+        - resource_type: What resource was involved
+        - error: Error message
+        - error_type: Exception class name
+
+    Status Codes:
+        - 400: Bad Request (validation errors)
+        - 404: Not Found (resource doesn't exist)
+        - 409: Conflict (duplicate resources)
+        - 500: Internal Server Error (unexpected errors)
+
+    Notes:
+        - Always log before creating HTTPException
+        - Provides consistent error messages across endpoints
+        - Useful for debugging with structured logs
+    """
+
     def __init__(self, operation: str, resource_type: str):
         self.operation = operation
         self.resource_type = resource_type
 
     def create_error_response(self, error: Exception, status_code: int = 500) -> HTTPException:
-        """Create standardized error response"""
+        """
+        Create standardized error response with logging.
+
+        Args:
+            error: The exception that occurred
+            status_code: HTTP status code (default: 500)
+
+        Returns:
+            HTTPException with formatted error message
+
+        Example:
+            >>> context = ErrorContext("update", "inventory")
+            >>> exc = ValueError("Invalid quantity")
+            >>> http_exc = context.create_error_response(exc, status_code=400)
+            >>> http_exc.status_code
+            400
+            >>> http_exc.detail
+            'Failed to update inventory'
+
+        Notes:
+            - Logs error details before returning exception
+            - Error message follows pattern: "Failed to {operation} {resource_type}"
+            - Original error details logged but not exposed to client (security)
+        """
         logger.error(
             f"Error in {self.operation}",
             operation=self.operation,
@@ -250,11 +559,107 @@ def get_product_context():
 
 # Response Formatting Dependencies
 class ResponseFormatter:
+    """
+    Utility class for formatting standardized API responses.
+
+    Provides consistent response formats across all API endpoints for lists,
+    success messages, and paginated data.
+
+    Methods:
+        format_list_response(): Format paginated list responses
+        format_success_response(): Format success operation responses
+
+    Example:
+        ```python
+        from shared.api.dependencies import ResponseFormatter, PaginationParams
+
+        @router.get("/products")
+        async def list_products(
+            pagination: PaginationParams = Depends(),
+            search: SearchParams = Depends()
+        ):
+            products = await get_products(
+                skip=pagination.skip,
+                limit=pagination.limit,
+                filters=search.to_dict()
+            )
+            total = await count_products(filters=search.to_dict())
+
+            return ResponseFormatter.format_list_response(
+                items=products,
+                total=total,
+                pagination=pagination,
+                search=search
+            )
+        ```
+
+    Response Format (list):
+        ```json
+        {
+            "items": [...],
+            "pagination": {
+                "skip": 0,
+                "limit": 50,
+                "total": 1250,
+                "has_more": true
+            },
+            "filters": {
+                "brand": "Nike",
+                "min_price": 100.0
+            }
+        }
+        ```
+
+    Response Format (success):
+        ```json
+        {
+            "message": "Product created successfully",
+            "data": {...},
+            "operation": "create"
+        }
+        ```
+
+    Notes:
+        - All static methods (no instance needed)
+        - Use for consistent response structure
+        - Pagination metadata automatically calculated
+    """
+
     @staticmethod
     def format_list_response(
         items: list, total: int, pagination: PaginationParams, search: SearchParams = None
     ) -> Dict[str, Any]:
-        """Format standardized list response"""
+        """
+        Format standardized paginated list response.
+
+        Args:
+            items: List of items for current page
+            total: Total count of items (all pages)
+            pagination: Pagination parameters used
+            search: Search/filter parameters used (optional)
+
+        Returns:
+            Dict with items, pagination metadata, and applied filters
+
+        Example:
+            >>> items = [{"id": 1, "name": "Product 1"}]
+            >>> pagination = PaginationParams(skip=0, limit=50)
+            >>> response = ResponseFormatter.format_list_response(
+            ...     items=items,
+            ...     total=1250,
+            ...     pagination=pagination
+            ... )
+            >>> response['pagination']['has_more']
+            True
+
+        Response Fields:
+            - items: List of data objects
+            - pagination.skip: Current offset
+            - pagination.limit: Page size
+            - pagination.total: Total item count
+            - pagination.has_more: True if more pages exist
+            - filters: Applied search/filter parameters (null if none)
+        """
         return {
             "items": items,
             "pagination": {
@@ -270,7 +675,37 @@ class ResponseFormatter:
     def format_success_response(
         message: str, data: Any = None, operation: str = None
     ) -> Dict[str, Any]:
-        """Format standardized success response"""
+        """
+        Format standardized success response.
+
+        Args:
+            message: Success message to display
+            data: Optional data payload
+            operation: Optional operation name (e.g., "create", "update", "delete")
+
+        Returns:
+            Dict with message and optional data/operation
+
+        Example:
+            >>> response = ResponseFormatter.format_success_response(
+            ...     message="Product updated successfully",
+            ...     data={"id": "uuid", "name": "Nike Air Max"},
+            ...     operation="update"
+            ... )
+            >>> response['message']
+            'Product updated successfully'
+
+        Response Fields:
+            - message: Human-readable success message (always present)
+            - data: Result data (only if provided)
+            - operation: Operation type (only if provided)
+
+        Use Cases:
+            - Create: Return created resource data
+            - Update: Return updated resource data
+            - Delete: No data, just confirmation message
+            - Batch operations: Return statistics in data
+        """
         response = {"message": message}
         if data is not None:
             response["data"] = data
@@ -281,9 +716,90 @@ class ResponseFormatter:
 
 # Dependency factory for creating parameterized dependencies
 class DependencyFactory:
+    """
+    Factory class for creating parameterized FastAPI dependencies.
+
+    Provides utility methods to generate dependency functions dynamically
+    for services, validators, and other reusable patterns.
+
+    Methods:
+        create_service_dependency(service_class): Generate service dependency
+        create_validation_dependency(validator_func): Generate validation dependency
+
+    Example:
+        ```python
+        from shared.api.dependencies import DependencyFactory
+        from domains.products.services.product_service import ProductService
+
+        # Create service dependency dynamically
+        get_product_service = DependencyFactory.create_service_dependency(
+            ProductService
+        )
+
+        @router.get("/products")
+        async def list_products(
+            service: ProductService = Depends(get_product_service)
+        ):
+            return await service.list_products()
+
+        # Create validation dependency
+        def validate_positive(value: int) -> bool:
+            return value > 0
+
+        validate_positive_int = DependencyFactory.create_validation_dependency(
+            validate_positive
+        )
+
+        @router.get("/products/{quantity}")
+        async def get_products(
+            quantity: int = Depends(validate_positive_int)
+        ):
+            return await get_n_products(quantity)
+        ```
+
+    Use Cases:
+        - Dynamically generate dependencies for multiple similar services
+        - Create reusable validation dependencies
+        - Reduce boilerplate code for common patterns
+
+    Notes:
+        - All static methods (no instance needed)
+        - Generated dependencies are proper FastAPI Depends() functions
+        - Useful for code generation and meta-programming
+    """
+
     @staticmethod
     def create_service_dependency(service_class):
-        """Create a service dependency for any service class"""
+        """
+        Create a FastAPI dependency for any service class.
+
+        Args:
+            service_class: Service class to instantiate (must accept AsyncSession)
+
+        Returns:
+            Async function suitable for use with Depends()
+
+        Example:
+            >>> from domains.pricing.services.pricing_engine import PricingEngine
+            >>> get_pricing_service = DependencyFactory.create_service_dependency(
+            ...     PricingEngine
+            ... )
+            >>> # Use in endpoint:
+            >>> @router.post("/calculate-price")
+            >>> async def calculate(
+            ...     service: PricingEngine = Depends(get_pricing_service)
+            ... ):
+            ...     return await service.calculate_price(...)
+
+        Requirements:
+            - service_class must accept AsyncSession as first argument
+            - service_class must be a class (not instance)
+
+        Benefits:
+            - Reduces repetitive dependency definitions
+            - Ensures consistent service instantiation pattern
+            - Automatic database session injection
+        """
 
         async def get_service(db: AsyncSession = Depends(get_db_session)):
             return service_class(db)
@@ -292,7 +808,44 @@ class DependencyFactory:
 
     @staticmethod
     def create_validation_dependency(validator_func):
-        """Create a validation dependency from a validator function"""
+        """
+        Create a FastAPI dependency from a validation function.
+
+        Args:
+            validator_func: Function that returns True if input is valid
+
+        Returns:
+            Async function suitable for use with Depends()
+
+        Example:
+            >>> def is_valid_sku(sku: str) -> bool:
+            ...     return len(sku) >= 5 and sku.isalnum()
+            >>>
+            >>> validate_sku = DependencyFactory.create_validation_dependency(
+            ...     is_valid_sku
+            ... )
+            >>>
+            >>> @router.get("/products/{sku}")
+            >>> async def get_product(sku: str = Depends(validate_sku)):
+            ...     return await find_product_by_sku(sku)
+
+        Validation Rules:
+            - validator_func must return bool
+            - True = validation passed
+            - False = raises 400 Bad Request
+
+        Error Response:
+            ```json
+            {
+                "detail": "Validation failed"
+            }
+            ```
+
+        Notes:
+            - Use FastAPI's Query/Path validators for simple cases
+            - This is for complex custom validation logic
+            - Can be combined with other dependencies
+        """
 
         async def validate_input(value: Any):
             if not validator_func(value):
