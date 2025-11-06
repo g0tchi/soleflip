@@ -1,3 +1,89 @@
+"""
+Orders API Router Module
+========================
+
+This module provides REST API endpoints for managing marketplace orders from StockX and other platforms.
+
+Endpoints:
+    - GET /active: Fetch active orders from StockX marketplace
+    - GET /stockx-history: Fetch historical orders within a date range
+
+Key Features:
+    - Real-time order status tracking
+    - Date range filtering for historical data
+    - Multiple filter options (status, product, variant, inventory type)
+    - Pagination support
+    - StockX webhook integration ready
+
+Order Lifecycle:
+    An order progresses through multiple states:
+    1. CREATED: Initial order creation
+    2. SHIPPED: Product shipped to StockX
+    3. AUTHENTICATING: StockX verifying authenticity
+    4. COMPLETED: Product authenticated and seller paid
+    5. CANCELED: Order canceled
+
+Filtering Options:
+    - orderStatus: Filter by specific order status
+    - productId: Filter by StockX product ID
+    - variantId: Filter by specific size/variant
+    - inventoryTypes: STANDARD or DIRECT inventory
+    - initiatedShipmentDisplayIds: Filter by shipment IDs
+    - sortOrder: Sort results (default: CREATEDAT)
+
+Authentication:
+    All endpoints require valid JWT token authentication.
+    See shared/auth/ for authentication details.
+
+Example Requests:
+    ```
+    # Get all active orders
+    GET /orders/active
+
+    # Get active orders for specific product
+    GET /orders/active?productId=abc123
+
+    # Get completed orders for date range
+    GET /orders/stockx-history?fromDate=2025-01-01&toDate=2025-01-31&orderStatus=COMPLETED
+    ```
+
+Response Format:
+    Returns list of order objects with structure:
+    ```json
+    [
+        {
+            "orderId": "ORDER123",
+            "orderNumber": "SO-123456",
+            "status": "COMPLETED",
+            "productId": "abc123",
+            "variantId": "variant-456",
+            "price": {"amount": "150.00", "currencyCode": "USD"},
+            "createdAt": "2025-01-15T10:30:00Z",
+            ...
+        }
+    ]
+    ```
+
+Error Handling:
+    - 400: Invalid query parameters
+    - 401: Unauthorized (missing/invalid token)
+    - 500: Internal server error
+
+Dependencies:
+    - StockXService: For fetching orders from StockX API
+    - fastapi: Web framework
+    - structlog: Structured logging
+
+Related Modules:
+    - domains.integration.services.stockx_service: StockX API client
+    - domains.orders.services: Order processing services
+    - shared.auth: Authentication and authorization
+
+See Also:
+    - docs/api/endpoints/orders.md: Detailed API documentation
+    - context/api_audit/: StockX API audit reports
+"""
+
 from datetime import date
 from typing import Any, Dict, List, Optional
 

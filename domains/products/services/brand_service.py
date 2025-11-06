@@ -1,3 +1,72 @@
+"""
+Brand Extraction Service Module
+===============================
+
+This module provides intelligent brand detection and extraction from product names
+using database-driven pattern matching with priority-based ordering.
+
+Key Features:
+    - Database-driven brand patterns with regex support
+    - Priority-based pattern matching (higher priority patterns checked first)
+    - Automatic brand creation with slug generation
+    - Case-insensitive pattern matching
+    - Support for brand aliases and variations
+    - Caching of brand patterns for performance
+
+Main Components:
+    - BrandExtractorService: Main service for brand extraction
+
+Pattern Matching Logic:
+    1. Load all brand patterns from database ordered by priority
+    2. Test product name against each pattern sequentially
+    3. Return first matching brand
+    4. Create new brand if no match found (optional)
+
+Pattern Priority System:
+    - Priority 1: Exact brand name matches
+    - Priority 2: Common brand variations (e.g., "Nike", "NIKE", "nike")
+    - Priority 3: Generic patterns for common brands
+    - Priority 4+: Fallback patterns
+
+Example Patterns:
+    - r"\\bNike\\b": Matches "Nike" as standalone word
+    - r"\\bAir Jordan\\b": Matches "Air Jordan" as phrase
+    - r"\\bAdidas\\b|\\bAdidas Originals\\b": Multiple variations
+
+Database Schema:
+    - brands table: Stores brand information (name, slug, description)
+    - brand_patterns table: Stores regex patterns with priority
+
+Example Usage:
+    ```python
+    from domains.products.services.brand_service import BrandExtractorService
+
+    async with db_manager.get_session() as session:
+        extractor = BrandExtractorService(session)
+        await extractor.load_patterns()
+
+        # Extract brand from product name
+        brand = await extractor.extract_brand_from_name("Nike Air Max 90")
+        print(brand.name)  # Output: "Nike"
+
+        # Extract with auto-creation if not found
+        brand = await extractor.extract_and_create_brand("Unknown Brand Shoe")
+    ```
+
+Performance Considerations:
+    - Patterns are loaded once and cached in memory
+    - Regex patterns are pre-compiled by SQLAlchemy
+    - Pattern matching stops at first match (ordered by priority)
+
+Related Modules:
+    - shared.database.models: Brand and BrandPattern models
+    - domains.products.services.product_processor: Uses brand extraction
+
+See Also:
+    - docs/domains/products.md: Product domain documentation
+    - shared/database/models.py: Brand model definition
+"""
+
 import re
 from typing import List, Optional
 

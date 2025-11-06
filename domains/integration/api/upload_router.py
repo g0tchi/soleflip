@@ -1,3 +1,137 @@
+"""
+Data Upload and Import API Router Module
+=========================================
+
+This module provides REST API endpoints for uploading and importing data from various sources
+including CSV files, StockX API, and other marketplace integrations.
+
+Endpoints:
+    - POST /upload: Upload CSV files for validation and import
+    - POST /import/stockx-orders: Import orders from StockX API by date range
+    - GET /batch/{batch_id}/status: Check import batch status and progress
+    - POST /import/quickstart: Quick import workflow (validation + import)
+
+Key Features:
+    - Multi-source data import (CSV, StockX API, marketplace APIs)
+    - Real-time validation with detailed error reporting
+    - Asynchronous batch processing with progress tracking
+    - Support for large files (chunked processing)
+    - Transaction-safe imports with rollback on errors
+    - Comprehensive audit trail (ImportBatch, ImportRecord)
+
+Import Workflow:
+    1. **Upload/Validation Phase**:
+       - User uploads CSV or triggers API import
+       - Data is validated against schema
+       - Validation errors returned to user
+       - No database writes yet
+
+    2. **Import Phase** (if validation passes):
+       - ImportBatch record created with status "in_progress"
+       - Rows processed and transformed
+       - ImportRecord entries created for each row
+       - Products, orders, inventory updated
+       - Batch status updated to "completed" or "failed"
+
+    3. **Status Monitoring**:
+       - Client polls /batch/{batch_id}/status endpoint
+       - Real-time progress percentage
+       - Records processed/failed counts
+       - Error details if any
+
+Supported Source Types:
+    - STOCKX_CSV: StockX transaction exports
+    - STOCKX_API: Direct StockX API integration
+    - AWIN_CSV: Awin affiliate network exports
+    - EBAY_CSV: eBay transaction exports
+    - GOAT_CSV: GOAT marketplace exports
+    - ALIAS_CSV: Alias marketplace exports
+
+CSV Format Requirements:
+    Required columns (varies by source type):
+    - product_name: Product title
+    - sku: Stock keeping unit
+    - price: Transaction price
+    - order_date: Date of transaction
+
+    Optional columns:
+    - brand, category, size, condition
+    - buyer_email, order_number
+    - marketplace, status
+
+Example CSV (StockX format):
+    ```csv
+    order_number,product_name,sku,size,price,order_date,status
+    SO-123456,"Nike Air Max 90",NKE-AM90-001,US 10,150.00,2025-01-15,completed
+    SO-123457,"Adidas Ultra Boost",ADS-UB-001,US 9.5,180.00,2025-01-16,shipped
+    ```
+
+Example Requests:
+    ```
+    # Upload and validate CSV
+    POST /upload
+    Content-Type: multipart/form-data
+    file: [CSV file]
+    source_type: "STOCKX_CSV"
+
+    # Import orders from StockX API
+    POST /import/stockx-orders
+    {
+        "from_date": "2025-01-01",
+        "to_date": "2025-01-31"
+    }
+
+    # Check batch status
+    GET /batch/550e8400-e29b-41d4-a716-446655440000/status
+    ```
+
+Response Models:
+    - UploadResponse: Validation results
+    - ImportResponse: Import job details
+    - ImportStatus: Batch progress status
+    - BatchStatusResponse: Detailed batch info
+
+Error Handling:
+    - 400: Invalid file format, missing required fields
+    - 404: Batch not found
+    - 422: Validation errors (returned with details)
+    - 500: Internal server error
+
+Performance Considerations:
+    - Large files processed in chunks (memory efficient)
+    - Async processing doesn't block API responses
+    - Background tasks for long-running imports
+    - Progress tracking for user feedback
+
+Security:
+    - File upload size limits enforced
+    - File type validation (CSV only)
+    - SQL injection prevention (parameterized queries)
+    - Authentication required (JWT token)
+
+Database Tables:
+    - import_batches: Tracks each import operation
+    - import_records: Stores individual row data
+    - products, orders, inventory: Updated during import
+
+Dependencies:
+    - ImportProcessor: Core import logic
+    - pandas: CSV parsing and validation
+    - FastAPI: Web framework
+    - structlog: Structured logging
+
+Related Modules:
+    - domains.integration.services.import_processor: Import logic
+    - domains.integration.services.awin_connector: Awin CSV import
+    - domains.integration.services.stockx_service: StockX API client
+    - shared.database.models: Import models
+
+See Also:
+    - docs/guides/data-import-guide.md: Import workflow guide
+    - docs/api/endpoints/integration.md: Detailed API docs
+    - docs/features/awin-product-feed-integration.md: Awin integration
+"""
+
 import io
 from datetime import datetime
 from typing import List, Optional

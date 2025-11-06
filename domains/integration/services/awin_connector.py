@@ -1,3 +1,90 @@
+"""
+Awin CSV Import Connector Module
+================================
+
+This module provides functionality for importing product and transaction data
+from Awin affiliate network CSV exports.
+
+Key Features:
+    - Chunked CSV reading for large files (memory-efficient)
+    - Batch import tracking with ImportBatch records
+    - Individual record validation and error handling
+    - Progress monitoring and statistics
+    - Automatic file size detection and optimization
+    - Transaction-safe imports with rollback on errors
+
+Import Process:
+    1. Validate CSV file exists and is readable
+    2. Create ImportBatch record for tracking
+    3. Read CSV in chunks (memory optimization for large files)
+    4. Validate and transform each row
+    5. Create ImportRecord entries for each valid row
+    6. Calculate batch statistics (success count, error count)
+    7. Commit transaction or rollback on critical errors
+
+Chunking Strategy:
+    - Files < 10MB: Read entire file at once
+    - Files 10-50MB: Process in 1000-row chunks
+    - Files > 50MB: Process in 500-row chunks
+
+Data Validation:
+    - Required fields: product_name, sku, price
+    - Optional fields: brand, category, size, etc.
+    - Data type validation (price must be numeric)
+    - Duplicate SKU detection
+    - Invalid data logging for review
+
+Error Handling:
+    - Individual row errors are logged but don't stop import
+    - Critical errors (file not found, malformed CSV) abort import
+    - All errors tracked in ImportRecord with error_message field
+
+Example CSV Format:
+    ```csv
+    product_name,sku,brand,category,price,currency
+    "Nike Air Max 90","NKE-AM90-001","Nike","Footwear",150.00,USD
+    "Adidas Ultra Boost","ADS-UB-001","Adidas","Footwear",180.00,USD
+    ```
+
+Example Usage:
+    ```python
+    from domains.integration.services.awin_connector import AwinConnector
+    from pathlib import Path
+
+    async with db_manager.get_session() as session:
+        connector = AwinConnector(session)
+
+        # Import CSV file
+        batch = await connector.run_import(Path("data/awin_export.csv"))
+
+        print(f"Imported {batch.records_processed} records")
+        print(f"Success: {batch.records_success}, Errors: {batch.records_failed}")
+    ```
+
+Performance Optimization:
+    - Chunked reading prevents memory exhaustion
+    - Bulk inserts for ImportRecord entries
+    - Pandas DataFrame for efficient CSV parsing
+    - Async database operations
+
+Database Tables:
+    - import_batches: Tracks each import operation
+    - import_records: Stores individual row data
+
+Dependencies:
+    - pandas: CSV parsing and data manipulation
+    - SQLAlchemy: Database operations
+    - structlog: Structured logging
+
+Related Modules:
+    - domains/integration/api/upload_router.py: Upload API endpoints
+    - shared/database/models.py: ImportBatch and ImportRecord models
+
+See Also:
+    - docs/features/awin-product-feed-integration.md: Detailed Awin integration docs
+    - docs/guides/data-import-guide.md: General import guide
+"""
+
 import json
 from datetime import datetime
 from pathlib import Path
