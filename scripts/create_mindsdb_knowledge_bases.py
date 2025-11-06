@@ -201,6 +201,7 @@ class MindsDBClient:
             reranking_config["api_key"] = api_key
 
         # Create knowledge base using SQL with full syntax
+        # Note: No trailing comma after last parameter
         query = f"""
         CREATE KNOWLEDGE_BASE {project_name}.{kb_name}
         USING

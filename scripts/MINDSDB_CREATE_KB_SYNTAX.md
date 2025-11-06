@@ -2,6 +2,8 @@
 
 ## 📖 Basis-Syntax
 
+⚠️ **WICHTIG:** Kein Komma nach dem letzten Parameter!
+
 ```sql
 CREATE KNOWLEDGE_BASE [project_name.]kb_name
 FROM (
@@ -21,14 +23,16 @@ USING
     storage = my_vector_store.storage_table,  -- Optional: Vektor-DB (ChromaDB default)
     metadata_columns = ['date', 'creator', 'version'],  -- Optional: Metadaten-Spalten
     content_columns = ['content', 'description'],        -- Optional: Content-Spalten
-    id_column = 'id';                                     -- Optional: ID-Spalte
+    id_column = 'id';                      -- Semikolon am Ende!
 ```
+
+**Syntax-Regel:** Komma zwischen Parametern, **kein Komma** vor dem Semikolon!
 
 ---
 
 ## 🎯 Konkrete Beispiele für SoleFlipper
 
-### Beispiel 1: kb_database_schema (Einfach)
+### Beispiel 1: kb_database_schema (Minimal - nur Embedding)
 
 ```sql
 CREATE KNOWLEDGE_BASE soleflipper.kb_database_schema
@@ -37,6 +41,34 @@ USING
         "provider": "openai",
         "model_name": "text-embedding-3-small"
     };
+```
+
+✅ **Korrekt:** Kein Komma nach `embedding_model` (ist letzter Parameter)
+
+---
+
+### Beispiel 1b: Mit Embedding + Reranking (EMPFOHLEN)
+
+```sql
+CREATE KNOWLEDGE_BASE soleflipper.kb_database_schema
+USING
+    embedding_model = {
+        "provider": "openai",
+        "model_name": "text-embedding-3-small"
+    },
+    reranking_model = {
+        "provider": "openai",
+        "model_name": "gpt-4o"
+    };
+```
+
+✅ **Korrekt:** Komma nach `embedding_model`, **kein Komma** nach `reranking_model` (ist letzter Parameter)
+
+❌ **Falsch:**
+```sql
+    reranking_model = {
+        ...
+    },  <-- Dieses Komma verursacht Fehler!
 ```
 
 **Hinweis:** Content wird direkt im CREATE-Statement übergeben (siehe Python-Script).
