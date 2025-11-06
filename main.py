@@ -152,6 +152,12 @@ async def lifespan(app: FastAPI):
 
     logger.info("SoleFlipper API shutting down...")
 
+    # Close StockX HTTP client connections
+    from domains.integration.services.stockx_service import StockXService
+
+    await StockXService.close_http_client()
+    logger.info("StockX HTTP client connections closed")
+
     metrics_collector.stop_collection()
     await db_manager.close()
     logger.info("Database connections closed, security systems shutdown")

@@ -47,6 +47,7 @@ dependencies = [
     "httpx>=0.25.0",
     "requests>=2.31.0", # Added for setup scripts
     "aiohttp>=3.9.0",  # Async HTTP client for scripts and load testing
+    "aiolimiter>=1.1.0",  # Async rate limiting for API quota management
 
     # Async file operations
     "aiofiles>=23.2.0",  # Async file I/O for streaming processor
