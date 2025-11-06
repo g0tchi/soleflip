@@ -7,33 +7,31 @@ Identifies missing fields that need to be added to DB
 notion_fields = {
     # Product Information
     "SKU": "text/title",  # maps to Product.sku
-    "Brand": "select",     # maps to Brand.name
-    "Product": "text",     # maps to Product.name
-    "Size": "text",        # maps to Size.value
-
+    "Brand": "select",  # maps to Brand.name
+    "Product": "text",  # maps to Product.name
+    "Size": "text",  # maps to Size.value
     # Supplier/Purchase Information
-    "Supplier": "text",              # maps to Supplier.name
-    "Gross Buy": "number",           # Price WITH VAT
-    "Net Buy": "number",             # Price WITHOUT VAT (what we store as purchase_price)
-    "VAT Included": "checkbox",      # Boolean
-    "Buy Date": "date",              # maps to InventoryItem.purchase_date
-    "Delivery Date": "date",         # ??? NOT IN DB
-    "Order No.": "text",             # ??? NOT IN DB (external_ids JSONB?)
-    "Invoice Nr.": "text",           # ??? NOT IN DB (external_ids JSONB?)
-
+    "Supplier": "text",  # maps to Supplier.name
+    "Gross Buy": "number",  # Price WITH VAT
+    "Net Buy": "number",  # Price WITHOUT VAT (what we store as purchase_price)
+    "VAT Included": "checkbox",  # Boolean
+    "Buy Date": "date",  # maps to InventoryItem.purchase_date
+    "Delivery Date": "date",  # ??? NOT IN DB
+    "Order No.": "text",  # ??? NOT IN DB (external_ids JSONB?)
+    "Invoice Nr.": "text",  # ??? NOT IN DB (external_ids JSONB?)
     # StockX Sale Information
-    "Sale Date": "date",             # maps to StockXOrder.sold_at
-    "Sale Platform": "select",       # Should be "StockX" - validation
-    "Sale ID": "text",               # maps to StockXOrder.stockx_order_number
-    "Gross Sale": "number",          # ??? NOT IN DB DIRECTLY
-    "Net Sale": "number",            # maps to StockXOrder.sale_price
-    "Profit": "number",              # maps to StockXOrder.net_profit
-    "ROI": "number",                 # maps to StockXOrder.roi
-    "Payout Received": "checkbox",   # ??? NOT IN DB
-    "Status": "select",              # maps to StockXOrder.order_status
-    "Shelf Life": "number",          # CALCULATED: Sale Date - Buy Date
-    "Order No. (StockX)": "text",    # Same as Sale ID
-    "PAS": "number",                 # CALCULATED: Profit / Shelf Life (Profit per Day)
+    "Sale Date": "date",  # maps to StockXOrder.sold_at
+    "Sale Platform": "select",  # Should be "StockX" - validation
+    "Sale ID": "text",  # maps to StockXOrder.stockx_order_number
+    "Gross Sale": "number",  # ??? NOT IN DB DIRECTLY
+    "Net Sale": "number",  # maps to StockXOrder.sale_price
+    "Profit": "number",  # maps to StockXOrder.net_profit
+    "ROI": "number",  # maps to StockXOrder.roi
+    "Payout Received": "checkbox",  # ??? NOT IN DB
+    "Status": "select",  # maps to StockXOrder.order_status
+    "Shelf Life": "number",  # CALCULATED: Sale Date - Buy Date
+    "Order No. (StockX)": "text",  # Same as Sale ID
+    "PAS": "number",  # CALCULATED: Profit / Shelf Life (Profit per Day)
 }
 
 # PostgreSQL Schema (from models.py)
@@ -67,11 +65,11 @@ postgres_schema = {
         "supplier_id": "UUID (FK)",
         "quantity": "Integer",
         "purchase_price": "Numeric",  # Net Buy Price
-        "purchase_date": "DateTime",   # Buy Date
+        "purchase_date": "DateTime",  # Buy Date
         "status": "String",
-        "supplier": "String",          # Redundant with supplier_id?
+        "supplier": "String",  # Redundant with supplier_id?
         "source_platform": "String",
-        "external_ids": "JSONB",       # Could store Order No., Invoice Nr.
+        "external_ids": "JSONB",  # Could store Order No., Invoice Nr.
         "notes": "Text",
         # MISSING: delivery_date
         # MISSING: vat_amount
@@ -97,8 +95,8 @@ postgres_schema = {
         "inventory_item_id": "UUID (FK)",
         "listing_id": "UUID (FK)",
         "stockx_order_number": "String",  # Sale ID
-        "status": "String",                # Sale Status
-        "amount": "Numeric",               # Sale Price
+        "status": "String",  # Sale Status
+        "amount": "Numeric",  # Sale Price
         "currency_code": "String",
         "inventory_type": "String",
         "shipping_label_url": "String",
@@ -139,7 +137,11 @@ missing_fields = {
         ("gross_profit", "Numeric(10,2)", "Gross profit before expenses"),
         ("net_profit", "Numeric(10,2)", "Net profit after all costs (from Notion: Profit)"),
         ("roi", "Numeric(5,2)", "Return on investment percentage (from Notion: ROI)"),
-        ("payout_received", "Boolean", "Whether payout was received (from Notion: Payout Received)"),
+        (
+            "payout_received",
+            "Boolean",
+            "Whether payout was received (from Notion: Payout Received)",
+        ),
         ("payout_date", "DateTime", "Date payout was received"),
         ("shelf_life_days", "Integer", "Days between purchase and sale (calculated)"),
     ],
@@ -178,7 +180,8 @@ print("=" * 80)
 print("[*] RECOMMENDED DATABASE MIGRATION")
 print("-" * 80)
 
-print("""
+print(
+    """
 CREATE MIGRATION: "add_notion_sale_fields"
 
 -- Add inventory purchase tracking fields
@@ -220,20 +223,23 @@ COMMENT ON COLUMN transactions.orders.shelf_life_days IS 'Days between purchase 
 CREATE INDEX idx_orders_sold_at ON transactions.orders(sold_at);
 CREATE INDEX idx_orders_payout_received ON transactions.orders(payout_received);
 CREATE INDEX idx_inventory_delivery_date ON products.inventory(delivery_date);
-""")
+"""
+)
 
 print()
 print("=" * 80)
 print("[+] NEXT STEPS")
 print("-" * 80)
-print("""
+print(
+    """
 1. Create Alembic migration with above SQL
 2. Run migration: alembic upgrade head
 3. Update models.py with new fields
 4. Update bulk_sync_notion_sales.py to populate new fields
 5. Re-run product discovery to generate updated CSV
 6. Execute bulk sync with complete data
-""")
+"""
+)
 
 print()
 print("=" * 80)

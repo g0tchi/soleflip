@@ -13,7 +13,7 @@ from domains.pricing.models import (
     MarketPrice,
     SalesForecast,
     ForecastAccuracy,
-    PricingKPI
+    PricingKPI,
 )
 
 
@@ -31,7 +31,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=now,
-            effective_until=future
+            effective_until=future,
         )
 
         assert rule.is_active() is True
@@ -43,7 +43,7 @@ class TestPriceRule:
             name="Inactive Rule",
             rule_type="cost_plus",
             active=False,
-            effective_from=datetime.now(timezone.utc)
+            effective_from=datetime.now(timezone.utc),
         )
 
         assert rule.is_active() is False
@@ -57,7 +57,7 @@ class TestPriceRule:
             name="Future Rule",
             rule_type="cost_plus",
             active=True,
-            effective_from=future
+            effective_from=future,
         )
 
         assert rule.is_active() is False
@@ -65,7 +65,11 @@ class TestPriceRule:
     def test_is_active_after_expiry(self):
         """Test is_active after expiry date"""
         past = datetime.now().replace(year=2020)
-        yesterday = datetime.now().replace(day=datetime.now().day - 1) if datetime.now().day > 1 else datetime.now().replace(month=datetime.now().month - 1, day=28)
+        yesterday = (
+            datetime.now().replace(day=datetime.now().day - 1)
+            if datetime.now().day > 1
+            else datetime.now().replace(month=datetime.now().month - 1, day=28)
+        )
 
         rule = PriceRule(
             id=uuid4(),
@@ -73,7 +77,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=past,
-            effective_until=yesterday
+            effective_until=yesterday,
         )
 
         assert rule.is_active() is False
@@ -88,7 +92,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=past,
-            effective_until=None
+            effective_until=None,
         )
 
         assert rule.is_active() is True
@@ -105,7 +109,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=start_date,
-            effective_until=end_date
+            effective_until=end_date,
         )
 
         assert rule.is_active(check_date) is True
@@ -118,7 +122,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=datetime.now(timezone.utc),
-            condition_multipliers=None
+            condition_multipliers=None,
         )
 
         result = rule.get_condition_multiplier("used")
@@ -132,7 +136,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=datetime.now(timezone.utc),
-            condition_multipliers={"used": 0.8, "deadstock": 0.6, "new": 1.2}
+            condition_multipliers={"used": 0.8, "deadstock": 0.6, "new": 1.2},
         )
 
         assert rule.get_condition_multiplier("used") == Decimal("0.8")
@@ -147,7 +151,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=datetime.now(timezone.utc),
-            seasonal_adjustments=None
+            seasonal_adjustments=None,
         )
 
         result = rule.get_seasonal_adjustment(12)
@@ -161,7 +165,7 @@ class TestPriceRule:
             rule_type="cost_plus",
             active=True,
             effective_from=datetime.now(timezone.utc),
-            seasonal_adjustments={"12": 1.3, "1": 1.1, "6": 0.9}
+            seasonal_adjustments={"12": 1.3, "1": 1.1, "6": 0.9},
         )
 
         assert rule.get_seasonal_adjustment(12) == Decimal("1.3")
@@ -181,7 +185,7 @@ class TestBrandMultiplier:
             multiplier_value=Decimal("1.2"),
             active=True,
             effective_from=date.today(),
-            effective_until=None
+            effective_until=None,
         )
 
         assert multiplier.is_effective() is True
@@ -194,7 +198,7 @@ class TestBrandMultiplier:
             multiplier_type="premium",
             multiplier_value=Decimal("1.2"),
             active=False,
-            effective_from=date.today()
+            effective_from=date.today(),
         )
 
         assert multiplier.is_effective() is False
@@ -209,7 +213,7 @@ class TestBrandMultiplier:
             multiplier_type="seasonal",
             multiplier_value=Decimal("0.8"),
             active=True,
-            effective_from=future_date
+            effective_from=future_date,
         )
 
         assert multiplier.is_effective() is False
@@ -226,7 +230,7 @@ class TestBrandMultiplier:
             multiplier_value=Decimal("0.9"),
             active=True,
             effective_from=past_date,
-            effective_until=yesterday
+            effective_until=yesterday,
         )
 
         assert multiplier.is_effective() is False
@@ -244,7 +248,7 @@ class TestBrandMultiplier:
             multiplier_value=Decimal("1.15"),
             active=True,
             effective_from=start_date,
-            effective_until=end_date
+            effective_until=end_date,
         )
 
         assert multiplier.is_effective(check_date) is True
@@ -264,7 +268,7 @@ class TestMarketPrice:
             last_sale=Decimal("250.00"),
             lowest_ask=Decimal("280.00"),
             highest_bid=Decimal("240.00"),
-            average_price=Decimal("255.00")
+            average_price=Decimal("255.00"),
         )
 
         result = price.get_market_price("last_sale")
@@ -278,7 +282,7 @@ class TestMarketPrice:
             platform_name="StockX",
             condition="new",
             price_date=date.today(),
-            lowest_ask=Decimal("280.00")
+            lowest_ask=Decimal("280.00"),
         )
 
         result = price.get_market_price("lowest_ask")
@@ -292,7 +296,7 @@ class TestMarketPrice:
             platform_name="GOAT",
             condition="used",
             price_date=date.today(),
-            highest_bid=Decimal("190.00")
+            highest_bid=Decimal("190.00"),
         )
 
         result = price.get_market_price("highest_bid")
@@ -306,7 +310,7 @@ class TestMarketPrice:
             platform_name="Klekt",
             condition="new",
             price_date=date.today(),
-            average_price=Decimal("275.50")
+            average_price=Decimal("275.50"),
         )
 
         result = price.get_market_price("average")
@@ -320,7 +324,7 @@ class TestMarketPrice:
             platform_name="StockX",
             condition="new",
             price_date=date.today(),
-            last_sale=Decimal("250.00")
+            last_sale=Decimal("250.00"),
         )
 
         result = price.get_market_price("unknown_type")
@@ -334,7 +338,7 @@ class TestMarketPrice:
             platform_name="StockX",
             condition="new",
             price_date=date.today(),
-            last_sale=None
+            last_sale=None,
         )
 
         result = price.get_market_price("last_sale")
@@ -357,7 +361,7 @@ class TestSalesForecast:
             confidence_lower=Decimal("20.0"),
             confidence_upper=Decimal("30.0"),
             model_name="ARIMA",
-            model_version="1.0"
+            model_version="1.0",
         )
 
         interval = forecast.confidence_interval
@@ -374,7 +378,7 @@ class TestSalesForecast:
             forecasted_units=Decimal("100.0"),
             forecasted_revenue=Decimal("5000.00"),
             model_name="LinearRegression",
-            model_version="2.1"
+            model_version="2.1",
         )
 
         interval = forecast.confidence_interval
@@ -391,7 +395,7 @@ class TestSalesForecast:
             forecasted_units=Decimal("50.0"),
             forecasted_revenue=Decimal("2500.00"),
             model_name="RandomForest",
-            model_version="3.0"
+            model_version="3.0",
         )
 
         actual_value = Decimal("45.0")
@@ -413,7 +417,7 @@ class TestSalesForecast:
             forecasted_units=Decimal("10.0"),
             forecasted_revenue=Decimal("500.00"),
             model_name="LSTM",
-            model_version="1.5"
+            model_version="1.5",
         )
 
         actual_value = Decimal("0")
@@ -433,7 +437,7 @@ class TestSalesForecast:
             forecasted_units=Decimal("75.0"),
             forecasted_revenue=Decimal("3750.00"),
             model_name="XGBoost",
-            model_version="4.2"
+            model_version="4.2",
         )
 
         result = forecast.accuracy_score(None)
@@ -450,7 +454,7 @@ class TestSalesForecast:
             forecasted_units=Decimal("100.0"),
             forecasted_revenue=Decimal("5000.00"),
             model_name="Perfect",
-            model_version="1.0"
+            model_version="1.0",
         )
 
         actual_value = Decimal("100.0")
@@ -480,7 +484,7 @@ class TestForecastAccuracy:
             r2_score=Decimal("0.8245"),
             bias_score=Decimal("2.15"),
             records_evaluated=150,
-            evaluation_period_days=30
+            evaluation_period_days=30,
         )
 
         summary = accuracy.get_accuracy_summary()
@@ -507,7 +511,7 @@ class TestForecastAccuracy:
             rmse_score=Decimal("12.34"),
             r2_score=None,
             records_evaluated=75,
-            evaluation_period_days=60
+            evaluation_period_days=60,
         )
 
         summary = accuracy.get_accuracy_summary()
@@ -534,7 +538,7 @@ class TestPricingKPI:
             conversion_rate_percent=Decimal("12.25"),
             revenue_impact_eur=Decimal("15750.00"),
             units_sold=125,
-            average_selling_price=Decimal("126.00")
+            average_selling_price=Decimal("126.00"),
         )
 
         summary = kpi.get_performance_summary()
@@ -559,7 +563,7 @@ class TestPricingKPI:
             conversion_rate_percent=Decimal("8.75"),
             revenue_impact_eur=None,
             units_sold=None,
-            average_selling_price=Decimal("95.50")
+            average_selling_price=Decimal("95.50"),
         )
 
         summary = kpi.get_performance_summary()
@@ -585,7 +589,7 @@ class TestPricingKPI:
             conversion_rate_percent=None,
             revenue_impact_eur=Decimal("0.00"),
             units_sold=0,
-            average_selling_price=None
+            average_selling_price=None,
         )
 
         summary = kpi.get_performance_summary()

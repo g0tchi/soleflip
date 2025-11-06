@@ -2,6 +2,7 @@
 PCI-Compliant Payment Provider Integration
 Handles secure payment method tokenization and processing
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Any
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class PaymentProvider(Enum):
     """Supported payment providers"""
+
     STRIPE = "stripe"
     PAYPAL = "paypal"
     SQUARE = "square"
@@ -20,6 +22,7 @@ class PaymentProvider(Enum):
 
 class PaymentProviderError(Exception):
     """Base exception for payment provider errors"""
+
     pass
 
 
@@ -76,6 +79,7 @@ class StripePaymentTokenizer(PaymentMethodTokenizer):
         # Import stripe only when needed to avoid dependency issues
         try:
             import stripe
+
             self.stripe = stripe
             stripe.api_key = api_key
         except ImportError:
@@ -91,7 +95,7 @@ class StripePaymentTokenizer(PaymentMethodTokenizer):
                     "exp_month": card_data["exp_month"],
                     "exp_year": card_data["exp_year"],
                     "cvc": card_data["cvc"],
-                }
+                },
             )
 
             return {
@@ -224,8 +228,9 @@ class LegacyDataMigrator:
     def __init__(self, payment_service: SecurePaymentService):
         self.payment_service = payment_service
 
-    async def migrate_legacy_account(self, encrypted_cc: str, encrypted_cvv: str,
-                                   exp_month: int, exp_year: int) -> Optional[Dict[str, str]]:
+    async def migrate_legacy_account(
+        self, encrypted_cc: str, encrypted_cvv: str, exp_month: int, exp_year: int
+    ) -> Optional[Dict[str, str]]:
         """
         Migrate legacy encrypted credit card data to tokenized format
 

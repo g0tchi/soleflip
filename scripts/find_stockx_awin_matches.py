@@ -2,6 +2,7 @@
 Quick script to find StockX-Awin profit opportunities
 Checks if we already have matching data in the database
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -17,12 +18,16 @@ async def main():
 
         # 1. Check for products table
         print("\n[1/4] Checking for StockX products table...")
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT table_schema, table_name
             FROM information_schema.tables
             WHERE table_name = 'products'
             ORDER BY table_schema
-        """))
+        """
+            )
+        )
         products_tables = result.fetchall()
 
         if not products_tables:
@@ -40,19 +45,24 @@ async def main():
 
         # 2. Check table structure
         print("\n[2/4] Checking products table structure...")
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT column_name, data_type
             FROM information_schema.columns
             WHERE table_schema = :schema AND table_name = 'products'
             AND column_name IN ('id', 'ean', 'name', 'lowest_ask', 'highest_bid', 'price')
             ORDER BY column_name
-        """), {"schema": schema})
+        """
+            ),
+            {"schema": schema},
+        )
 
         columns = {row.column_name: row.data_type for row in result.fetchall()}
 
-        has_ean = 'ean' in columns
-        has_price = 'lowest_ask' in columns or 'price' in columns
-        price_col = 'lowest_ask' if 'lowest_ask' in columns else 'price'
+        has_ean = "ean" in columns
+        has_price = "lowest_ask" in columns or "price" in columns
+        price_col = "lowest_ask" if "lowest_ask" in columns else "price"
 
         print(f"  EAN column: {'✓' if has_ean else '✗'}")
         print(f"  Price column: {'✓ (' + price_col + ')' if has_price else '✗'}")
@@ -63,13 +73,17 @@ async def main():
 
         # 3. Check data availability
         print("\n[3/4] Checking data availability...")
-        result = await session.execute(text(f"""
+        result = await session.execute(
+            text(
+                f"""
             SELECT
                 COUNT(*) as total_products,
                 COUNT(ean) as products_with_ean,
                 COUNT({price_col}) as products_with_price
             FROM {schema}.products
-        """))
+        """
+            )
+        )
         stats = result.fetchone()
 
         print(f"  Total StockX products: {stats.total_products:,}")
@@ -78,7 +92,9 @@ async def main():
 
         # 4. Try to find matches
         print("\n[4/4] Searching for Awin <-> StockX matches...")
-        result = await session.execute(text(f"""
+        result = await session.execute(
+            text(
+                f"""
             SELECT
                 COUNT(DISTINCT ap.awin_product_id) as awin_count,
                 COUNT(DISTINCT p.id) as stockx_count,
@@ -87,7 +103,9 @@ async def main():
             INNER JOIN {schema}.products p ON ap.ean = p.ean
             WHERE ap.ean IS NOT NULL AND ap.ean != ''
               AND p.{price_col} IS NOT NULL
-        """))
+        """
+            )
+        )
         match_stats = result.fetchone()
 
         print(f"  Awin products matched: {match_stats.awin_count:,}")
@@ -107,7 +125,9 @@ async def main():
         print("PROFIT OPPORTUNITIES (Money Printer!)")
         print("=" * 80)
 
-        result = await session.execute(text(f"""
+        result = await session.execute(
+            text(
+                f"""
             SELECT
                 ap.product_name,
                 ap.brand_name,
@@ -128,7 +148,9 @@ async def main():
               AND (p.{price_col} - ap.retail_price_cents) >= 2000  -- Min 20 EUR profit
             ORDER BY profit_eur DESC
             LIMIT 20
-        """))
+        """
+            )
+        )
 
         opportunities = result.fetchall()
 
@@ -141,8 +163,12 @@ async def main():
 
             for i, opp in enumerate(opportunities, 1):
                 print(f"{i:2d}. {opp.product_name[:50]}")
-                print(f"    Brand: {opp.brand_name} | Size: {opp.size} | Stock: {opp.stock_quantity}")
-                print(f"    Retail: EUR {opp.retail_price_eur:.2f} -> StockX: EUR {opp.stockx_price_eur:.2f}")
+                print(
+                    f"    Brand: {opp.brand_name} | Size: {opp.size} | Stock: {opp.stock_quantity}"
+                )
+                print(
+                    f"    Retail: EUR {opp.retail_price_eur:.2f} -> StockX: EUR {opp.stockx_price_eur:.2f}"
+                )
                 print(f"    PROFIT: EUR {opp.profit_eur:.2f} ({opp.profit_pct}% ROI)")
                 print(f"    Link: {opp.affiliate_link}")
                 print()

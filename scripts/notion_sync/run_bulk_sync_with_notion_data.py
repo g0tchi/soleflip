@@ -11,6 +11,7 @@ Usage from Claude Code:
 3. Claude executes: python run_bulk_sync_with_notion_data.py --dry-run
 4. After review: python run_bulk_sync_with_notion_data.py
 """
+
 import asyncio
 from sync_notion_to_postgres import NotionPostgresSyncService
 import structlog
@@ -48,7 +49,7 @@ async def main():
     import sys
 
     # Parse command line args
-    dry_run = '--dry-run' in sys.argv
+    dry_run = "--dry-run" in sys.argv
 
     print("=" * 80)
     print("NOTION -> POSTGRESQL BULK SYNC")
@@ -82,33 +83,30 @@ async def main():
 
         for i, sale in enumerate(SALES_DATA, 1):
             # Parse Notion properties
-            sale_data = service.parse_notion_properties(
-                sale['properties'],
-                sale['url']
-            )
+            sale_data = service.parse_notion_properties(sale["properties"], sale["url"])
 
             if not sale_data:
                 logger.warning(f"Skipping invalid sale [{i}/{len(SALES_DATA)}]")
-                service.stats['skipped_invalid'] += 1
+                service.stats["skipped_invalid"] += 1
                 continue
 
-            service.stats['total_found'] += 1
+            service.stats["total_found"] += 1
 
             # Filter: Only StockX
-            if sale_data['sale_platform'] != 'StockX':
+            if sale_data["sale_platform"] != "StockX":
                 continue
 
             # Check if already synced
             if not dry_run:
-                if await service.check_if_synced(session, sale_data['sale_id']):
+                if await service.check_if_synced(session, sale_data["sale_id"]):
                     logger.info(f"Already synced: {sale_data['sale_id']}")
-                    service.stats['already_synced'] += 1
+                    service.stats["already_synced"] += 1
                     continue
 
             # Sync
             if dry_run:
                 logger.info(f"[DRY RUN] Would sync: {sale_data['sale_id']}")
-                service.stats['newly_synced'] += 1
+                service.stats["newly_synced"] += 1
             else:
                 success = await service.sync_sale(session, sale_data)
                 if success:
@@ -132,10 +130,10 @@ async def main():
         service.print_summary()
 
     finally:
-        if not dry_run and 'session' in locals() and session:
+        if not dry_run and "session" in locals() and session:
             await session.__aexit__(None, None, None)
         await service.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

@@ -233,41 +233,44 @@ async def get_pricing_strategies():
 # SMART PRICING ENDPOINTS
 # =====================================================
 
+
 @router.post(
     "/smart/optimize-inventory",
-    summary="Smart Inventory Pricing Optimization", 
-    description="Optimize pricing for entire inventory using AI and real-time StockX market data"
+    summary="Smart Inventory Pricing Optimization",
+    description="Optimize pricing for entire inventory using AI and real-time StockX market data",
 )
 async def optimize_inventory_pricing(
-    strategy: str = Query("profit_maximization", description="Repricing strategy: profit_maximization, market_competitive, quick_turnover, premium_positioning"),
+    strategy: str = Query(
+        "profit_maximization",
+        description="Repricing strategy: profit_maximization, market_competitive, quick_turnover, premium_positioning",
+    ),
     limit: int = Query(50, description="Maximum items to optimize (1-100)"),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Optimize pricing for inventory using smart algorithms"""
     logger.info("Starting smart inventory pricing optimization", strategy=strategy, limit=limit)
-    
+
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=400, detail="Limit must be between 1 and 100")
-    
+
     try:
         smart_pricing = SmartPricingService(db_session)
-        
+
         # Get inventory items to optimize
         inventory_service = InventoryService(db_session)
         items = await inventory_service.get_items_for_repricing(limit=limit)
-        
+
         # Run optimization
         optimization_result = await smart_pricing.optimize_inventory_pricing(
-            inventory_items=items,
-            repricing_strategy=strategy
+            inventory_items=items, repricing_strategy=strategy
         )
-        
+
         return {
             "success": True,
             "message": f"Optimized pricing for {optimization_result['successful_optimizations']} items",
-            "data": optimization_result
+            "data": optimization_result,
         }
-        
+
     except Exception as e:
         logger.error("Smart pricing optimization failed", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
@@ -276,35 +279,34 @@ async def optimize_inventory_pricing(
 @router.get(
     "/smart/recommend/{item_id}",
     summary="Get Smart Price Recommendation",
-    description="Get AI-powered price recommendation for specific inventory item with market analysis"
+    description="Get AI-powered price recommendation for specific inventory item with market analysis",
 )
 async def get_smart_price_recommendation(
     item_id: UUID,
     target_days: Optional[int] = Query(None, description="Target sell timeframe in days"),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Get intelligent price recommendation for specific item"""
     logger.info("Getting smart price recommendation", item_id=str(item_id))
-    
+
     try:
         inventory_service = InventoryService(db_session)
         inventory_item = await inventory_service.get_item_by_id(item_id)
-        
+
         if not inventory_item:
             raise HTTPException(status_code=404, detail="Inventory item not found")
-        
+
         smart_pricing = SmartPricingService(db_session)
         recommendation = await smart_pricing.get_dynamic_price_recommendation(
-            inventory_item=inventory_item,
-            target_sell_timeframe=target_days
+            inventory_item=inventory_item, target_sell_timeframe=target_days
         )
-        
+
         return {
             "success": True,
-            "message": "Price recommendation generated successfully", 
-            "data": recommendation
+            "message": "Price recommendation generated successfully",
+            "data": recommendation,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -315,39 +317,38 @@ async def get_smart_price_recommendation(
 @router.post(
     "/smart/auto-reprice",
     summary="Implement Automatic Repricing",
-    description="Automatically reprice inventory based on market movements and custom rules"
+    description="Automatically reprice inventory based on market movements and custom rules",
 )
 async def implement_auto_repricing(
     dry_run: bool = Query(True, description="Run simulation without actual price changes"),
     price_drop_threshold: float = Query(5.0, description="Price drop % to trigger repricing"),
     max_increase: float = Query(10.0, description="Maximum price increase % per adjustment"),
     min_margin: float = Query(15.0, description="Minimum profit margin to maintain"),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Implement automatic repricing based on market conditions"""
     logger.info("Starting auto-repricing", dry_run=dry_run)
-    
+
     try:
         repricing_rules = {
             "price_drop_threshold": price_drop_threshold,
             "max_price_increase": max_increase,
             "min_margin_percent": min_margin,
             "check_interval_hours": 6,
-            "enabled_categories": ["footwear", "streetwear", "accessories"]
+            "enabled_categories": ["footwear", "streetwear", "accessories"],
         }
-        
+
         smart_pricing = SmartPricingService(db_session)
         repricing_result = await smart_pricing.implement_auto_repricing(
-            repricing_rules=repricing_rules,
-            dry_run=dry_run
+            repricing_rules=repricing_rules, dry_run=dry_run
         )
-        
+
         return {
             "success": True,
             "message": f"Auto-repricing {'simulated' if dry_run else 'completed'}: {repricing_result['total_adjustments']} adjustments made",
-            "data": repricing_result
+            "data": repricing_result,
         }
-        
+
     except Exception as e:
         logger.error("Auto-repricing failed", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Auto-repricing failed: {str(e)}")
@@ -356,33 +357,31 @@ async def implement_auto_repricing(
 @router.get(
     "/smart/market-trends",
     summary="Analyze Market Trends",
-    description="Analyze market trends for pricing insights and investment opportunities"
+    description="Analyze market trends for pricing insights and investment opportunities",
 )
 async def analyze_market_trends(
     days: int = Query(30, description="Time horizon in days (7-90)"),
     limit: int = Query(20, description="Number of products to analyze (1-50)"),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Analyze market trends for strategic pricing insights"""
     logger.info("Analyzing market trends", days=days, limit=limit)
-    
+
     if days < 7 or days > 90:
         raise HTTPException(status_code=400, detail="Days must be between 7 and 90")
     if limit < 1 or limit > 50:
         raise HTTPException(status_code=400, detail="Limit must be between 1 and 50")
-    
+
     try:
         smart_pricing = SmartPricingService(db_session)
-        trends_analysis = await smart_pricing.analyze_market_trends(
-            time_horizon_days=days
-        )
-        
+        trends_analysis = await smart_pricing.analyze_market_trends(time_horizon_days=days)
+
         return {
             "success": True,
             "message": f"Market trends analyzed for {len(trends_analysis['product_trends'])} products",
-            "data": trends_analysis
+            "data": trends_analysis,
         }
-        
+
     except Exception as e:
         logger.error("Market trends analysis failed", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Trends analysis failed: {str(e)}")
@@ -391,55 +390,59 @@ async def analyze_market_trends(
 @router.get(
     "/smart/profit-forecast",
     summary="Profit Optimization Forecast",
-    description="Forecast potential profit improvements with smart pricing strategies"
+    description="Forecast potential profit improvements with smart pricing strategies",
 )
 async def get_profit_forecast(
     strategy: str = Query("profit_maximization", description="Optimization strategy"),
     timeframe_days: int = Query(30, description="Forecast timeframe in days"),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Generate profit optimization forecast"""
     logger.info("Generating profit forecast", strategy=strategy, timeframe=timeframe_days)
-    
+
     try:
         smart_pricing = SmartPricingService(db_session)
         inventory_service = InventoryService(db_session)
-        
+
         # Get current inventory value
         inventory_summary = await inventory_service.get_detailed_summary()
         current_value = inventory_summary.get("total_value", 0)
-        
+
         # Simulate optimization on sample of inventory
         sample_items = await inventory_service.get_items_for_repricing(limit=20)
         optimization_sample = await smart_pricing.optimize_inventory_pricing(
-            inventory_items=sample_items,
-            repricing_strategy=strategy
+            inventory_items=sample_items, repricing_strategy=strategy
         )
-        
+
         # Extrapolate results
         if optimization_sample["total_items_processed"] > 0:
-            avg_improvement = optimization_sample["potential_profit_increase"] / optimization_sample["total_items_processed"]
+            avg_improvement = (
+                optimization_sample["potential_profit_increase"]
+                / optimization_sample["total_items_processed"]
+            )
             total_inventory_items = inventory_summary.get("total_items", 1)
             projected_improvement = avg_improvement * total_inventory_items
         else:
             projected_improvement = 0
-        
+
         forecast = {
             "current_inventory_value": float(current_value),
             "projected_profit_increase": float(projected_improvement),
-            "projected_improvement_percent": round((projected_improvement / max(current_value, 1)) * 100, 2),
+            "projected_improvement_percent": round(
+                (projected_improvement / max(current_value, 1)) * 100, 2
+            ),
             "strategy_used": strategy,
             "forecast_timeframe_days": timeframe_days,
             "confidence_level": "medium",  # Based on sample size
-            "sample_results": optimization_sample
+            "sample_results": optimization_sample,
         }
-        
+
         return {
             "success": True,
             "message": f"Profit forecast generated: ${projected_improvement:.2f} potential increase",
-            "data": forecast
+            "data": forecast,
         }
-        
+
     except Exception as e:
         logger.error("Profit forecast failed", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Forecast failed: {str(e)}")
@@ -490,30 +493,30 @@ async def get_pricing_rules(pricing_repo: PricingRepository = Depends(get_pricin
 @router.get(
     "/smart/auto-repricing/status",
     summary="Get Auto-Repricing Status",
-    description="Get current status of the auto-repricing system"
+    description="Get current status of the auto-repricing system",
 )
-async def get_auto_repricing_status(
-    db_session: AsyncSession = Depends(get_db_session)
-):
+async def get_auto_repricing_status(db_session: AsyncSession = Depends(get_db_session)):
     """Get auto-repricing system status"""
     logger.info("Getting auto-repricing status")
-    
+
     try:
         smart_pricing = SmartPricingService(db_session)
         status = await smart_pricing.get_auto_repricing_status()
-        
+
         return {
             "enabled": status.get("enabled", False),
             "last_run": status.get("last_run"),
             "items_repriced": status.get("items_repriced", 0),
             "strategy": status.get("strategy", "profit_maximization"),
             "next_run": status.get("next_run"),
-            "rules_applied": status.get("rules_applied", 0)
+            "rules_applied": status.get("rules_applied", 0),
         }
-        
+
     except Exception as e:
         logger.error("Failed to get auto-repricing status", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get auto-repricing status: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get auto-repricing status: {str(e)}"
+        )
 
 
 class AutoRepricingToggleRequest(BaseModel):
@@ -523,25 +526,24 @@ class AutoRepricingToggleRequest(BaseModel):
 @router.post(
     "/smart/auto-repricing/toggle",
     summary="Toggle Auto-Repricing",
-    description="Enable or disable the auto-repricing system"
+    description="Enable or disable the auto-repricing system",
 )
 async def toggle_auto_repricing(
-    request: AutoRepricingToggleRequest,
-    db_session: AsyncSession = Depends(get_db_session)
+    request: AutoRepricingToggleRequest, db_session: AsyncSession = Depends(get_db_session)
 ):
     """Toggle auto-repricing system on/off"""
     logger.info("Toggling auto-repricing", enabled=request.enabled)
-    
+
     try:
         smart_pricing = SmartPricingService(db_session)
         result = await smart_pricing.toggle_auto_repricing(request.enabled)
-        
+
         return {
             "success": True,
             "enabled": result.get("enabled", request.enabled),
-            "message": f"Auto-repricing {'enabled' if request.enabled else 'disabled'} successfully"
+            "message": f"Auto-repricing {'enabled' if request.enabled else 'disabled'} successfully",
         }
-        
+
     except Exception as e:
         logger.error("Failed to toggle auto-repricing", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to toggle auto-repricing: {str(e)}")

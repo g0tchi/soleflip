@@ -5,12 +5,12 @@ Converts MySQL DDL to PostgreSQL Alembic migration
 
 # MySQL to PostgreSQL conversion mapping
 MYSQL_TO_PG = {
-    'auto_increment': 'autoincrement=True',
-    'datetime': 'DateTime(timezone=True)',
-    'tinyint(1)': 'Boolean()',
-    'json': 'postgresql.JSONB()',
-    'varchar(36)': 'UUID()',  # For uuid fields
-    'bigint not null auto_increment primary key': 'BigInteger(), autoincrement=True, nullable=False',
+    "auto_increment": "autoincrement=True",
+    "datetime": "DateTime(timezone=True)",
+    "tinyint(1)": "Boolean()",
+    "json": "postgresql.JSONB()",
+    "varchar(36)": "UUID()",  # For uuid fields
+    "bigint not null auto_increment primary key": "BigInteger(), autoincrement=True, nullable=False",
 }
 
 # Read the Gibson schema from previous MCP call

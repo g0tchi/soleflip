@@ -27,7 +27,7 @@ from .database_optimizations import (
 __all__ = [
     # Caching
     "MultiLevelCache",
-    "InMemoryCache", 
+    "InMemoryCache",
     "RedisCache",
     "ProductCache",
     "ImportCache",
@@ -37,7 +37,6 @@ __all__ = [
     "get_cache",
     "get_product_cache",
     "get_import_cache",
-    
     # Database optimizations
     "DatabaseOptimizer",
     "QueryOptimizer",

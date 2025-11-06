@@ -1,4 +1,5 @@
 """Check StockX credentials in system_config table."""
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -9,7 +10,8 @@ async def main():
 
     async with db_manager.get_session() as session:
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT key,
                        value IS NOT NULL as has_value,
                        LENGTH(value) as value_length,
@@ -17,7 +19,8 @@ async def main():
                 FROM core.system_config
                 WHERE key LIKE 'stockx%'
                 ORDER BY key
-            """)
+            """
+            )
         )
         rows = result.fetchall()
 

@@ -30,14 +30,16 @@ async def generate_production_config():
     config = await generator.generate_app_config(
         app_name="SoleFlipper Business App v2.2.1",
         environment=BudibaseEnvironment.DEVELOPMENT,
-        validate_endpoints=True
+        validate_endpoints=True,
     )
 
     # Validate configuration
     validation_result = await generator.validate_config(config)
 
     # Log validation results
-    logger.info(f"Configuration validation: {'✅ VALID' if validation_result.is_valid else '❌ INVALID'}")
+    logger.info(
+        f"Configuration validation: {'✅ VALID' if validation_result.is_valid else '❌ INVALID'}"
+    )
 
     if validation_result.errors:
         logger.error("❌ Validation Errors:")
@@ -66,7 +68,9 @@ async def generate_production_config():
     await export_component_configs(config, config_dir)
 
     logger.info(f"✅ Generated configurations in {config_dir}")
-    logger.info(f"📊 Stats: {len(config.data_sources)} data sources, {len(config.screens)} screens, {len(config.automations)} automations")
+    logger.info(
+        f"📊 Stats: {len(config.data_sources)} data sources, {len(config.screens)} screens, {len(config.automations)} automations"
+    )
 
     return config, validation_result
 
@@ -75,24 +79,18 @@ async def export_component_configs(config, config_dir):
     """Export individual component configurations"""
 
     # Data sources
-    datasources_config = {
-        "datasources": [ds.dict() for ds in config.data_sources]
-    }
-    with open(config_dir / "datasources-v221.json", 'w') as f:
+    datasources_config = {"datasources": [ds.dict() for ds in config.data_sources]}
+    with open(config_dir / "datasources-v221.json", "w") as f:
         json.dump(datasources_config, f, indent=2, default=str)
 
     # Screens
-    screens_config = {
-        "screens": [screen.dict() for screen in config.screens]
-    }
-    with open(config_dir / "screens-v221.json", 'w') as f:
+    screens_config = {"screens": [screen.dict() for screen in config.screens]}
+    with open(config_dir / "screens-v221.json", "w") as f:
         json.dump(screens_config, f, indent=2, default=str)
 
     # Automations
-    automations_config = {
-        "automations": [automation.dict() for automation in config.automations]
-    }
-    with open(config_dir / "automations-v221.json", 'w') as f:
+    automations_config = {"automations": [automation.dict() for automation in config.automations]}
+    with open(config_dir / "automations-v221.json", "w") as f:
         json.dump(automations_config, f, indent=2, default=str)
 
     # Validation report
@@ -105,11 +103,11 @@ async def export_component_configs(config, config_dir):
             "total_automations": len(config.automations),
             "is_valid": validation_result.is_valid,
             "error_count": len(validation_result.errors),
-            "warning_count": len(validation_result.warnings)
+            "warning_count": len(validation_result.warnings),
         },
-        "details": validation_result.dict()
+        "details": validation_result.dict(),
     }
-    with open(config_dir / "validation-report-v221.json", 'w') as f:
+    with open(config_dir / "validation-report-v221.json", "w") as f:
         json.dump(validation_report, f, indent=2, default=str)
 
 

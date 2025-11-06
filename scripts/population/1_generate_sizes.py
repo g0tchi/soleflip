@@ -26,8 +26,7 @@ from decimal import Decimal
 
 # Database connection from environment
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip"
+    "DATABASE_URL", "postgresql://metabaseuser:metabasepass@192.168.2.45:2665/soleflip"
 )
 
 
@@ -64,7 +63,7 @@ def cm_to_eu(cm_size: float) -> float:
     # This is an approximation: CM * 1.5 = EU (roughly)
     # 25cm -> EU 37.5
     # 28cm -> EU 42
-    return (cm_size * 1.5)
+    return cm_size * 1.5
 
 
 def generate_us_mens_sizes() -> List[Tuple[str, str, Decimal]]:
@@ -161,7 +160,8 @@ async def validate_sizes(conn: asyncpg.Connection):
     print("\n=== VALIDATION RESULTS ===\n")
 
     # Count by region
-    region_counts = await conn.fetch("""
+    region_counts = await conn.fetch(
+        """
         SELECT
             region,
             COUNT(*) as total,
@@ -171,21 +171,26 @@ async def validate_sizes(conn: asyncpg.Connection):
         FROM products.sizes
         GROUP BY region
         ORDER BY region
-    """)
+    """
+    )
 
     print("Sizes by Region:")
     total_sizes = 0
     for row in region_counts:
-        print(f"  {row['region']:3s}: {row['total']:4d} sizes "
-              f"(EU range: {float(row['min_eu']):.1f} - {float(row['max_eu']):.1f})")
-        total_sizes += row['total']
+        print(
+            f"  {row['region']:3s}: {row['total']:4d} sizes "
+            f"(EU range: {float(row['min_eu']):.1f} - {float(row['max_eu']):.1f})"
+        )
+        total_sizes += row["total"]
 
     print(f"\nTotal sizes: {total_sizes}")
 
     # Check standardization coverage
-    missing_standard = await conn.fetchval("""
+    missing_standard = await conn.fetchval(
+        """
         SELECT COUNT(*) FROM products.sizes WHERE standardized_value IS NULL
-    """)
+    """
+    )
 
     if missing_standard > 0:
         print(f"\nWARNING: {missing_standard} sizes missing standardized_value!")
@@ -193,12 +198,14 @@ async def validate_sizes(conn: asyncpg.Connection):
         print("\nAll sizes have standardized_value (EU-based)")
 
     # Check for duplicates
-    duplicates = await conn.fetch("""
+    duplicates = await conn.fetch(
+        """
         SELECT value, region, COUNT(*) as count
         FROM products.sizes
         GROUP BY value, region
         HAVING COUNT(*) > 1
-    """)
+    """
+    )
 
     if duplicates:
         print(f"\nWARNING: Found {len(duplicates)} duplicate size entries:")
@@ -211,19 +218,24 @@ async def validate_sizes(conn: asyncpg.Connection):
     print("\nSample Cross-Region Matching (same standardized_value):")
 
     # Example: US 9 should match UK 8 and EU 42.5
-    us_9_standard = await conn.fetchval("""
+    us_9_standard = await conn.fetchval(
+        """
         SELECT standardized_value FROM products.sizes
         WHERE region = 'US' AND value = '9'
-    """)
+    """
+    )
 
     if us_9_standard:
-        matches = await conn.fetch("""
+        matches = await conn.fetch(
+            """
             SELECT value, region
             FROM products.sizes
             WHERE standardized_value = $1
             ORDER BY region, value
             LIMIT 10
-        """, us_9_standard)
+        """,
+            us_9_standard,
+        )
 
         print(f"  US 9 (EU {float(us_9_standard):.1f}) matches:")
         for m in matches:
@@ -297,6 +309,7 @@ async def main():
     except Exception as e:
         print(f"\nERROR: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

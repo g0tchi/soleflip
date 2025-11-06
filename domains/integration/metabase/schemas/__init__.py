@@ -10,7 +10,7 @@ from .metabase_models import (
     DashboardCard,
     VisualizationType,
     MaterializedViewStatus,
-    RefreshJobStatus
+    RefreshJobStatus,
 )
 
 __all__ = [
@@ -23,5 +23,5 @@ __all__ = [
     "DashboardCard",
     "VisualizationType",
     "MaterializedViewStatus",
-    "RefreshJobStatus"
+    "RefreshJobStatus",
 ]

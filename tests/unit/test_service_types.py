@@ -13,7 +13,7 @@ from shared.types.service_types import (
     TaskPriority,
     TaskStatus,
     HealthStatus,
-    ConfigurationScope
+    ConfigurationScope,
 )
 
 
@@ -36,10 +36,7 @@ class TestServiceResult:
         metadata = {"request_id": "req-001"}
 
         result = ServiceResult(
-            status=ServiceResultStatus.SUCCESS,
-            data=data,
-            error=None,
-            metadata=metadata
+            status=ServiceResultStatus.SUCCESS, data=data, error=None, metadata=metadata
         )
 
         assert result.status == ServiceResultStatus.SUCCESS
@@ -52,10 +49,7 @@ class TestServiceResult:
         error = "Database connection failed"
 
         result = ServiceResult(
-            status=ServiceResultStatus.FAILURE,
-            data=None,
-            error=error,
-            metadata=None
+            status=ServiceResultStatus.FAILURE, data=None, error=error, metadata=None
         )
 
         assert result.status == ServiceResultStatus.FAILURE
@@ -66,10 +60,7 @@ class TestServiceResult:
     def test_service_result_init_with_empty_metadata(self):
         """Test ServiceResult initialization with None metadata converts to empty dict"""
         result = ServiceResult(
-            status=ServiceResultStatus.SUCCESS,
-            data="test",
-            error=None,
-            metadata=None
+            status=ServiceResultStatus.SUCCESS, data="test", error=None, metadata=None
         )
 
         assert result.metadata == {}

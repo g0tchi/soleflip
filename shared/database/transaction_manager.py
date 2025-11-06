@@ -21,7 +21,9 @@ class TransactionManager:
         self.db = db_session
 
     @asynccontextmanager
-    async def transaction(self, rollback_on_error: bool = True) -> AsyncGenerator[AsyncSession, None]:
+    async def transaction(
+        self, rollback_on_error: bool = True
+    ) -> AsyncGenerator[AsyncSession, None]:
         """
         Context manager for safe database transactions
 
@@ -114,7 +116,9 @@ class TransactionManager:
         async with self.transaction():
             return await operation(self.db, *args, **kwargs)
 
-    async def batch_operation(self, operations: list, continue_on_error: bool = False) -> Dict[str, Any]:
+    async def batch_operation(
+        self, operations: list, continue_on_error: bool = False
+    ) -> Dict[str, Any]:
         """
         Execute multiple operations in a single transaction
 
@@ -137,7 +141,7 @@ class TransactionManager:
             "failed": [],
             "total": len(operations),
             "success_count": 0,
-            "error_count": 0
+            "error_count": 0,
         }
 
         if continue_on_error:
@@ -147,19 +151,22 @@ class TransactionManager:
                     try:
                         async with self.savepoint(f"batch_op_{i}"):
                             result = await operation(self.db, *args, **kwargs)
-                            results["successful"].append({
-                                "index": i,
-                                "result": result
-                            })
+                            results["successful"].append({"index": i, "result": result})
                             results["success_count"] += 1
 
                     except Exception as e:
                         logger.error(f"Batch operation {i} failed: {str(e)}")
-                        results["failed"].append({
-                            "index": i,
-                            "error": str(e),
-                            "operation": operation.__name__ if hasattr(operation, '__name__') else str(operation)
-                        })
+                        results["failed"].append(
+                            {
+                                "index": i,
+                                "error": str(e),
+                                "operation": (
+                                    operation.__name__
+                                    if hasattr(operation, "__name__")
+                                    else str(operation)
+                                ),
+                            }
+                        )
                         results["error_count"] += 1
         else:
             # Execute all operations in single transaction (all or nothing)
@@ -167,19 +174,20 @@ class TransactionManager:
                 async with self.transaction():
                     for i, (operation, args, kwargs) in enumerate(operations):
                         result = await operation(self.db, *args, **kwargs)
-                        results["successful"].append({
-                            "index": i,
-                            "result": result
-                        })
+                        results["successful"].append({"index": i, "result": result})
                         results["success_count"] += 1
 
             except Exception as e:
-                logger.error(f"Batch operation failed at index {len(results['successful'])}: {str(e)}")
-                results["failed"].append({
-                    "index": len(results["successful"]),
-                    "error": str(e),
-                    "operation": "batch_transaction"
-                })
+                logger.error(
+                    f"Batch operation failed at index {len(results['successful'])}: {str(e)}"
+                )
+                results["failed"].append(
+                    {
+                        "index": len(results["successful"]),
+                        "error": str(e),
+                        "operation": "batch_transaction",
+                    }
+                )
                 results["error_count"] = 1
                 # All successful operations are automatically rolled back
 
@@ -231,13 +239,17 @@ def transactional(rollback_on_error: bool = True):
                 # Automatic rollback on any exception
                 pass
     """
+
     def decorator(func):
         async def wrapper(self, *args, **kwargs):
-            if not hasattr(self, '_transaction_manager'):
-                raise AttributeError("Class must inherit from TransactionMixin to use @transactional decorator")
+            if not hasattr(self, "_transaction_manager"):
+                raise AttributeError(
+                    "Class must inherit from TransactionMixin to use @transactional decorator"
+                )
 
             async with self._transaction_manager.transaction(rollback_on_error=rollback_on_error):
                 return await func(self, *args, **kwargs)
 
         return wrapper
+
     return decorator

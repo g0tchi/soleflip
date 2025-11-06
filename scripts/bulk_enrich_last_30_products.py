@@ -26,7 +26,8 @@ logger = structlog.get_logger(__name__)
 
 async def get_last_30_products(session: AsyncSession) -> List[Dict[str, Any]]:
     """Get the last 30 products from database ordered by created_at"""
-    query = text("""
+    query = text(
+        """
         SELECT
             p.id,
             p.sku,
@@ -40,28 +41,29 @@ async def get_last_30_products(session: AsyncSession) -> List[Dict[str, Any]]:
         WHERE p.sku IS NOT NULL AND p.sku != ''
         ORDER BY p.created_at DESC
         LIMIT 30
-    """)
+    """
+    )
 
     result = await session.execute(query)
     products = []
     for row in result.fetchall():
-        products.append({
-            "id": row.id,
-            "sku": row.sku,
-            "name": row.name,
-            "brand_name": row.brand_name,
-            "stockx_product_id": row.stockx_product_id,
-            "last_enriched_at": row.last_enriched_at,
-            "created_at": row.created_at
-        })
+        products.append(
+            {
+                "id": row.id,
+                "sku": row.sku,
+                "name": row.name,
+                "brand_name": row.brand_name,
+                "stockx_product_id": row.stockx_product_id,
+                "last_enriched_at": row.last_enriched_at,
+                "created_at": row.created_at,
+            }
+        )
 
     return products
 
 
 async def enrich_single_product(
-    catalog_service: StockXCatalogService,
-    product: Dict[str, Any],
-    session: AsyncSession
+    catalog_service: StockXCatalogService, product: Dict[str, Any], session: AsyncSession
 ) -> Dict[str, Any]:
     """Enrich a single product and return result summary"""
 
@@ -73,18 +75,12 @@ async def enrich_single_product(
 
         # Perform enrichment
         enriched_data = await catalog_service.enrich_product_by_sku(
-            sku=sku,
-            size=None,  # No specific size, just get all variants
-            db_session=session
+            sku=sku, size=None, db_session=session  # No specific size, just get all variants
         )
 
         if enriched_data.get("error"):
             logger.warning("Product not found on StockX", sku=sku, error=enriched_data["error"])
-            return {
-                "sku": sku,
-                "status": "not_found",
-                "error": enriched_data["error"]
-            }
+            return {"sku": sku, "status": "not_found", "error": enriched_data["error"]}
 
         # Success
         stockx_product_id = enriched_data.get("stockx_product_id")
@@ -94,7 +90,7 @@ async def enrich_single_product(
             "Product enriched successfully",
             sku=sku,
             stockx_product_id=stockx_product_id,
-            variants_count=variants_count
+            variants_count=variants_count,
         )
 
         return {
@@ -102,16 +98,12 @@ async def enrich_single_product(
             "status": "success",
             "stockx_product_id": stockx_product_id,
             "variants_count": variants_count,
-            "product_title": enriched_data.get("product_details", {}).get("title")
+            "product_title": enriched_data.get("product_details", {}).get("title"),
         }
 
     except Exception as e:
         logger.error("Failed to enrich product", sku=sku, error=str(e), exc_info=True)
-        return {
-            "sku": sku,
-            "status": "error",
-            "error": str(e)
-        }
+        return {"sku": sku, "status": "error", "error": str(e)}
 
 
 async def bulk_enrich_products():
@@ -131,9 +123,7 @@ async def bulk_enrich_products():
         raise ValueError("DATABASE_URL not found in environment")
 
     engine = create_async_engine(database_url)
-    async_session_maker = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_maker() as session:
         # Initialize services

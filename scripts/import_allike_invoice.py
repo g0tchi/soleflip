@@ -1,6 +1,7 @@
 """
 Import purchases from allike invoice AL50333785
 """
+
 import asyncio
 import os
 from datetime import datetime
@@ -15,53 +16,53 @@ load_dotenv()
 # Corrected purchase data from invoice
 purchases = [
     {
-        'sku': 'HQ8752',
-        'name': 'adidas Adifom Superstar',
-        'color': 'Schwarz / Weiß',
-        'size': '38',
-        'gross_price': Decimal('27.99'),
-        'net_price': Decimal('23.52')
+        "sku": "HQ8752",
+        "name": "adidas Adifom Superstar",
+        "color": "Schwarz / Weiß",
+        "size": "38",
+        "gross_price": Decimal("27.99"),
+        "net_price": Decimal("23.52"),
     },
     {
-        'sku': 'JH9768',
-        'name': 'adidas WMNS Campus 00s',
-        'color': 'Braun / Schwarz',
-        'size': '38',
-        'gross_price': Decimal('49.99'),
-        'net_price': Decimal('42.01')
+        "sku": "JH9768",
+        "name": "adidas WMNS Campus 00s",
+        "color": "Braun / Schwarz",
+        "size": "38",
+        "gross_price": Decimal("49.99"),
+        "net_price": Decimal("42.01"),
     },
     {
-        'sku': 'JH9768',
-        'name': 'adidas WMNS Campus 00s',
-        'color': 'Braun / Schwarz',
-        'size': '39 1/3',
-        'gross_price': Decimal('49.99'),
-        'net_price': Decimal('42.01')
+        "sku": "JH9768",
+        "name": "adidas WMNS Campus 00s",
+        "color": "Braun / Schwarz",
+        "size": "39 1/3",
+        "gross_price": Decimal("49.99"),
+        "net_price": Decimal("42.01"),
     },
     {
-        'sku': '1203A388-100',
-        'name': 'Asics Gel-Kayano 20',
-        'color': 'Weiss / Silber',
-        'size': '38',
-        'gross_price': Decimal('104.99'),
-        'net_price': Decimal('88.23')
+        "sku": "1203A388-100",
+        "name": "Asics Gel-Kayano 20",
+        "color": "Weiss / Silber",
+        "size": "38",
+        "gross_price": Decimal("104.99"),
+        "net_price": Decimal("88.23"),
     },
     {
-        'sku': 'TW2V50800U8',
-        'name': 'Timex Camper x Stranger Things 40mm Fabric Strap Watch',
-        'color': 'Schwarz',
-        'size': 'One Size',
-        'gross_price': Decimal('35.19'),
-        'net_price': Decimal('29.57')
-    }
+        "sku": "TW2V50800U8",
+        "name": "Timex Camper x Stranger Things 40mm Fabric Strap Watch",
+        "color": "Schwarz",
+        "size": "One Size",
+        "gross_price": Decimal("35.19"),
+        "net_price": Decimal("29.57"),
+    },
 ]
 
 purchase_date = datetime(2025, 7, 15)  # Auftragsdatum
-invoice_number = 'AL50333785'
+invoice_number = "AL50333785"
 
 
 async def create_purchases():
-    engine = create_async_engine(os.getenv('DATABASE_URL'), echo=False)
+    engine = create_async_engine(os.getenv("DATABASE_URL"), echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
@@ -95,12 +96,16 @@ async def create_purchases():
 
         # Get categories
         sneakers_result = await session.execute(
-            text("SELECT id FROM core.categories WHERE LOWER(name) = 'sneakers' OR LOWER(slug) = 'sneakers'")
+            text(
+                "SELECT id FROM core.categories WHERE LOWER(name) = 'sneakers' OR LOWER(slug) = 'sneakers'"
+            )
         )
         sneakers_cat = sneakers_result.fetchone()
 
         watches_result = await session.execute(
-            text("SELECT id FROM core.categories WHERE LOWER(name) LIKE '%watch%' OR LOWER(name) LIKE '%uhr%'")
+            text(
+                "SELECT id FROM core.categories WHERE LOWER(name) LIKE '%watch%' OR LOWER(name) LIKE '%uhr%'"
+            )
         )
         watches_cat = watches_result.fetchone()
 
@@ -116,21 +121,21 @@ async def create_purchases():
             print(f"{'='*60}")
 
             # Determine brand
-            if 'adidas' in purchase['name'].lower():
+            if "adidas" in purchase["name"].lower():
                 brand_id = adidas_brand[0] if adidas_brand else None
-                brand_name = 'adidas'
-            elif 'asics' in purchase['name'].lower():
+                brand_name = "adidas"
+            elif "asics" in purchase["name"].lower():
                 brand_id = asics_brand[0] if asics_brand else None
-                brand_name = 'Asics'
-            elif 'timex' in purchase['name'].lower():
+                brand_name = "Asics"
+            elif "timex" in purchase["name"].lower():
                 brand_id = timex_brand[0] if timex_brand else None
-                brand_name = 'Timex'
+                brand_name = "Timex"
             else:
                 brand_id = None
-                brand_name = 'Unknown'
+                brand_name = "Unknown"
 
             # Determine category
-            if 'watch' in purchase['name'].lower() or 'uhr' in purchase['name'].lower():
+            if "watch" in purchase["name"].lower() or "uhr" in purchase["name"].lower():
                 category_id = watches_cat[0] if watches_cat else None
             else:
                 category_id = sneakers_cat[0] if sneakers_cat else None
@@ -142,7 +147,7 @@ async def create_purchases():
             # Check if product exists
             product_result = await session.execute(
                 text("SELECT id, name FROM products.products WHERE sku = :sku"),
-                {'sku': purchase['sku']}
+                {"sku": purchase["sku"]},
             )
             product = product_result.fetchone()
 
@@ -152,21 +157,23 @@ async def create_purchases():
             else:
                 # Create new product
                 full_name = f"{brand_name} {purchase['name']}"
-                if purchase.get('color'):
+                if purchase.get("color"):
                     full_name += f" ({purchase['color']})"
 
                 insert_result = await session.execute(
-                    text("""
+                    text(
+                        """
                         INSERT INTO products.products (id, sku, name, brand_id, category_id, created_at, updated_at)
                         VALUES (gen_random_uuid(), :sku, :name, :brand_id, :category_id, NOW(), NOW())
                         RETURNING id
-                    """),
+                    """
+                    ),
                     {
-                        'sku': purchase['sku'],
-                        'name': full_name,
-                        'brand_id': brand_id,
-                        'category_id': category_id
-                    }
+                        "sku": purchase["sku"],
+                        "name": full_name,
+                        "brand_id": brand_id,
+                        "category_id": category_id,
+                    },
                 )
                 await session.commit()
                 product_id = insert_result.fetchone()[0]
@@ -175,7 +182,7 @@ async def create_purchases():
             # Get or create size
             size_result = await session.execute(
                 text("SELECT id FROM core.sizes WHERE value = :size AND category_id = :cat_id"),
-                {'size': purchase['size'], 'cat_id': category_id}
+                {"size": purchase["size"], "cat_id": category_id},
             )
             size = size_result.fetchone()
 
@@ -185,22 +192,25 @@ async def create_purchases():
             else:
                 # Create size
                 size_insert = await session.execute(
-                    text("""
+                    text(
+                        """
                         INSERT INTO core.sizes (id, value, category_id, region, created_at, updated_at)
                         VALUES (gen_random_uuid(), :value, :cat_id, 'EU', NOW(), NOW())
                         RETURNING id
-                    """),
-                    {'value': purchase['size'], 'cat_id': category_id}
+                    """
+                    ),
+                    {"value": purchase["size"], "cat_id": category_id},
                 )
                 await session.commit()
                 size_id = size_insert.fetchone()[0]
                 print(f"  [OK] Created size: {purchase['size']}")
 
             # Create inventory item
-            vat_amount = purchase['gross_price'] - purchase['net_price']
+            vat_amount = purchase["gross_price"] - purchase["net_price"]
 
             inventory_insert = await session.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO products.inventory (
                         id, product_id, size_id, supplier_id, quantity,
                         purchase_price, gross_purchase_price, vat_amount, vat_rate,
@@ -214,28 +224,31 @@ async def create_purchases():
                         NOW(), NOW()
                     )
                     RETURNING id
-                """),
+                """
+                ),
                 {
-                    'product_id': product_id,
-                    'size_id': size_id,
-                    'supplier_id': supplier_id,
-                    'net_price': purchase['net_price'],
-                    'gross_price': purchase['gross_price'],
-                    'vat_amount': vat_amount,
-                    'purchase_date': purchase_date,
-                    'notes': f"Rechnung {invoice_number}, SKU: {purchase['sku']}"
-                }
+                    "product_id": product_id,
+                    "size_id": size_id,
+                    "supplier_id": supplier_id,
+                    "net_price": purchase["net_price"],
+                    "gross_price": purchase["gross_price"],
+                    "vat_amount": vat_amount,
+                    "purchase_date": purchase_date,
+                    "notes": f"Rechnung {invoice_number}, SKU: {purchase['sku']}",
+                },
             )
             await session.commit()
             inventory_id = inventory_insert.fetchone()[0]
 
-            created_items.append({
-                'id': inventory_id,
-                'product': purchase['name'],
-                'size': purchase['size'],
-                'net_price': purchase['net_price'],
-                'gross_price': purchase['gross_price']
-            })
+            created_items.append(
+                {
+                    "id": inventory_id,
+                    "product": purchase["name"],
+                    "size": purchase["size"],
+                    "net_price": purchase["net_price"],
+                    "gross_price": purchase["gross_price"],
+                }
+            )
 
             print(f"  [OK] Created inventory item ID: {inventory_id}")
             print(f"     Net: {purchase['net_price']} EUR | Gross: {purchase['gross_price']} EUR")

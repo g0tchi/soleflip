@@ -1,7 +1,9 @@
 """Check for duplicate data between transactions.orders and transactions.transactions"""
+
 import asyncio
 from shared.database.connection import DatabaseManager
 from sqlalchemy import text
+
 
 async def check_overlap():
     db = DatabaseManager()
@@ -13,7 +15,9 @@ async def check_overlap():
         print("CHECKING FOR DUPLICATE DATA")
         print("=" * 80)
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 o.stockx_order_number,
                 o.sold_at as order_sold_at,
@@ -26,7 +30,9 @@ async def check_overlap():
                 ON t.external_id LIKE '%' || o.stockx_order_number || '%'
                 OR o.stockx_order_number LIKE '%' || t.external_id || '%'
             WHERE t.id IS NOT NULL
-        """))
+        """
+            )
+        )
 
         matches = list(result)
         print(f"\nOverlapping StockX Order Numbers: {len(matches)}")
@@ -34,13 +40,19 @@ async def check_overlap():
         if matches:
             print("\n[!] DUPLICATES FOUND:")
             for row in matches:
-                print(f"\n  Orders: {row.stockx_order_number} ({row.order_sold_at}) - EUR{row.order_net}")
-                print(f"  Trans:  {row.external_id} ({row.transaction_date}) - EUR{row.trans_price}")
+                print(
+                    f"\n  Orders: {row.stockx_order_number} ({row.order_sold_at}) - EUR{row.order_net}"
+                )
+                print(
+                    f"  Trans:  {row.external_id} ({row.transaction_date}) - EUR{row.trans_price}"
+                )
         else:
             print("\n[OK] NO OVERLAP by order number - Different data sets!")
 
         # Check inventory_id overlap
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 COUNT(DISTINCT o.inventory_item_id) as order_items,
                 COUNT(DISTINCT t.inventory_id) as trans_items,
@@ -50,7 +62,9 @@ async def check_overlap():
                 ) THEN o.inventory_item_id END) as shared_items
             FROM transactions.orders o
             CROSS JOIN transactions.transactions t
-        """))
+        """
+            )
+        )
 
         stats = result.fetchone()
         print("\n" + "=" * 80)
@@ -66,7 +80,9 @@ async def check_overlap():
             print(f"\n[!] {stats.shared_items} inventory items exist in both tables")
 
         # Date range comparison
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 MIN(sold_at) as order_min,
                 MAX(sold_at) as order_max,
@@ -74,7 +90,9 @@ async def check_overlap():
                 MAX(transaction_date) as trans_max
             FROM transactions.orders o
             CROSS JOIN transactions.transactions t
-        """))
+        """
+            )
+        )
 
         dates = result.fetchone()
         print("\n" + "=" * 80)
@@ -84,6 +102,7 @@ async def check_overlap():
         print(f"Transactions table: {dates.trans_min.date()} → {dates.trans_max.date()}")
 
     await db.close()
+
 
 if __name__ == "__main__":
     asyncio.run(check_overlap())

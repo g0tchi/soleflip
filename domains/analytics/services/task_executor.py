@@ -35,9 +35,7 @@ class AnalyticsTask(BaseModel):
     id: int = Field(..., description="Unique task identifier")
     description: str = Field(..., description="Human-readable task description")
     action: str = Field(..., description="Action/function name to execute")
-    params: Dict[str, Any] = Field(
-        default_factory=dict, description="Parameters for the action"
-    )
+    params: Dict[str, Any] = Field(default_factory=dict, description="Parameters for the action")
     dependencies: List[int] = Field(
         default_factory=list, description="IDs of tasks that must complete first"
     )
@@ -118,9 +116,7 @@ class TaskExecutor:
             loop_detection_enabled=enable_loop_detection,
         )
 
-    def register_action(
-        self, action_name: str, handler: Callable[..., Awaitable[Any]]
-    ) -> None:
+    def register_action(self, action_name: str, handler: Callable[..., Awaitable[Any]]) -> None:
         """
         Register an action handler.
 
@@ -274,9 +270,7 @@ class TaskExecutor:
                 # Otherwise continue to next iteration (retry)
                 task.error = f"Attempt {iterations} failed: {error_msg}"
 
-    async def _execute_action(
-        self, task: AnalyticsTask, context: Dict[str, Any]
-    ) -> Any:
+    async def _execute_action(self, task: AnalyticsTask, context: Dict[str, Any]) -> Any:
         """
         Execute the task's action using registered handler.
 
@@ -311,9 +305,7 @@ class TaskExecutor:
 
         return result
 
-    def _dependencies_met(
-        self, task: AnalyticsTask, all_tasks: List[AnalyticsTask]
-    ) -> bool:
+    def _dependencies_met(self, task: AnalyticsTask, all_tasks: List[AnalyticsTask]) -> bool:
         """
         Check if all task dependencies are satisfied.
 

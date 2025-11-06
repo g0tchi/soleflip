@@ -1,6 +1,7 @@
 """
 Check StockX product data availability for Awin matching
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -17,12 +18,14 @@ async def main():
         # Check if core.products table exists
         try:
             result = await session.execute(
-                text("""
+                text(
+                    """
                     SELECT table_name, table_schema
                     FROM information_schema.tables
                     WHERE table_name = 'products'
                       AND table_schema IN ('core', 'public')
-                """)
+                """
+                )
             )
             tables = result.fetchall()
 
@@ -44,22 +47,32 @@ async def main():
             print("=" * 80)
 
             result = await session.execute(
-                text("""
+                text(
+                    """
                     SELECT column_name, data_type, is_nullable
                     FROM information_schema.columns
                     WHERE table_schema = :schema
                       AND table_name = 'products'
                     ORDER BY ordinal_position
-                """),
-                {"schema": schema}
+                """
+                ),
+                {"schema": schema},
             )
 
             columns = result.fetchall()
             print(f"\nTotal columns: {len(columns)}")
             print("\nKey columns for matching:")
 
-            key_columns = ['id', 'ean', 'style_code', 'name', 'brand',
-                          'lowest_ask', 'highest_bid', 'last_sale']
+            key_columns = [
+                "id",
+                "ean",
+                "style_code",
+                "name",
+                "brand",
+                "lowest_ask",
+                "highest_bid",
+                "last_sale",
+            ]
             for col in columns:
                 if col[0] in key_columns:
                     nullable = "NULL" if col[2] == "YES" else "NOT NULL"
@@ -71,13 +84,15 @@ async def main():
             print("=" * 80)
 
             result = await session.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT
                         COUNT(*) as total_products,
                         COUNT(ean) as products_with_ean,
                         COUNT(CASE WHEN ean IS NOT NULL AND ean != '' THEN 1 END) as valid_eans
                     FROM {schema}.products
-                """)
+                """
+                )
             )
             stats = result.fetchone()
 
@@ -94,18 +109,20 @@ async def main():
             print("STOCKX PRICE DATA")
             print("=" * 80)
 
-            price_columns = ['lowest_ask', 'highest_bid', 'last_sale']
+            price_columns = ["lowest_ask", "highest_bid", "last_sale"]
             for price_col in price_columns:
                 try:
                     result = await session.execute(
-                        text(f"""
+                        text(
+                            f"""
                             SELECT
                                 COUNT(CASE WHEN {price_col} IS NOT NULL THEN 1 END) as count,
                                 AVG({price_col}) / 100.0 as avg_price,
                                 MIN({price_col}) / 100.0 as min_price,
                                 MAX({price_col}) / 100.0 as max_price
                             FROM {schema}.products
-                        """)
+                        """
+                        )
                     )
                     data = result.fetchone()
 
@@ -123,17 +140,21 @@ async def main():
             print("=" * 80)
 
             result = await session.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT name, brand, ean, style_code,
                            lowest_ask / 100.0 as price_eur
                     FROM {schema}.products
                     WHERE ean IS NOT NULL AND ean != ''
                     LIMIT 10
-                """)
+                """
+                )
             )
 
             for i, row in enumerate(result, 1):
-                print(f"{i:2d}. {row[0][:40]:40s} | {row[1]:10s} | EAN: {row[2]} | EUR {row[4]:.2f}")
+                print(
+                    f"{i:2d}. {row[0][:40]:40s} | {row[1]:10s} | EAN: {row[2]} | EUR {row[4]:.2f}"
+                )
 
             # Potential matches with Awin
             print("\n" + "=" * 80)
@@ -141,7 +162,8 @@ async def main():
             print("=" * 80)
 
             result = await session.execute(
-                text(f"""
+                text(
+                    f"""
                     SELECT
                         COUNT(DISTINCT ap.awin_product_id) as awin_products,
                         COUNT(DISTINCT p.id) as matching_stockx_products,
@@ -150,7 +172,8 @@ async def main():
                     INNER JOIN {schema}.products p ON ap.ean = p.ean
                     WHERE ap.ean IS NOT NULL
                       AND ap.ean != ''
-                """)
+                """
+                )
             )
             match_stats = result.fetchone()
 
@@ -168,6 +191,7 @@ async def main():
         except Exception as e:
             print(f"\n[ERROR] Database check failed: {e}")
             import traceback
+
             traceback.print_exc()
 
         print("\n" + "=" * 80)

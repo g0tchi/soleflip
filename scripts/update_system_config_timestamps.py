@@ -1,4 +1,5 @@
 """Update timestamps in core.system_config table."""
+
 import asyncio
 from datetime import datetime
 from sqlalchemy import text, select
@@ -12,13 +13,11 @@ async def main():
 
     async with db_manager.get_session() as session:
         # Get all StockX credentials
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("Current StockX Credentials Status")
-        print("="*80 + "\n")
+        print("=" * 80 + "\n")
 
-        result = await session.execute(
-            select(SystemConfig).where(SystemConfig.key.like('stockx%'))
-        )
+        result = await session.execute(select(SystemConfig).where(SystemConfig.key.like("stockx%")))
         configs = result.scalars().all()
 
         if not configs:
@@ -35,19 +34,21 @@ async def main():
             print()
 
         # Update timestamps
-        print("="*80)
+        print("=" * 80)
         print("Updating timestamps to current time...")
-        print("="*80 + "\n")
+        print("=" * 80 + "\n")
 
         current_time = datetime.utcnow()
 
         await session.execute(
-            text("""
+            text(
+                """
                 UPDATE core.system_config
                 SET updated_at = :now
                 WHERE key LIKE 'stockx%'
-            """),
-            {"now": current_time}
+            """
+            ),
+            {"now": current_time},
         )
 
         await session.commit()
@@ -55,13 +56,11 @@ async def main():
         print(f"[SUCCESS] Updated {len(configs)} records to: {current_time}\n")
 
         # Verify the update
-        print("="*80)
+        print("=" * 80)
         print("Verification - Updated Credentials")
-        print("="*80 + "\n")
+        print("=" * 80 + "\n")
 
-        result = await session.execute(
-            select(SystemConfig).where(SystemConfig.key.like('stockx%'))
-        )
+        result = await session.execute(select(SystemConfig).where(SystemConfig.key.like("stockx%")))
         configs = result.scalars().all()
 
         for config in configs:
@@ -70,7 +69,7 @@ async def main():
             print()
 
     await db_manager.close()
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

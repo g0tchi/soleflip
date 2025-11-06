@@ -43,7 +43,7 @@ class TestImportRepository:
             source_type="STOCKX",
             status="COMPLETED",
             total_records=100,
-            processed_records=100
+            processed_records=100,
         )
 
         # Mock the database query result
@@ -105,7 +105,7 @@ class TestImportRepository:
             source_type="CSV",
             status="PROCESSING",
             total_records=2,
-            processed_records=1
+            processed_records=1,
         )
         # Simulate eagerly loaded import_records
         mock_batch.import_records = [mock_record1, mock_record2]
@@ -143,11 +143,13 @@ class TestImportRepository:
         query = mock_db_session.execute.call_args[0][0]
 
         # The query should be a SQLAlchemy select statement
-        assert hasattr(query, '_where_criteria')  # Has where clause
+        assert hasattr(query, "_where_criteria")  # Has where clause
         # Query is a valid SQLAlchemy select statement (different attributes in newer versions)
         assert str(type(query).__name__) == "Select"
 
-    async def test_get_batch_with_details_different_uuid_types(self, import_repository, mock_db_session):
+    async def test_get_batch_with_details_different_uuid_types(
+        self, import_repository, mock_db_session
+    ):
         """Test get_batch_with_details with different UUID formats - covers lines 44-50"""
         # Arrange - Test with UUID object
         batch_id_uuid = uuid4()
@@ -157,7 +159,7 @@ class TestImportRepository:
             source_type="API",
             status="FAILED",
             total_records=50,
-            processed_records=25
+            processed_records=25,
         )
 
         mock_result = MagicMock()

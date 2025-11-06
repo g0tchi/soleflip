@@ -33,9 +33,10 @@ async def get_dashboard_metrics(
 
     # Check cache first
     from shared.caching.dashboard_cache import get_dashboard_cache
+
     cache = get_dashboard_cache()
     cache_key = "dashboard_metrics"
-    
+
     cached_data = await cache.get(cache_key)
     if cached_data:
         logger.info("Dashboard metrics served from cache")
@@ -44,7 +45,7 @@ async def get_dashboard_metrics(
     try:
         # Single optimized query for all dashboard metrics using CTEs
         from sqlalchemy import text
-        
+
         dashboard_query = text(
             """
             WITH 
@@ -166,35 +167,39 @@ async def get_dashboard_metrics(
             ORDER BY data_type, brand_name, activity_date DESC
             """
         )
-        
+
         result = await db.execute(dashboard_query)
         rows = result.fetchall()
-        
+
         # Parse the unified result
         sales_data = None
         top_brands = []
         recent_activity = []
         inventory_data = None
-        
+
         for row in rows:
-            if row.data_type == 'sales':
+            if row.data_type == "sales":
                 sales_data = row
-            elif row.data_type == 'brand':
-                top_brands.append({
-                    "name": row.brand_name,
-                    "transaction_count": row.transaction_count,
-                    "total_revenue": float(row.brand_revenue or 0),
-                    "avg_price": float(row.brand_avg_price or 0),
-                })
-            elif row.data_type == 'activity':
-                recent_activity.append({
-                    "date": row.activity_date.isoformat() if row.activity_date else None,
-                    "sale_price": float(row.activity_sale_price or 0),
-                    "net_profit": float(row.activity_net_profit or 0),
-                    "product_name": row.activity_product_name,
-                    "brand_name": row.activity_brand_name,
-                })
-            elif row.data_type == 'inventory':
+            elif row.data_type == "brand":
+                top_brands.append(
+                    {
+                        "name": row.brand_name,
+                        "transaction_count": row.transaction_count,
+                        "total_revenue": float(row.brand_revenue or 0),
+                        "avg_price": float(row.brand_avg_price or 0),
+                    }
+                )
+            elif row.data_type == "activity":
+                recent_activity.append(
+                    {
+                        "date": row.activity_date.isoformat() if row.activity_date else None,
+                        "sale_price": float(row.activity_sale_price or 0),
+                        "net_profit": float(row.activity_net_profit or 0),
+                        "product_name": row.activity_product_name,
+                        "brand_name": row.activity_brand_name,
+                    }
+                )
+            elif row.data_type == "inventory":
                 inventory_data = row
 
         # Get system metrics (simplified - no separate DB calls)
@@ -203,7 +208,7 @@ async def get_dashboard_metrics(
 
         metrics_registry = get_metrics_registry()
         system_metrics = metrics_registry.get_metrics_summary()
-        
+
         health_manager = get_health_manager()
         health_status = await health_manager.get_overall_health()
 

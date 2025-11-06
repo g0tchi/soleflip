@@ -304,9 +304,7 @@ class ProgressTracker:
 
         if self.total_steps:
             log_data["total_steps"] = self.total_steps
-            log_data["progress_percent"] = round(
-                (self.current_step / self.total_steps) * 100, 1
-            )
+            log_data["progress_percent"] = round((self.current_step / self.total_steps) * 100, 1)
 
         logger.info("operation_step", **log_data)
 

@@ -77,7 +77,7 @@ class MetabaseSyncService:
         affected_views = [
             "metabase_executive_metrics",
             "metabase_platform_performance",
-            "metabase_product_performance"
+            "metabase_product_performance",
         ]
 
         results = []
@@ -101,7 +101,7 @@ class MetabaseSyncService:
         affected_views = [
             "metabase_inventory_status",
             "metabase_product_performance",
-            "metabase_supplier_performance"
+            "metabase_supplier_performance",
         ]
 
         results = []
@@ -135,8 +135,8 @@ class MetabaseSyncService:
                     "name": v.view_name,
                     "exists": v.exists,
                     "rows": v.row_count,
-                    "indexes": len(v.indexes)
+                    "indexes": len(v.indexes),
                 }
                 for v in view_statuses
-            ]
+            ],
         }

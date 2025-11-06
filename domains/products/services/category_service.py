@@ -2,6 +2,7 @@
 Category Detection Service
 Detects and creates product categories from product names
 """
+
 from typing import Optional
 
 import structlog
@@ -58,48 +59,104 @@ class CategoryDetectionService:
         """
         # Sneakers (high priority - specific keywords)
         sneaker_keywords = [
-            "air force", "dunk", "jordan", "yeezy", "boost", "max", "runner",
-            "trainer", "sneaker", "basketball", "running", "retro"
+            "air force",
+            "dunk",
+            "jordan",
+            "yeezy",
+            "boost",
+            "max",
+            "runner",
+            "trainer",
+            "sneaker",
+            "basketball",
+            "running",
+            "retro",
         ]
         if any(keyword in product_lower for keyword in sneaker_keywords):
             return ("Sneakers", "sneakers")
 
         # Footwear (broader category)
         footwear_keywords = [
-            "clog", "sandal", "slide", "boot", "shoe", "slipper", "flip flop",
-            "moccasin", "loafer", "heel", "pump"
+            "clog",
+            "sandal",
+            "slide",
+            "boot",
+            "shoe",
+            "slipper",
+            "flip flop",
+            "moccasin",
+            "loafer",
+            "heel",
+            "pump",
         ]
         if any(keyword in product_lower for keyword in footwear_keywords):
             return ("Footwear", "footwear")
 
         # Collectibles
         collectible_keywords = [
-            "book", "hardcover", "figure", "art", "print", "poster",
-            "edition of", "collectible", "vinyl", "sculpture", "plush"
+            "book",
+            "hardcover",
+            "figure",
+            "art",
+            "print",
+            "poster",
+            "edition of",
+            "collectible",
+            "vinyl",
+            "sculpture",
+            "plush",
         ]
         if any(keyword in product_lower for keyword in collectible_keywords):
             return ("Collectibles", "collectibles")
 
         # Apparel
         apparel_keywords = [
-            "hoodie", "shirt", "tee", "jacket", "pants", "shorts", "sweater",
-            "sweatshirt", "jersey", "coat", "dress", "skirt", "jeans"
+            "hoodie",
+            "shirt",
+            "tee",
+            "jacket",
+            "pants",
+            "shorts",
+            "sweater",
+            "sweatshirt",
+            "jersey",
+            "coat",
+            "dress",
+            "skirt",
+            "jeans",
         ]
         if any(keyword in product_lower for keyword in apparel_keywords):
             return ("Apparel", "apparel")
 
         # Accessories
         accessory_keywords = [
-            "bag", "hat", "cap", "backpack", "wallet", "belt", "scarf",
-            "gloves", "sunglasses", "watch", "jewelry", "chain", "bracelet"
+            "bag",
+            "hat",
+            "cap",
+            "backpack",
+            "wallet",
+            "belt",
+            "scarf",
+            "gloves",
+            "sunglasses",
+            "watch",
+            "jewelry",
+            "chain",
+            "bracelet",
         ]
         if any(keyword in product_lower for keyword in accessory_keywords):
             return ("Accessories", "accessories")
 
         # Electronics/Tech
         tech_keywords = [
-            "headphone", "airpods", "speaker", "console", "controller",
-            "phone", "case", "charger"
+            "headphone",
+            "airpods",
+            "speaker",
+            "console",
+            "controller",
+            "phone",
+            "case",
+            "charger",
         ]
         if any(keyword in product_lower for keyword in tech_keywords):
             return ("Electronics", "electronics")
@@ -107,9 +164,7 @@ class CategoryDetectionService:
         # Default fallback
         return ("Other", "other")
 
-    async def _get_or_create_category(
-        self, category_name: str, category_slug: str
-    ) -> Category:
+    async def _get_or_create_category(self, category_name: str, category_slug: str) -> Category:
         """
         Find or create a category in the database.
 

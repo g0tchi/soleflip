@@ -17,7 +17,7 @@ from shared.api.responses import (
     SyncOperationResponse,
     create_success_response,
     create_error_response,
-    RESPONSE_EXAMPLES
+    RESPONSE_EXAMPLES,
 )
 
 
@@ -126,7 +126,7 @@ class TestResponseBuilder:
             "Field validation failed",
             details=details,
             status_code=400,
-            request_id="req-789"
+            request_id="req-789",
         )
 
         assert response.error["details"] == details
@@ -139,12 +139,7 @@ class TestResponseBuilder:
         filters = {"status": "active"}
 
         response = ResponseBuilder.paginated(
-            items=items,
-            skip=10,
-            limit=5,
-            total=50,
-            filters=filters,
-            request_id="req-page"
+            items=items, skip=10, limit=5, total=50, filters=filters, request_id="req-page"
         )
 
         assert isinstance(response, PaginatedResponse)
@@ -159,13 +154,11 @@ class TestResponseBuilder:
         """Test validation error response builder"""
         field_errors = {
             "email": ["Invalid email format"],
-            "age": ["Must be positive", "Required field"]
+            "age": ["Must be positive", "Required field"],
         }
 
         response = ResponseBuilder.validation_error(
-            "Validation failed",
-            field_errors,
-            request_id="req-validation"
+            "Validation failed", field_errors, request_id="req-validation"
         )
 
         assert isinstance(response, ValidationErrorResponse)
@@ -185,7 +178,7 @@ class TestResponseBuilder:
             failed_items=5,
             errors=errors,
             processing_time=12.5,
-            request_id="req-bulk"
+            request_id="req-bulk",
         )
 
         assert isinstance(response, BulkOperationResponse)
@@ -201,10 +194,7 @@ class TestResponseBuilder:
     def test_bulk_operation_response_defaults(self):
         """Test bulk operation response with default values"""
         response = ResponseBuilder.bulk_operation(
-            operation="test_op",
-            total_items=10,
-            successful_items=10,
-            failed_items=0
+            operation="test_op", total_items=10, successful_items=10, failed_items=0
         )
 
         assert response.errors == []
@@ -213,12 +203,7 @@ class TestResponseBuilder:
 
     def test_sync_operation_response(self):
         """Test sync operation response builder"""
-        stats = {
-            "synced": 100,
-            "created": 20,
-            "updated": 75,
-            "skipped": 5
-        }
+        stats = {"synced": 100, "created": 20, "updated": 75, "skipped": 5}
         next_sync = datetime.now(timezone.utc)
 
         response = ResponseBuilder.sync_operation(
@@ -227,7 +212,7 @@ class TestResponseBuilder:
             stats=stats,
             sync_duration=45.2,
             next_sync=next_sync,
-            request_id="req-sync"
+            request_id="req-sync",
         )
 
         assert isinstance(response, SyncOperationResponse)
@@ -248,9 +233,7 @@ class TestResponseBuilder:
         stats = {"created": 10}  # Missing other keys
 
         response = ResponseBuilder.sync_operation(
-            operation="partial_sync",
-            service_name="Test Service",
-            stats=stats
+            operation="partial_sync", service_name="Test Service", stats=stats
         )
 
         assert response.items_synced == 0
@@ -281,7 +264,7 @@ class TestConvenienceFunctions:
             "Internal error",
             details=details,
             status_code=500,
-            request_id="req-error"
+            request_id="req-error",
         )
 
         assert isinstance(response, ErrorResponse)
@@ -333,6 +316,7 @@ class TestResponseExamples:
         assert len(example["items"]) == 2
 
         pagination = example["pagination"]
-        assert all(key in pagination for key in [
-            "skip", "limit", "total", "has_more", "page", "total_pages"
-        ])
+        assert all(
+            key in pagination
+            for key in ["skip", "limit", "total", "has_more", "page", "total_pages"]
+        )

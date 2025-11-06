@@ -1,6 +1,7 @@
 """
 Show all supplier histories - comprehensive overview
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -16,7 +17,8 @@ async def main():
     async with db_manager.get_session() as session:
         # Get all suppliers with history
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     s.name,
                     s.slug,
@@ -35,7 +37,8 @@ async def main():
                 GROUP BY s.id, s.name, s.slug, s.founded_year, s.founder_name, s.city,
                          s.country, s.instagram_handle, s.website, s.status, s.closure_date
                 ORDER BY s.founded_year, s.name
-            """)
+            """
+            )
         )
         suppliers = result.fetchall()
 
@@ -55,14 +58,16 @@ async def main():
 
             # Get timeline for this supplier
             result = await session.execute(
-                text("""
+                text(
+                    """
                     SELECT event_date, event_type, event_title, impact_level
                     FROM core.supplier_history sh
                     JOIN core.suppliers s ON sh.supplier_id = s.id
                     WHERE s.slug = :slug
                     ORDER BY event_date
-                """),
-                {"slug": sup[1]}
+                """
+                ),
+                {"slug": sup[1]},
             )
             events = result.fetchall()
 
@@ -73,7 +78,7 @@ async def main():
                         "low": "[ ]",
                         "medium": "[*]",
                         "high": "[**]",
-                        "critical": "[***]"
+                        "critical": "[***]",
                     }
                     marker = impact_markers.get(event[3], "[*]")
                     print(f"      {marker} {event[0].year} - [{event[1]:12s}] {event[2]}")
@@ -81,10 +86,11 @@ async def main():
         # Statistics
         print(f"\n{'=' * 100}")
         print("STATISTICS")
-        print('=' * 100)
+        print("=" * 100)
 
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     COUNT(DISTINCT s.id) as total_suppliers,
                     COUNT(sh.id) as total_events,
@@ -95,7 +101,8 @@ async def main():
                 FROM core.suppliers s
                 LEFT JOIN core.supplier_history sh ON s.id = sh.supplier_id
                 WHERE s.founded_year IS NOT NULL OR sh.id IS NOT NULL
-            """)
+            """
+            )
         )
         stats = result.fetchone()
 
@@ -107,12 +114,14 @@ async def main():
 
         # Event type breakdown
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT event_type, COUNT(*) as count
                 FROM core.supplier_history
                 GROUP BY event_type
                 ORDER BY count DESC
-            """)
+            """
+            )
         )
         event_types = result.fetchall()
 
@@ -122,7 +131,7 @@ async def main():
 
         print(f"\n{'=' * 100}")
         print("[OK] SUPPLIER HISTORY OVERVIEW COMPLETE")
-        print('=' * 100)
+        print("=" * 100)
 
 
 if __name__ == "__main__":

@@ -134,12 +134,10 @@ class InventoryRepository(BaseRepository[InventoryItem]):
     ) -> List[InventoryItem]:
         """Get paginated list of inventory items with optimized eager loading"""
         query = (
-            select(InventoryItem)
-            .options(
+            select(InventoryItem).options(
                 # Optimize: Load all related data in a single query using joinedload where appropriate
                 selectinload(InventoryItem.product).options(
-                    selectinload(Product.brand),
-                    selectinload(Product.category)
+                    selectinload(Product.brand), selectinload(Product.category)
                 ),
                 selectinload(InventoryItem.size),
             )

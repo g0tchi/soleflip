@@ -190,7 +190,7 @@ class AwinManager:
             print(colored_text("\n📊 CSV Analysis:", "bright_white"))
             print(colored_text(f"Total Rows: {total_rows:,}", "cyan"))
             print(colored_text(f"Columns: {len(headers) if headers else 0}", "cyan"))
-            delimiter_name = 'Tab' if delimiter == '\t' else 'Comma'
+            delimiter_name = "Tab" if delimiter == "\t" else "Comma"
             print(colored_text(f"Delimiter: {delimiter_name}", "cyan"))
 
             if headers:

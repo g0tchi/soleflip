@@ -40,9 +40,7 @@ async def test_enrichment():
         raise ValueError("DATABASE_URL not found in environment")
 
     engine = create_async_engine(database_url)
-    async_session_maker = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_maker() as session:
         # Initialize services with DB session
@@ -51,21 +49,18 @@ async def test_enrichment():
         try:
             # Step 1: Search catalog
             logger.info(f"Step 1: Searching StockX catalog for SKU: {test_sku}")
-            search_results = await catalog_service.search_catalog(
-                query=test_sku,
-                page_size=3
-            )
+            search_results = await catalog_service.search_catalog(query=test_sku, page_size=3)
 
             print("\n=== SEARCH RESULTS ===")
             print(f"Total results: {search_results.get('count', 0)}")
             print(f"Products found: {len(search_results.get('products', []))}")
 
-            if not search_results.get('products'):
+            if not search_results.get("products"):
                 print(f"\n[ERROR] No products found for SKU: {test_sku}")
                 return
 
             # Show all found products
-            for idx, product in enumerate(search_results.get('products', [])):
+            for idx, product in enumerate(search_results.get("products", [])):
                 print(f"\nProduct {idx + 1}:")
                 print(f"  - Product ID: {product.get('productId')}")
                 print(f"  - Title: {product.get('title')}")
@@ -73,8 +68,8 @@ async def test_enrichment():
                 print(f"  - Style ID: {product.get('styleId')}")
 
             # Use first product
-            product_summary = search_results['products'][0]
-            product_id = product_summary['productId']
+            product_summary = search_results["products"][0]
+            product_id = product_summary["productId"]
 
             # Step 2: Get product details
             logger.info(f"Step 2: Getting product details for ID: {product_id}")
@@ -101,8 +96,7 @@ async def test_enrichment():
 
             # Find matching variant for our size
             matching_variant = next(
-                (v for v in variants if v.get('variantValue') == test_size),
-                None
+                (v for v in variants if v.get("variantValue") == test_size), None
             )
 
             if not matching_variant:
@@ -110,16 +104,14 @@ async def test_enrichment():
                 print(f"Available sizes: {[v.get('variantValue') for v in variants[:10]]}")
                 # Use first variant as fallback
                 matching_variant = variants[0]
-                test_size = matching_variant.get('variantValue')
+                test_size = matching_variant.get("variantValue")
                 print(f"Using size: {test_size} instead")
 
             # Step 4: Get market data
             logger.info(f"Step 4: Getting market data for variant: {test_size}")
-            variant_id = matching_variant['variantId']
+            variant_id = matching_variant["variantId"]
             market_data = await catalog_service.get_market_data(
-                product_id=product_id,
-                variant_id=variant_id,
-                currency_code="EUR"
+                product_id=product_id, variant_id=variant_id, currency_code="EUR"
             )
 
             print(f"\n=== MARKET DATA (Size: {test_size}) ===")
@@ -132,9 +124,7 @@ async def test_enrichment():
             # Step 5: Complete enrichment
             logger.info("Step 5: Running complete enrichment workflow")
             enriched_data = await catalog_service.enrich_product_by_sku(
-                sku=test_sku,
-                size=test_size,
-                db_session=session
+                sku=test_sku, size=test_size, db_session=session
             )
 
             print("\n=== ENRICHMENT COMPLETE ===")

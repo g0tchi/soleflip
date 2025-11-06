@@ -43,6 +43,7 @@ class TestETagMiddleware:
         # Mock body_iterator for async iteration
         async def body_iter():
             yield b'{"data": "test"}'
+
         response.body_iterator = body_iter()
         return response
 
@@ -89,6 +90,7 @@ class TestETagMiddleware:
             # Mock the body_iterator properly
             async def body_iter():
                 yield b'{"test": "data"}'
+
             response.body_iterator = body_iter()
             return response
 
@@ -107,6 +109,7 @@ class TestETagMiddleware:
         # Set up a request with matching ETag
         test_content = b'{"test": "data"}'
         import hashlib
+
         content_hash = hashlib.md5(test_content).hexdigest()[:16]
         etag = f'W/"{content_hash}"'
 
@@ -118,6 +121,7 @@ class TestETagMiddleware:
 
             async def body_iter():
                 yield test_content
+
             response.body_iterator = body_iter()
             return response
 
@@ -151,7 +155,7 @@ class TestETagMiddleware:
     def test_etags_match_wildcard(self, etag_middleware):
         """Test _etags_match with wildcard - covers lines 112-126"""
         # Test wildcard matching
-        assert etag_middleware._etags_match('*', 'W/"anything"') is True
+        assert etag_middleware._etags_match("*", 'W/"anything"') is True
         assert etag_middleware._etags_match('W/"test", *', 'W/"other"') is True
 
     def test_etags_match_no_match(self, etag_middleware):
@@ -162,6 +166,7 @@ class TestETagMiddleware:
 
     async def test_non_200_response_passthrough(self, etag_middleware, mock_request):
         """Test that non-200 responses pass through without ETag processing"""
+
         # Arrange
         async def mock_call_next(request):
             return Response(content="Not Found", status_code=404)
@@ -220,10 +225,7 @@ class TestSetupETagMiddleware:
         app = MagicMock()
         app.add_middleware = MagicMock()
 
-        config = {
-            "weak_etags": False,
-            "exclude_paths": ["/custom", "/path"]
-        }
+        config = {"weak_etags": False, "exclude_paths": ["/custom", "/path"]}
 
         # Act
         setup_etag_middleware(app, config)

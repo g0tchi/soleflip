@@ -512,7 +512,12 @@ async def get_catalog_product_variants(
 
     try:
         variants = await catalog_service.get_product_variants(product_id)
-        return {"success": True, "product_id": product_id, "total_variants": len(variants), "variants": variants}
+        return {
+            "success": True,
+            "product_id": product_id,
+            "total_variants": len(variants),
+            "variants": variants,
+        }
 
     except Exception as e:
         logger.error(

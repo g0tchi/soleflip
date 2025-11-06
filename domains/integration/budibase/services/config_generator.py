@@ -25,7 +25,7 @@ from ..schemas.budibase_models import (
     AutomationTrigger,
     ComponentType,
     DataSourceType,
-    BudibaseEnvironment
+    BudibaseEnvironment,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class BudibaseConfigGenerator:
         self,
         app_name: str = "SoleFlipper Business App",
         environment: BudibaseEnvironment = BudibaseEnvironment.DEVELOPMENT,
-        validate_endpoints: bool = True
+        validate_endpoints: bool = True,
     ) -> BudibaseApp:
         """
         Generate complete Budibase app configuration for v2.2.1.
@@ -86,27 +86,20 @@ class BudibaseConfigGenerator:
             navigation={
                 "title": "SoleFlipper",
                 "hideTitle": False,
-                "logo": "/assets/soleflip-logo.png"
+                "logo": "/assets/soleflip-logo.png",
             },
             roles=[
-                {
-                    "name": "Admin",
-                    "permissions": ["read", "write", "admin"]
-                },
-                {
-                    "name": "User",
-                    "permissions": ["read", "write"]
-                },
-                {
-                    "name": "Viewer",
-                    "permissions": ["read"]
-                }
+                {"name": "Admin", "permissions": ["read", "write", "admin"]},
+                {"name": "User", "permissions": ["read", "write"]},
+                {"name": "Viewer", "permissions": ["read"]},
             ],
             created_at=datetime.utcnow(),
-            created_by="SoleFlipper-ConfigGenerator-v2.2.1"
+            created_by="SoleFlipper-ConfigGenerator-v2.2.1",
         )
 
-        logger.info(f"Generated Budibase config with {len(data_sources)} data sources, {len(screens)} screens")
+        logger.info(
+            f"Generated Budibase config with {len(data_sources)} data sources, {len(screens)} screens"
+        )
         return app_config
 
     async def _validate_api_endpoints(self) -> BudibaseValidationResult:
@@ -119,7 +112,7 @@ class BudibaseConfigGenerator:
             "/quickflip/opportunities/summary",
             "/dashboard/metrics",
             "/inventory/items",
-            "/health"
+            "/health",
         ]
 
         async with httpx.AsyncClient() as client:
@@ -133,13 +126,17 @@ class BudibaseConfigGenerator:
                         logger.debug(f"✅ Endpoint working: {endpoint}")
                     else:
                         self.broken_endpoints.add(endpoint)
-                        logger.warning(f"❌ Endpoint failed: {endpoint} - Status: {response.status_code}")
+                        logger.warning(
+                            f"❌ Endpoint failed: {endpoint} - Status: {response.status_code}"
+                        )
 
                 except Exception as e:
                     self.broken_endpoints.add(endpoint)
                     logger.error(f"❌ Endpoint error: {endpoint} - {str(e)}")
 
-        logger.info(f"API Validation: {len(self.validated_endpoints)} working, {len(self.broken_endpoints)} broken")
+        logger.info(
+            f"API Validation: {len(self.validated_endpoints)} working, {len(self.broken_endpoints)} broken"
+        )
 
     async def _generate_data_sources(self) -> List[BudibaseDataSource]:
         """Generate validated data sources for v2.2.1"""
@@ -154,29 +151,24 @@ class BudibaseConfigGenerator:
                 "path": "/quickflip/opportunities",
                 "parameters": {
                     "min_profit_margin": {"type": "number", "default": 15.0},
-                    "limit": {"type": "number", "default": 50}
-                }
+                    "limit": {"type": "number", "default": 50},
+                },
             }
 
         if "/quickflip/opportunities/summary" in self.validated_endpoints:
             backend_queries["getOpportunitySummary"] = {
                 "method": "GET",
-                "path": "/quickflip/opportunities/summary"
+                "path": "/quickflip/opportunities/summary",
             }
 
         if "/dashboard/metrics" in self.validated_endpoints:
-            backend_queries["getDashboardMetrics"] = {
-                "method": "GET",
-                "path": "/dashboard/metrics"
-            }
+            backend_queries["getDashboardMetrics"] = {"method": "GET", "path": "/dashboard/metrics"}
         elif "/inventory/items" in self.validated_endpoints:
             # Fallback: use inventory items if dashboard broken
             backend_queries["getInventoryItems"] = {
                 "method": "GET",
                 "path": "/inventory/items",
-                "parameters": {
-                    "limit": {"type": "number", "default": 10}
-                }
+                "parameters": {"limit": {"type": "number", "default": 10}},
             }
 
         backend_api = BudibaseDataSource(
@@ -186,12 +178,12 @@ class BudibaseConfigGenerator:
                 "url": self.api_base_url,
                 "defaultHeaders": {
                     "Content-Type": "application/json",
-                    "Accept": "application/json"
+                    "Accept": "application/json",
                 },
-                "timeout": 10000
+                "timeout": 10000,
             },
             queries=backend_queries,
-            enabled=True
+            enabled=True,
         )
         data_sources.append(backend_api)
 
@@ -204,7 +196,7 @@ class BudibaseConfigGenerator:
                 "port": 5432,
                 "database": "soleflip",
                 "schema": "public",
-                "ssl": False
+                "ssl": False,
             },
             queries={
                 "getProducts": {
@@ -212,13 +204,15 @@ class BudibaseConfigGenerator:
                 },
                 "getOrdersCount": {
                     "sql": "SELECT COUNT(*) as total_orders FROM orders.transactions WHERE created_at >= NOW() - INTERVAL '30 days'"
-                }
+                },
             },
-            enabled=True
+            enabled=True,
         )
         data_sources.append(postgres_ds)
 
-        logger.info(f"Generated {len(data_sources)} data sources with {len(backend_queries)} validated endpoints")
+        logger.info(
+            f"Generated {len(data_sources)} data sources with {len(backend_queries)} validated endpoints"
+        )
         return data_sources
 
     async def _generate_connectors(self) -> List[BudibaseConnector]:
@@ -237,12 +231,12 @@ class BudibaseConfigGenerator:
                     endpoint.replace("/", "_"): {
                         "method": "GET",
                         "path": endpoint,
-                        "validated": True
+                        "validated": True,
                     }
                     for endpoint in self.validated_endpoints
                 },
                 timeout=30,
-                retries=3
+                retries=3,
             )
             connectors.append(soleflip_connector)
 
@@ -264,10 +258,10 @@ class BudibaseConfigGenerator:
                         props={
                             "text": "SoleFlipper Dashboard v2.2.1",
                             "size": "L",
-                            "weight": "bold"
-                        }
+                            "weight": "bold",
+                        },
                     )
-                ]
+                ],
             )
         ]
 
@@ -281,16 +275,16 @@ class BudibaseConfigGenerator:
                         type=ComponentType.DATA_PROVIDER,
                         props={
                             "datasource": "SoleFlipper Backend API",
-                            "query": "getOpportunitySummary"
+                            "query": "getOpportunitySummary",
                         },
                         children=[
                             BudibaseComponent(
                                 type=ComponentType.TEXT,
-                                props={"text": "{{ data.total_opportunities }} Opportunities"}
+                                props={"text": "{{ data.total_opportunities }} Opportunities"},
                             )
-                        ]
+                        ],
                     )
-                ]
+                ],
             )
             dashboard_components[0].children.append(quickflip_card)
 
@@ -304,10 +298,10 @@ class BudibaseConfigGenerator:
                         type=ComponentType.TEXT,
                         props={
                             "text": f"⚠️ {len(self.broken_endpoints)} endpoints need fixing",
-                            "color": "warning"
-                        }
+                            "color": "warning",
+                        },
                     )
-                ]
+                ],
             )
             dashboard_components[0].children.append(status_card)
 
@@ -316,7 +310,7 @@ class BudibaseConfigGenerator:
             route="/",
             layout="basic",
             components=dashboard_components,
-            data_sources=["SoleFlipper Backend API"]
+            data_sources=["SoleFlipper Backend API"],
         )
         screens.append(dashboard_screen)
 
@@ -333,13 +327,13 @@ class BudibaseConfigGenerator:
                         children=[
                             BudibaseComponent(
                                 type=ComponentType.TEXT,
-                                props={"text": "QuickFlip Opportunities", "size": "L"}
+                                props={"text": "QuickFlip Opportunities", "size": "L"},
                             ),
                             BudibaseComponent(
                                 type=ComponentType.DATA_PROVIDER,
                                 props={
                                     "datasource": "SoleFlipper Backend API",
-                                    "query": "getQuickFlipOpportunities"
+                                    "query": "getQuickFlipOpportunities",
                                 },
                                 children=[
                                     BudibaseComponent(
@@ -350,16 +344,19 @@ class BudibaseConfigGenerator:
                                                 {"name": "buy_price", "displayName": "Buy Price"},
                                                 {"name": "sell_price", "displayName": "Sell Price"},
                                                 {"name": "gross_profit", "displayName": "Profit"},
-                                                {"name": "profit_margin", "displayName": "Margin %"}
+                                                {
+                                                    "name": "profit_margin",
+                                                    "displayName": "Margin %",
+                                                },
                                             ]
-                                        }
+                                        },
                                     )
-                                ]
-                            )
-                        ]
+                                ],
+                            ),
+                        ],
                     )
                 ],
-                data_sources=["SoleFlipper Backend API"]
+                data_sources=["SoleFlipper Backend API"],
             )
             screens.append(quickflip_screen)
 
@@ -378,14 +375,14 @@ class BudibaseConfigGenerator:
                 trigger=AutomationTrigger.SCHEDULE,
                 trigger_config={
                     "interval": "*/30 * * * *",  # Every 30 minutes (realistic)
-                    "description": "Check every 30 minutes"
+                    "description": "Check every 30 minutes",
                 },
                 steps=[
                     {
                         "name": "fetch_opportunities",
                         "type": "query",
                         "datasource": "SoleFlipper Backend API",
-                        "query": "getOpportunitySummary"
+                        "query": "getOpportunitySummary",
                     },
                     {
                         "name": "check_threshold",
@@ -395,13 +392,13 @@ class BudibaseConfigGenerator:
                             {
                                 "name": "log_alert",
                                 "type": "log",
-                                "message": "High opportunity count detected: {{ data.total_opportunities }}"
+                                "message": "High opportunity count detected: {{ data.total_opportunities }}",
                             }
-                        ]
-                    }
+                        ],
+                    },
                 ],
                 enabled=True,
-                environment=BudibaseEnvironment.DEVELOPMENT
+                environment=BudibaseEnvironment.DEVELOPMENT,
             )
             automations.append(opportunity_alert)
 
@@ -439,7 +436,7 @@ class BudibaseConfigGenerator:
             warnings=warnings,
             api_compatibility={ep: True for ep in self.validated_endpoints},
             missing_endpoints=missing_endpoints,
-            deprecated_features=deprecated_features
+            deprecated_features=deprecated_features,
         )
 
     def export_config(self, config: BudibaseApp, file_path: str) -> None:
@@ -450,10 +447,10 @@ class BudibaseConfigGenerator:
             "generated_at": datetime.utcnow().isoformat(),
             "validated_endpoints": list(self.validated_endpoints),
             "broken_endpoints": list(self.broken_endpoints),
-            "version": "2.2.1"
+            "version": "2.2.1",
         }
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, default=str)
 
         logger.info(f"Exported Budibase config to {file_path}")

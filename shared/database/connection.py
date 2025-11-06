@@ -78,9 +78,9 @@ class DatabaseManager:
                         "command_timeout": 60,  # Increase command timeout for NAS
                         "server_settings": {
                             "application_name": "soleflip_backend",
-                            "jit": "off"  # Disable JIT for stable performance
-                        }
-                    }
+                            "jit": "off",  # Disable JIT for stable performance
+                        },
+                    },
                 }
             )
 

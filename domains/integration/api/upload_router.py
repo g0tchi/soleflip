@@ -70,11 +70,11 @@ async def upload_stockx_file(
     # SECURITY: Enhanced file validation
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
-    
+
     # Check file size (max 100MB for CSV imports)
     if file.size and file.size > 100 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 100MB")
-    
+
     # Check MIME type
     if file.content_type and not file.content_type.startswith("text/"):
         raise HTTPException(status_code=400, detail="Invalid file type. Expected text/csv")
@@ -84,31 +84,31 @@ async def upload_stockx_file(
         # Read file in chunks to handle large files efficiently
         content_chunks = []
         chunk_size = 8192  # 8KB chunks
-        
+
         while True:
             chunk = await file.read(chunk_size)
             if not chunk:
                 break
             content_chunks.append(chunk)
-        
+
         # Combine chunks and decode
-        content = b''.join(content_chunks)
-        
+        content = b"".join(content_chunks)
+
         # For very large files, consider using pd.read_csv with chunksize
         file_size_mb = len(content) / (1024 * 1024)
-        
+
         if file_size_mb > 50:  # Files larger than 50MB use chunked processing
             # Use streaming processing for large files
             df_chunks = pd.read_csv(
-                io.StringIO(content.decode("utf-8-sig")), 
-                chunksize=10000  # Process in 10k row chunks
+                io.StringIO(content.decode("utf-8-sig")),
+                chunksize=10000,  # Process in 10k row chunks
             )
             # Combine chunks (for now - in production, process chunk by chunk)
             df = pd.concat(df_chunks, ignore_index=True)
         else:
             # Regular processing for smaller files
             df = pd.read_csv(io.StringIO(content.decode("utf-8-sig")))
-            
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV file: {e}")
 
@@ -117,7 +117,7 @@ async def upload_stockx_file(
     def generate_csv_records():
         for _, row in df.iterrows():
             yield row.to_dict()
-    
+
     # For now, convert to list for compatibility (in production, process as generator)
     raw_csv_data = list(generate_csv_records())
 
@@ -129,7 +129,11 @@ async def upload_stockx_file(
     # Process import with retry mechanism - synchronous processing for immediate feedback
     # Background processing is handled by the retry mechanism if needed
     await import_processor.process_import(
-        batch_id=batch.id, source_type=SourceType.STOCKX, data=raw_csv_data, raw_data=raw_csv_data, retry_count=0
+        batch_id=batch.id,
+        source_type=SourceType.STOCKX,
+        data=raw_csv_data,
+        raw_data=raw_csv_data,
+        retry_count=0,
     )
 
     # Refetch batch to get final status
@@ -155,7 +159,10 @@ async def test_no_auth():
 @router.post("/stockx/import", tags=["StockX Integration"])
 async def import_stockx_data(request: ImportRequest):
     """Test endpoint without dependencies"""
-    return {"status": "success", "message": f"Would import from {request.from_date} to {request.to_date}"}
+    return {
+        "status": "success",
+        "message": f"Would import from {request.from_date} to {request.to_date}",
+    }
 
 
 @router.post("/stockx/import-orders", response_model=ImportResponse, tags=["StockX Integration"])
@@ -243,7 +250,9 @@ async def import_stockx_orders(
             status_code=400, detail=f"Invalid date format. Use YYYY-MM-DD format. Error: {e}"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to initiate StockX order import: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to initiate StockX order import: {str(e)}"
+        )
 
 
 @router.get("/import/{batch_id}/status", response_model=ImportStatus, tags=["Import Status"])

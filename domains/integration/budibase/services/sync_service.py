@@ -25,7 +25,5 @@ class BudibaseSyncService:
         logger.info(f"Syncing {len(apps)} Budibase applications")
         # Implementation placeholder
         return BudibaseSyncStatus(
-            sync_status="completed",
-            changes_detected=0,
-            last_sync=datetime.utcnow()
+            sync_status="completed", changes_detected=0, last_sync=datetime.utcnow()
         )

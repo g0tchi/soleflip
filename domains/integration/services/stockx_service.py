@@ -76,7 +76,7 @@ class StockXService:
         max_attempts=3,
         delay=2.0,
         backoff_factor=2.0,
-        exceptions=(httpx.RequestError, httpx.TimeoutException)
+        exceptions=(httpx.RequestError, httpx.TimeoutException),
     )
     async def _refresh_access_token(self) -> None:
         """
@@ -118,7 +118,7 @@ class StockXService:
                 self._token_expiry = None
                 raise AuthenticationException(
                     "Could not refresh StockX access token. Please check your credentials.",
-                    status_code=e.response.status_code
+                    status_code=e.response.status_code,
                 ) from e
 
     async def _get_valid_access_token(self) -> str:
@@ -364,11 +364,11 @@ class StockXService:
         currency_code: str = "USD",
         expires_at: Optional[str] = None,
         active: bool = True,
-        inventory_type: str = "STANDARD"
+        inventory_type: str = "STANDARD",
     ) -> Dict[str, Any]:
         """
         Creates a new listing (ask) on StockX for the specified variant.
-        
+
         Args:
             variant_id: StockX variant ID to create listing for
             amount: Price amount as string
@@ -376,38 +376,42 @@ class StockXService:
             expires_at: UTC timestamp when listing expires (ISO 8601 format)
             active: Whether listing should be active (default: True)
             inventory_type: STANDARD or DIRECT (default: STANDARD)
-        
+
         Returns:
             Dict containing listing creation response
         """
         logger.info(
-            "Creating StockX listing", 
-            variant_id=variant_id, 
-            amount=amount, 
+            "Creating StockX listing",
+            variant_id=variant_id,
+            amount=amount,
             currency_code=currency_code,
-            inventory_type=inventory_type
+            inventory_type=inventory_type,
         )
-        
+
         endpoint = "/selling/listings"
         payload = {
             "variantId": variant_id,
             "amount": amount,
             "currencyCode": currency_code,
             "active": active,
-            "inventoryType": inventory_type
+            "inventoryType": inventory_type,
         }
-        
+
         if expires_at:
             payload["expiresAt"] = expires_at
-        
+
         try:
             response_data = await self._make_post_request(endpoint, json=payload)
-            logger.info("StockX listing created successfully", listing_id=response_data.get("listingId"))
+            logger.info(
+                "StockX listing created successfully", listing_id=response_data.get("listingId")
+            )
             return response_data
         except httpx.HTTPStatusError as e:
-            logger.error("Failed to create StockX listing",
-                        status_code=e.response.status_code,
-                        response=e.response.text)
+            logger.error(
+                "Failed to create StockX listing",
+                status_code=e.response.status_code,
+                response=e.response.text,
+            )
             raise
 
     async def get_market_data_from_stockx(
@@ -471,7 +475,7 @@ class StockXService:
 
                 response.raise_for_status()
                 return response.json()
-                
+
             except httpx.HTTPStatusError as e:
                 logger.error(
                     f"HTTP error on {endpoint}",
@@ -510,9 +514,7 @@ class StockXService:
                     logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
                     access_token = await self._get_valid_access_token()  # Force refresh
                     headers["Authorization"] = f"Bearer {access_token}"
-                    response = await client.post(
-                        endpoint, json=json, headers=headers, timeout=30.0
-                    )
+                    response = await client.post(endpoint, json=json, headers=headers, timeout=30.0)
 
                 response.raise_for_status()
                 return response.json()
@@ -617,21 +619,22 @@ class StockXService:
             "Fetching sales history from StockX API",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            order_status=order_status
+            order_status=order_status,
         )
 
         # Use get_historical_orders which handles pagination and authentication
         orders = await self.get_historical_orders(
-            from_date=start_date.date() if hasattr(start_date, 'date') else start_date,
-            to_date=end_date.date() if hasattr(end_date, 'date') else end_date,
-            order_status=order_status or "COMPLETED",  # Default to completed orders for sales history
+            from_date=start_date.date() if hasattr(start_date, "date") else start_date,
+            to_date=end_date.date() if hasattr(end_date, "date") else end_date,
+            order_status=order_status
+            or "COMPLETED",  # Default to completed orders for sales history
         )
 
         logger.info(
             "Successfully fetched sales history",
             order_count=len(orders),
             start_date=start_date.isoformat(),
-            end_date=end_date.isoformat()
+            end_date=end_date.isoformat(),
         )
 
         return orders

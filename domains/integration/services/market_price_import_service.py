@@ -33,18 +33,12 @@ class MarketPriceImportService:
         Import CSV file from various sources (AWIN, Webgains, etc.) and create market prices
         Returns statistics about the import
         """
-        stats = {
-            "processed": 0,
-            "created": 0,
-            "updated": 0,
-            "errors": 0,
-            "skipped": 0
-        }
+        stats = {"processed": 0, "created": 0, "updated": 0, "errors": 0, "skipped": 0}
 
         self.logger.info("Starting market price CSV import", file_path=file_path, source=source)
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as csvfile:
+            with open(file_path, "r", encoding="utf-8") as csvfile:
                 reader = csv.DictReader(csvfile)
 
                 for row_num, row in enumerate(reader, start=2):  # Start at 2 for header
@@ -61,7 +55,7 @@ class MarketPriceImportService:
                                 source=source,
                                 processed=stats["processed"],
                                 created=stats["created"],
-                                errors=stats["errors"]
+                                errors=stats["errors"],
                             )
 
                     except Exception as e:
@@ -71,7 +65,7 @@ class MarketPriceImportService:
                             source=source,
                             row_number=row_num,
                             error=str(e),
-                            row_data=row
+                            row_data=row,
                         )
 
             # Final commit
@@ -88,22 +82,22 @@ class MarketPriceImportService:
     async def _process_row(self, row: Dict[str, str], stats: Dict[str, int], source: str) -> None:
         """Process a single CSV row"""
         # Skip rows without essential data
-        if not row.get('id') or not row.get('title') or not row.get('price'):
+        if not row.get("id") or not row.get("title") or not row.get("price"):
             stats["skipped"] += 1
             return
 
         # Extract and clean data
-        awin_id = row['id'].strip()
-        title = row['title'].strip()
-        brand_name = row.get('brand', '').strip()
-        price_str = row.get('price', '').strip()
-        program_name = row.get('program_name', '').strip()
+        awin_id = row["id"].strip()
+        title = row["title"].strip()
+        brand_name = row.get("brand", "").strip()
+        price_str = row.get("price", "").strip()
+        program_name = row.get("program_name", "").strip()
 
         # Parse price
         try:
             # Remove currency symbols and convert to decimal
-            price_clean = re.sub(r'[^\d.,]', '', price_str)
-            price_clean = price_clean.replace(',', '.')
+            price_clean = re.sub(r"[^\d.,]", "", price_str)
+            price_clean = price_clean.replace(",", ".")
             buy_price = Decimal(price_clean)
         except (ValueError, TypeError):
             self.logger.warning("Invalid price format", price=price_str, awin_id=awin_id)
@@ -112,10 +106,7 @@ class MarketPriceImportService:
 
         # Find or create product
         product = await self._find_or_create_product(
-            awin_id=awin_id,
-            title=title,
-            brand_name=brand_name,
-            row=row
+            awin_id=awin_id, title=title, brand_name=brand_name, row=row
         )
 
         if not product:
@@ -124,9 +115,7 @@ class MarketPriceImportService:
 
         # Check if market price already exists
         existing_price = await self.source_price_repo.find_one(
-            product_id=product.id,
-            source=source,
-            external_id=awin_id
+            product_id=product.id, source=source, external_id=awin_id
         )
 
         if existing_price:
@@ -135,10 +124,10 @@ class MarketPriceImportService:
                 existing_price.id,
                 buy_price=buy_price,
                 supplier_name=program_name,
-                availability=row.get('availability', ''),
-                stock_qty=self._parse_int(row.get('stock_qty')),
-                product_url=row.get('link', ''),
-                raw_data=row
+                availability=row.get("availability", ""),
+                stock_qty=self._parse_int(row.get("stock_qty")),
+                product_url=row.get("link", ""),
+                raw_data=row,
             )
             stats["updated"] += 1
         else:
@@ -150,24 +139,20 @@ class MarketPriceImportService:
                 external_id=awin_id,
                 buy_price=buy_price,
                 currency="EUR",  # Default, can be enhanced
-                availability=row.get('availability', ''),
-                stock_qty=self._parse_int(row.get('stock_qty')),
-                product_url=row.get('link', ''),
-                raw_data=row
+                availability=row.get("availability", ""),
+                stock_qty=self._parse_int(row.get("stock_qty")),
+                product_url=row.get("link", ""),
+                raw_data=row,
             )
             stats["created"] += 1
 
     async def _find_or_create_product(
-        self,
-        awin_id: str,
-        title: str,
-        brand_name: str,
-        row: Dict[str, str]
+        self, awin_id: str, title: str, brand_name: str, row: Dict[str, str]
     ) -> Optional[Product]:
         """Find existing product or create new one"""
 
         # Try to find by GTIN first
-        gtin = row.get('gtin', '').strip()
+        gtin = row.get("gtin", "").strip()
         if gtin:
             # Store GTIN in raw_data for now (could be added as product field later)
             product = await self._find_product_by_gtin(gtin)
@@ -192,10 +177,10 @@ class MarketPriceImportService:
             product = await self.product_repo.create(
                 sku=awin_id,
                 name=title,
-                description=row.get('description', ''),
+                description=row.get("description", ""),
                 brand_id=brand.id if brand else None,
                 category_id=category.id,
-                retail_price=self._parse_decimal(row.get('price')),
+                retail_price=self._parse_decimal(row.get("price")),
                 # Store additional AWIN data in a structured way
                 # Could be moved to separate fields later
             )
@@ -204,17 +189,14 @@ class MarketPriceImportService:
                 "Created new product from AWIN data",
                 product_id=str(product.id),
                 sku=awin_id,
-                title=title
+                title=title,
             )
 
             return product
 
         except Exception as e:
             self.logger.error(
-                "Failed to create product",
-                awin_id=awin_id,
-                title=title,
-                error=str(e)
+                "Failed to create product", awin_id=awin_id, title=title, error=str(e)
             )
             return None
 
@@ -225,19 +207,14 @@ class MarketPriceImportService:
         return None
 
     async def _find_product_by_name_similarity(
-        self,
-        title: str,
-        brand_name: str
+        self, title: str, brand_name: str
     ) -> Optional[Product]:
         """Find product by name similarity"""
         # Simple approach: exact name match with same brand
         if brand_name:
             brand = await self.brand_repo.find_one(name=brand_name)
             if brand:
-                product = await self.product_repo.find_one(
-                    name=title,
-                    brand_id=brand.id
-                )
+                product = await self.product_repo.find_one(name=title, brand_id=brand.id)
                 return product
 
         return None
@@ -254,13 +231,10 @@ class MarketPriceImportService:
 
         # Create new brand
         try:
-            slug = brand_name.lower().replace(' ', '-').replace('&', 'and')
-            slug = re.sub(r'[^a-z0-9\-]', '', slug)
+            slug = brand_name.lower().replace(" ", "-").replace("&", "and")
+            slug = re.sub(r"[^a-z0-9\-]", "", slug)
 
-            brand = await self.brand_repo.create(
-                name=brand_name,
-                slug=slug
-            )
+            brand = await self.brand_repo.create(name=brand_name, slug=slug)
 
             self.logger.info("Created new brand", brand_name=brand_name)
             return brand
@@ -276,11 +250,8 @@ class MarketPriceImportService:
             return category
 
         # Create new category
-        slug = category_name.lower().replace(' ', '-')
-        category = await self.category_repo.create(
-            name=category_name,
-            slug=slug
-        )
+        slug = category_name.lower().replace(" ", "-")
+        category = await self.category_repo.create(name=category_name, slug=slug)
 
         return category
 
@@ -290,8 +261,8 @@ class MarketPriceImportService:
             return None
 
         try:
-            clean_value = re.sub(r'[^\d.,]', '', value.strip())
-            clean_value = clean_value.replace(',', '.')
+            clean_value = re.sub(r"[^\d.,]", "", value.strip())
+            clean_value = clean_value.replace(",", ".")
             return Decimal(clean_value)
         except (ValueError, TypeError):
             return None

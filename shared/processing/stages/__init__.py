@@ -11,7 +11,7 @@ from .retailer_stages import (
 
 __all__ = [
     "RetailerParsingStage",
-    "RetailerValidationStage", 
+    "RetailerValidationStage",
     "RetailerTransformationStage",
     "RetailerPersistenceStage",
 ]

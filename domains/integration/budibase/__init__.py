@@ -23,7 +23,7 @@ from .schemas.budibase_models import (
     BudibaseDataSource,
     BudibaseConnector,
     BudibaseScreen,
-    BudibaseAutomation
+    BudibaseAutomation,
 )
 
 __version__ = "2.2.1"
@@ -37,5 +37,5 @@ __all__ = [
     "BudibaseDataSource",
     "BudibaseConnector",
     "BudibaseScreen",
-    "BudibaseAutomation"
+    "BudibaseAutomation",
 ]

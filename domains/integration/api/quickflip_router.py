@@ -21,6 +21,7 @@ router = APIRouter()
 # Pydantic Models for API
 class QuickFlipOpportunityResponse(BaseModel):
     """Response model for QuickFlip opportunities"""
+
     product_id: str
     product_name: str
     product_sku: str
@@ -44,6 +45,7 @@ class QuickFlipOpportunityResponse(BaseModel):
 
 class QuickFlipSummaryResponse(BaseModel):
     """Response model for opportunity summary"""
+
     total_opportunities: int
     avg_profit_margin: float
     avg_gross_profit: float
@@ -53,6 +55,7 @@ class QuickFlipSummaryResponse(BaseModel):
 
 class OpportunityFilters(BaseModel):
     """Filters for opportunity search"""
+
     min_profit_margin: Optional[float] = Field(default=10.0, ge=0, le=1000)
     min_gross_profit: Optional[float] = Field(default=20.0, ge=0)
     max_buy_price: Optional[float] = Field(default=None, ge=0)
@@ -62,6 +65,7 @@ class OpportunityFilters(BaseModel):
 
 class ImportStatsResponse(BaseModel):
     """Response model for import statistics"""
+
     total_market_prices: int
     sources_breakdown: Optional[Dict[str, int]] = None
 
@@ -70,14 +74,22 @@ class ImportStatsResponse(BaseModel):
     "/opportunities",
     response_model=List[QuickFlipOpportunityResponse],
     summary="Find QuickFlip opportunities",
-    description="Discover profitable arbitrage opportunities by comparing market prices with StockX data"
+    description="Discover profitable arbitrage opportunities by comparing market prices with StockX data",
 )
 async def get_quickflip_opportunities(
-    min_profit_margin: float = Query(default=10.0, ge=0, le=1000, description="Minimum profit margin percentage"),
+    min_profit_margin: float = Query(
+        default=10.0, ge=0, le=1000, description="Minimum profit margin percentage"
+    ),
     min_gross_profit: float = Query(default=20.0, ge=0, description="Minimum gross profit in EUR"),
-    max_buy_price: Optional[float] = Query(default=None, ge=0, description="Maximum buy price filter"),
-    sources: Optional[str] = Query(default=None, description="Comma-separated list of sources (e.g., 'awin,webgains')"),
-    limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of opportunities to return"),
+    max_buy_price: Optional[float] = Query(
+        default=None, ge=0, description="Maximum buy price filter"
+    ),
+    sources: Optional[str] = Query(
+        default=None, description="Comma-separated list of sources (e.g., 'awin,webgains')"
+    ),
+    limit: int = Query(
+        default=100, ge=1, le=1000, description="Maximum number of opportunities to return"
+    ),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get QuickFlip opportunities with customizable filters"""
@@ -95,7 +107,7 @@ async def get_quickflip_opportunities(
             min_gross_profit=Decimal(str(min_gross_profit)),
             max_buy_price=Decimal(str(max_buy_price)) if max_buy_price else None,
             sources=sources_list,
-            limit=limit
+            limit=limit,
         )
 
         # Convert to response models
@@ -104,7 +116,7 @@ async def get_quickflip_opportunities(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to find opportunities: {str(e)}"
+            detail=f"Failed to find opportunities: {str(e)}",
         )
 
 
@@ -112,7 +124,7 @@ async def get_quickflip_opportunities(
     "/opportunities/summary",
     response_model=QuickFlipSummaryResponse,
     summary="Get opportunities summary",
-    description="Get statistical summary of all available QuickFlip opportunities"
+    description="Get statistical summary of all available QuickFlip opportunities",
 )
 async def get_opportunities_summary(
     db: AsyncSession = Depends(get_db_session),
@@ -134,13 +146,13 @@ async def get_opportunities_summary(
             avg_profit_margin=summary["avg_profit_margin"],
             avg_gross_profit=summary["avg_gross_profit"],
             best_opportunity=best_opp,
-            sources_breakdown=summary["sources_breakdown"]
+            sources_breakdown=summary["sources_breakdown"],
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get summary: {str(e)}"
+            detail=f"Failed to get summary: {str(e)}",
         )
 
 
@@ -148,7 +160,7 @@ async def get_opportunities_summary(
     "/opportunities/product/{product_id}",
     response_model=List[QuickFlipOpportunityResponse],
     summary="Get opportunities for specific product",
-    description="Get all available opportunities for a specific product"
+    description="Get all available opportunities for a specific product",
 )
 async def get_opportunities_by_product(
     product_id: UUID,
@@ -166,7 +178,7 @@ async def get_opportunities_by_product(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get opportunities for product: {str(e)}"
+            detail=f"Failed to get opportunities for product: {str(e)}",
         )
 
 
@@ -174,11 +186,13 @@ async def get_opportunities_by_product(
     "/opportunities/source/{source}",
     response_model=List[QuickFlipOpportunityResponse],
     summary="Get best opportunities by source",
-    description="Get the best opportunities from a specific data source"
+    description="Get the best opportunities from a specific data source",
 )
 async def get_opportunities_by_source(
     source: str,
-    limit: int = Query(default=20, ge=1, le=100, description="Maximum number of opportunities to return"),
+    limit: int = Query(
+        default=20, ge=1, le=100, description="Maximum number of opportunities to return"
+    ),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get best opportunities from a specific source"""
@@ -187,8 +201,7 @@ async def get_opportunities_by_source(
 
     try:
         opportunities = await detection_service.get_best_opportunities_by_source(
-            source=source,
-            limit=limit
+            source=source, limit=limit
         )
 
         return [QuickFlipOpportunityResponse(**opp.to_dict()) for opp in opportunities]
@@ -196,7 +209,7 @@ async def get_opportunities_by_source(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get opportunities for source {source}: {str(e)}"
+            detail=f"Failed to get opportunities for source {source}: {str(e)}",
         )
 
 
@@ -204,7 +217,7 @@ async def get_opportunities_by_source(
     "/opportunities/mark-acted",
     status_code=status.HTTP_200_OK,
     summary="Mark opportunity as acted upon",
-    description="Mark an opportunity as acted upon (purchased, etc.) for tracking"
+    description="Mark an opportunity as acted upon (purchased, etc.) for tracking",
 )
 async def mark_opportunity_acted(
     product_id: UUID,
@@ -218,22 +231,20 @@ async def mark_opportunity_acted(
 
     try:
         result = await detection_service.mark_opportunity_as_acted(
-            product_id=product_id,
-            source=source,
-            action=action
+            product_id=product_id, source=source, action=action
         )
 
         return {
             "success": result,
             "message": f"Opportunity marked as {action}",
             "product_id": str(product_id),
-            "source": source
+            "source": source,
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to mark opportunity: {str(e)}"
+            detail=f"Failed to mark opportunity: {str(e)}",
         )
 
 
@@ -242,7 +253,7 @@ async def mark_opportunity_acted(
     "/import/csv",
     status_code=status.HTTP_200_OK,
     summary="Import market prices from CSV",
-    description="Import product price data from CSV file (AWIN, Webgains, etc.)"
+    description="Import product price data from CSV file (AWIN, Webgains, etc.)",
 )
 async def import_market_prices_csv(
     file_path: str,
@@ -254,26 +265,22 @@ async def import_market_prices_csv(
     import_service = MarketPriceImportService(db)
 
     try:
-        stats = await import_service.import_csv_file(
-            file_path=file_path,
-            source=source
-        )
+        stats = await import_service.import_csv_file(file_path=file_path, source=source)
 
         return {
             "success": True,
             "message": f"Successfully imported {stats['created']} new prices and updated {stats['updated']} existing prices",
-            "statistics": stats
+            "statistics": stats,
         }
 
     except FileNotFoundError:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"CSV file not found: {file_path}"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"CSV file not found: {file_path}"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to import CSV: {str(e)}"
+            detail=f"Failed to import CSV: {str(e)}",
         )
 
 
@@ -281,7 +288,7 @@ async def import_market_prices_csv(
     "/import/stats",
     response_model=ImportStatsResponse,
     summary="Get import statistics",
-    description="Get statistics about imported market price data"
+    description="Get statistics about imported market price data",
 )
 async def get_import_stats(
     source: Optional[str] = Query(default=None, description="Specific source to get stats for"),
@@ -299,7 +306,7 @@ async def get_import_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get import stats: {str(e)}"
+            detail=f"Failed to get import stats: {str(e)}",
         )
 
 
@@ -307,11 +314,9 @@ async def get_import_stats(
 @router.get(
     "/health",
     summary="QuickFlip service health check",
-    description="Check if QuickFlip detection service is operational"
+    description="Check if QuickFlip detection service is operational",
 )
-async def quickflip_health_check(
-    db: AsyncSession = Depends(get_db_session)
-):
+async def quickflip_health_check(db: AsyncSession = Depends(get_db_session)):
     """Health check for QuickFlip service"""
 
     try:
@@ -325,11 +330,11 @@ async def quickflip_health_check(
             "status": "healthy",
             "service": "quickflip_detection",
             "total_opportunities": summary.get("total_opportunities", 0),
-            "timestamp": "2025-09-18T08:30:00Z"  # Could use datetime.utcnow()
+            "timestamp": "2025-09-18T08:30:00Z",  # Could use datetime.utcnow()
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"QuickFlip service unhealthy: {str(e)}"
+            detail=f"QuickFlip service unhealthy: {str(e)}",
         )

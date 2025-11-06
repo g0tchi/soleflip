@@ -2,6 +2,7 @@
 Awin Product Feed Import Service
 Handles downloading, parsing, and importing product data from Awin affiliate feeds
 """
+
 import csv
 import gzip
 import httpx
@@ -27,7 +28,7 @@ class AwinFeedImportService:
         merchant_ids: List[int],
         output_path: str = "context/integrations/awin_feed_latest.csv.gz",
         categories: Optional[List[int]] = None,
-        feed_ids: Optional[List[int]] = None
+        feed_ids: Optional[List[int]] = None,
     ) -> str:
         """
         Download latest feed from Awin
@@ -43,31 +44,98 @@ class AwinFeedImportService:
         """
         # Build URL with all required columns
         columns = [
-            "aw_deep_link", "product_name", "aw_product_id", "merchant_product_id",
-            "merchant_image_url", "description", "merchant_category", "search_price",
-            "merchant_name", "merchant_id", "category_name", "category_id",
-            "aw_image_url", "currency", "store_price", "delivery_cost",
-            "merchant_deep_link", "language", "last_updated", "display_price",
-            "data_feed_id", "brand_name", "brand_id", "colour",
-            "product_short_description", "specifications", "condition",
-            "product_model", "model_number", "dimensions", "keywords",
-            "promotional_text", "product_type", "commission_group",
-            "merchant_product_category_path", "merchant_product_second_category",
-            "merchant_product_third_category", "rrp_price", "saving",
-            "savings_percent", "base_price", "base_price_amount", "base_price_text",
-            "product_price_old", "delivery_restrictions", "delivery_weight",
-            "warranty", "terms_of_contract", "delivery_time", "in_stock",
-            "stock_quantity", "valid_from", "valid_to", "is_for_sale",
-            "web_offer", "pre_order", "stock_status", "size_stock_status",
-            "size_stock_amount", "merchant_thumb_url", "large_image",
-            "alternate_image", "aw_thumb_url", "alternate_image_two",
-            "alternate_image_three", "alternate_image_four", "reviews",
-            "average_rating", "rating", "number_available",
-            "custom_1", "custom_2", "custom_3", "custom_4", "custom_5",
-            "custom_6", "custom_7", "custom_8", "custom_9",
-            "ean", "isbn", "upc", "mpn", "parent_product_id", "product_GTIN",
-            "basket_link", "Fashion:suitable_for", "Fashion:category",
-            "Fashion:size", "Fashion:material", "Fashion:pattern", "Fashion:swatch"
+            "aw_deep_link",
+            "product_name",
+            "aw_product_id",
+            "merchant_product_id",
+            "merchant_image_url",
+            "description",
+            "merchant_category",
+            "search_price",
+            "merchant_name",
+            "merchant_id",
+            "category_name",
+            "category_id",
+            "aw_image_url",
+            "currency",
+            "store_price",
+            "delivery_cost",
+            "merchant_deep_link",
+            "language",
+            "last_updated",
+            "display_price",
+            "data_feed_id",
+            "brand_name",
+            "brand_id",
+            "colour",
+            "product_short_description",
+            "specifications",
+            "condition",
+            "product_model",
+            "model_number",
+            "dimensions",
+            "keywords",
+            "promotional_text",
+            "product_type",
+            "commission_group",
+            "merchant_product_category_path",
+            "merchant_product_second_category",
+            "merchant_product_third_category",
+            "rrp_price",
+            "saving",
+            "savings_percent",
+            "base_price",
+            "base_price_amount",
+            "base_price_text",
+            "product_price_old",
+            "delivery_restrictions",
+            "delivery_weight",
+            "warranty",
+            "terms_of_contract",
+            "delivery_time",
+            "in_stock",
+            "stock_quantity",
+            "valid_from",
+            "valid_to",
+            "is_for_sale",
+            "web_offer",
+            "pre_order",
+            "stock_status",
+            "size_stock_status",
+            "size_stock_amount",
+            "merchant_thumb_url",
+            "large_image",
+            "alternate_image",
+            "aw_thumb_url",
+            "alternate_image_two",
+            "alternate_image_three",
+            "alternate_image_four",
+            "reviews",
+            "average_rating",
+            "rating",
+            "number_available",
+            "custom_1",
+            "custom_2",
+            "custom_3",
+            "custom_4",
+            "custom_5",
+            "custom_6",
+            "custom_7",
+            "custom_8",
+            "custom_9",
+            "ean",
+            "isbn",
+            "upc",
+            "mpn",
+            "parent_product_id",
+            "product_GTIN",
+            "basket_link",
+            "Fashion:suitable_for",
+            "Fashion:category",
+            "Fashion:size",
+            "Fashion:material",
+            "Fashion:pattern",
+            "Fashion:swatch",
         ]
 
         url = (
@@ -94,7 +162,7 @@ class AwinFeedImportService:
             response = await client.get(url)
             response.raise_for_status()
 
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 f.write(response.content)
 
         print(f"[OK] Feed downloaded: {output_path}")
@@ -113,7 +181,7 @@ class AwinFeedImportService:
         products = []
         print(f"[*] Parsing feed: {csv_file_path}")
 
-        with gzip.open(csv_file_path, 'rt', encoding='utf-8') as f:
+        with gzip.open(csv_file_path, "rt", encoding="utf-8") as f:
             reader = csv.DictReader(f)
 
             for i, row in enumerate(reader, 1):
@@ -141,9 +209,10 @@ class AwinFeedImportService:
         Returns:
             Transformed product dictionary
         """
+
         # Parse price safely
         def parse_price(value: str) -> Optional[int]:
-            if not value or value.strip() == '':
+            if not value or value.strip() == "":
                 return None
             try:
                 return int(float(value) * 100)  # Convert to cents
@@ -152,7 +221,7 @@ class AwinFeedImportService:
 
         # Parse int safely
         def parse_int(value: str) -> Optional[int]:
-            if not value or value.strip() == '':
+            if not value or value.strip() == "":
                 return None
             try:
                 return int(value)
@@ -161,12 +230,17 @@ class AwinFeedImportService:
 
         # Parse bool from '0'/'1'
         def parse_bool(value: str) -> bool:
-            return value == '1' if value else False
+            return value == "1" if value else False
 
         # Collect alternate images
         alternate_images = []
-        for img_field in ['large_image', 'alternate_image', 'alternate_image_two',
-                          'alternate_image_three', 'alternate_image_four']:
+        for img_field in [
+            "large_image",
+            "alternate_image",
+            "alternate_image_two",
+            "alternate_image_three",
+            "alternate_image_four",
+        ]:
             if row.get(img_field):
                 alternate_images.append(row[img_field])
 
@@ -176,7 +250,6 @@ class AwinFeedImportService:
             "merchant_id": parse_int(row.get("merchant_id")) or 0,
             "merchant_name": row.get("merchant_name"),
             "data_feed_id": parse_int(row.get("data_feed_id")),
-
             # Product info
             "product_name": row.get("product_name", ""),
             "brand_name": row.get("brand_name"),
@@ -185,36 +258,34 @@ class AwinFeedImportService:
             "product_gtin": row.get("product_GTIN"),
             "mpn": row.get("mpn"),
             "product_model": row.get("product_model"),
-
             # Pricing
             "retail_price_cents": parse_price(row.get("search_price")),
             "store_price_cents": parse_price(row.get("store_price")),
             "rrp_price_cents": parse_price(row.get("rrp_price")),
             "currency": row.get("currency", "EUR"),
-
             # Details
             "description": row.get("description"),
             "short_description": row.get("product_short_description"),
             "colour": row.get("colour"),
             "size": row.get("Fashion:size"),
             "material": row.get("Fashion:material"),
-
             # Stock
             "in_stock": parse_bool(row.get("in_stock")),
             "stock_quantity": parse_int(row.get("stock_quantity")) or 0,
             "delivery_time": row.get("delivery_time"),
-
             # Images
             "image_url": row.get("merchant_image_url"),
             "thumbnail_url": row.get("aw_thumb_url"),
             "alternate_images": alternate_images if alternate_images else None,
-
             # Links
             "affiliate_link": row.get("aw_deep_link"),
             "merchant_link": row.get("merchant_deep_link"),
-
             # Metadata
-            "last_updated": row.get("last_updated") if row.get("last_updated") and row.get("last_updated").strip() else None
+            "last_updated": (
+                row.get("last_updated")
+                if row.get("last_updated") and row.get("last_updated").strip()
+                else None
+            ),
         }
 
     async def import_products(self, products: List[Dict]) -> int:
@@ -240,7 +311,9 @@ class AwinFeedImportService:
                     print(f"    Imported {i}/{len(products)} products...")
 
             except Exception as e:
-                print(f"[WARN] Error importing product {product.get('awin_product_id')}: {str(e)[:200]}")
+                print(
+                    f"[WARN] Error importing product {product.get('awin_product_id')}: {str(e)[:200]}"
+                )
                 # Rollback failed transaction
                 await self.session.rollback()
                 continue
@@ -260,10 +333,12 @@ class AwinFeedImportService:
         alternate_images_json = None
         if product_data.get("alternate_images"):
             import json
+
             alternate_images_json = json.dumps(product_data["alternate_images"])
 
         await self.session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO integration.awin_products (
                     awin_product_id, merchant_product_id, merchant_id,
                     merchant_name, data_feed_id, product_name, brand_name, brand_id,
@@ -293,11 +368,9 @@ class AwinFeedImportService:
                     stock_quantity = EXCLUDED.stock_quantity,
                     last_updated = EXCLUDED.last_updated,
                     updated_at = NOW()
-            """),
-            {
-                **product_data,
-                "alternate_images": alternate_images_json
-            }
+            """
+            ),
+            {**product_data, "alternate_images": alternate_images_json},
         )
 
     async def match_products_by_ean(self) -> int:
@@ -311,7 +384,8 @@ class AwinFeedImportService:
 
         try:
             result = await self.session.execute(
-                text("""
+                text(
+                    """
                     UPDATE integration.awin_products ap
                     SET
                         matched_product_id = p.id,
@@ -323,7 +397,8 @@ class AwinFeedImportService:
                       AND ap.ean IS NOT NULL
                       AND ap.ean != ''
                       AND ap.matched_product_id IS NULL
-                """)
+                """
+                )
             )
 
             await self.session.commit()
@@ -337,7 +412,8 @@ class AwinFeedImportService:
     async def get_import_stats(self) -> Dict:
         """Get statistics about imported products"""
         result = await self.session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     COUNT(*) as total_products,
                     COUNT(DISTINCT brand_name) as total_brands,
@@ -348,7 +424,8 @@ class AwinFeedImportService:
                     MIN(retail_price_cents) / 100.0 as min_price_eur,
                     MAX(retail_price_cents) / 100.0 as max_price_eur
                 FROM integration.awin_products
-            """)
+            """
+            )
         )
 
         stats = result.fetchone()
@@ -361,14 +438,11 @@ class AwinFeedImportService:
             "matched_count": int(stats[4]) if stats[4] else 0,
             "avg_price_eur": float(stats[5]) if stats[5] else 0.0,
             "min_price_eur": float(stats[6]) if stats[6] else 0.0,
-            "max_price_eur": float(stats[7]) if stats[7] else 0.0
+            "max_price_eur": float(stats[7]) if stats[7] else 0.0,
         }
 
     async def find_profit_opportunities(
-        self,
-        min_profit_cents: int = 2000,
-        in_stock_only: bool = True,
-        limit: int = 50
+        self, min_profit_cents: int = 2000, in_stock_only: bool = True, limit: int = 50
     ) -> List[Dict]:
         """
         Find profit opportunities by comparing retail vs resale prices
@@ -408,28 +482,29 @@ class AwinFeedImportService:
         query += " ORDER BY profit_cents DESC LIMIT :limit"
 
         result = await self.session.execute(
-            text(query),
-            {"min_profit": min_profit_cents, "limit": limit}
+            text(query), {"min_profit": min_profit_cents, "limit": limit}
         )
 
         opportunities = []
         for row in result:
-            opportunities.append({
-                "product_name": row[0],
-                "brand_name": row[1],
-                "size": row[2],
-                "colour": row[3],
-                "retail_price_eur": row[4] / 100.0 if row[4] else 0,
-                "stockx_price_eur": row[5] / 100.0 if row[5] else 0,
-                "style_code": row[6],
-                "stockx_name": row[7],
-                "profit_eur": row[8] / 100.0 if row[8] else 0,
-                "in_stock": row[9],
-                "stock_quantity": row[10],
-                "affiliate_link": row[11],
-                "image_url": row[12],
-                "merchant_name": row[13]
-            })
+            opportunities.append(
+                {
+                    "product_name": row[0],
+                    "brand_name": row[1],
+                    "size": row[2],
+                    "colour": row[3],
+                    "retail_price_eur": row[4] / 100.0 if row[4] else 0,
+                    "stockx_price_eur": row[5] / 100.0 if row[5] else 0,
+                    "style_code": row[6],
+                    "stockx_name": row[7],
+                    "profit_eur": row[8] / 100.0 if row[8] else 0,
+                    "in_stock": row[9],
+                    "stock_quantity": row[10],
+                    "affiliate_link": row[11],
+                    "image_url": row[12],
+                    "merchant_name": row[13],
+                }
+            )
 
         return opportunities
 

@@ -32,18 +32,18 @@ def handle_domain_errors(
     context: str = "",
     reraise: bool = True,
     fallback_return: Any = None,
-    specific_mappings: Optional[Dict[str, Type[DomainException]]] = None
+    specific_mappings: Optional[Dict[str, Type[DomainException]]] = None,
 ):
     """
     Enhanced decorator that maps generic exceptions to domain-specific ones.
-    
+
     Args:
         context: Context description for error logging
-        reraise: Whether to reraise the exception (True) or return fallback_return (False)  
+        reraise: Whether to reraise the exception (True) or return fallback_return (False)
         fallback_return: Value to return if reraise=False
         specific_mappings: Custom exception mappings for this decorator instance
     """
-    
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -58,29 +58,29 @@ def handle_domain_errors(
                 if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
                     domain_error = DatabaseConnectionException(
                         f"Database connection failed: {error_msg}",
-                        details={"original_error": type(e).__name__, "context": context}
+                        details={"original_error": type(e).__name__, "context": context},
                     )
                 else:
                     domain_error = DatabaseOperationException(
                         f"Database operation failed: {error_msg}",
-                        details={"original_error": type(e).__name__, "context": context}
+                        details={"original_error": type(e).__name__, "context": context},
                     )
-                
+
                 logger.error(
                     f"Database error in {context or func.__name__}",
                     error=str(e),
                     error_type=type(e).__name__,
-                    mapped_to=type(domain_error).__name__
+                    mapped_to=type(domain_error).__name__,
                 )
-                
+
                 if reraise:
                     raise domain_error from e
                 return fallback_return
-                
+
             except Exception as e:
                 # Generic exception mapping
                 error_message = str(e).lower()
-                
+
                 # Check specific mappings first
                 domain_error = None
                 if specific_mappings:
@@ -88,26 +88,26 @@ def handle_domain_errors(
                         if keyword.lower() in error_message:
                             domain_error = exception_class(
                                 str(e),
-                                details={"original_error": type(e).__name__, "context": context}
+                                details={"original_error": type(e).__name__, "context": context},
                             )
                             break
-                
+
                 # Fallback to automatic mapping
                 if not domain_error:
                     domain_error = create_specific_exception(e, context or func.__name__)
-                
+
                 logger.error(
                     f"Error in {context or func.__name__}",
                     error=str(e),
                     error_type=type(e).__name__,
                     mapped_to=type(domain_error).__name__,
-                    context=context
+                    context=context,
                 )
-                
+
                 if reraise:
                     raise domain_error from e
                 return fallback_return
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             try:
@@ -121,46 +121,46 @@ def handle_domain_errors(
                 if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
                     domain_error = DatabaseConnectionException(
                         f"Database connection failed: {error_msg}",
-                        details={"original_error": type(e).__name__, "context": context}
+                        details={"original_error": type(e).__name__, "context": context},
                     )
                 else:
                     domain_error = DatabaseOperationException(
                         f"Database operation failed: {error_msg}",
-                        details={"original_error": type(e).__name__, "context": context}
+                        details={"original_error": type(e).__name__, "context": context},
                     )
-                
+
                 logger.error(
                     f"Database error in {context or func.__name__}",
                     error=str(e),
                     error_type=type(e).__name__,
-                    mapped_to=type(domain_error).__name__
+                    mapped_to=type(domain_error).__name__,
                 )
-                
+
                 if reraise:
                     raise domain_error from e
                 return fallback_return
-                
+
             except Exception as e:
                 # Generic exception mapping
                 domain_error = create_specific_exception(e, context or func.__name__)
-                
+
                 logger.error(
                     f"Error in {context or func.__name__}",
                     error=str(e),
                     error_type=type(e).__name__,
                     mapped_to=type(domain_error).__name__,
-                    context=context
+                    context=context,
                 )
-                
+
                 if reraise:
                     raise domain_error from e
                 return fallback_return
-        
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper
-    
+
     return decorator
 
 
@@ -170,17 +170,16 @@ def handle_api_errors(service_name: str = "external_api"):
     """
     specific_mappings = {
         "401": AuthenticationException,
-        "403": AuthenticationException, 
+        "403": AuthenticationException,
         "unauthorized": AuthenticationException,
         "forbidden": AuthenticationException,
         "429": ExternalApiException,  # Rate limiting
         "rate limit": ExternalApiException,
         "stockx": StockXApiException,
     }
-    
+
     return handle_domain_errors(
-        context=f"{service_name}_api_call",
-        specific_mappings=specific_mappings
+        context=f"{service_name}_api_call", specific_mappings=specific_mappings
     )
 
 
@@ -195,10 +194,9 @@ def handle_import_errors(import_source: str = ""):
         "batch": BatchProcessingException,
         "transform": ImportException,
     }
-    
+
     return handle_domain_errors(
-        context=f"import_{import_source}",
-        specific_mappings=specific_mappings
+        context=f"import_{import_source}", specific_mappings=specific_mappings
     )
 
 
@@ -211,10 +209,9 @@ def handle_service_errors(service_name: str):
         "unavailable": ServiceIntegrationException,
         "integration": ServiceIntegrationException,
     }
-    
+
     return handle_domain_errors(
-        context=f"{service_name}_service",
-        specific_mappings=specific_mappings
+        context=f"{service_name}_service", specific_mappings=specific_mappings
     )
 
 

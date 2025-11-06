@@ -88,9 +88,7 @@ class OrderImportService:
 
         return stats
 
-    async def _import_single_stockx_order(
-        self, order_data: Dict[str, Any]
-    ) -> str:
+    async def _import_single_stockx_order(self, order_data: Dict[str, Any]) -> str:
         """
         Import or update a single StockX order.
 
@@ -166,9 +164,7 @@ class OrderImportService:
             # For now, we create a placeholder inventory item or find one
             if not inventory_item_id:
                 # Try to find or create a placeholder inventory item
-                inventory_item_id = await self._get_or_create_placeholder_inventory_item(
-                    order_data
-                )
+                inventory_item_id = await self._get_or_create_placeholder_inventory_item(order_data)
 
             order_values["inventory_item_id"] = inventory_item_id
 
@@ -183,9 +179,7 @@ class OrderImportService:
             )
             return "created"
 
-    async def _find_matching_inventory_item(
-        self, order_data: Dict[str, Any]
-    ) -> Optional[UUID]:
+    async def _find_matching_inventory_item(self, order_data: Dict[str, Any]) -> Optional[UUID]:
         """
         Try to find a matching inventory item for the order.
 
@@ -200,9 +194,7 @@ class OrderImportService:
         # This would require product catalog to be populated first
         return None
 
-    async def _get_or_create_placeholder_inventory_item(
-        self, order_data: Dict[str, Any]
-    ) -> UUID:
+    async def _get_or_create_placeholder_inventory_item(self, order_data: Dict[str, Any]) -> UUID:
         """
         Get or create a placeholder inventory item for orders without matched inventory.
 
@@ -247,24 +239,23 @@ class OrderImportService:
 
         # Get or create Size
         size_id = await self._get_or_create_size(
-            size_value=size_value or "Unknown",
-            region="US"  # Default to US sizing for StockX
+            size_value=size_value or "Unknown", region="US"  # Default to US sizing for StockX
         )
 
         # Create new placeholder inventory item with Gibson schema fields
         placeholder = InventoryItem(
-            product_id=product_id,         # REQUIRED FK
-            size_id=size_id,              # REQUIRED FK
-            quantity=1,                    # REQUIRED
-            status="sold",                 # REQUIRED
+            product_id=product_id,  # REQUIRED FK
+            size_id=size_id,  # REQUIRED FK
+            quantity=1,  # REQUIRED
+            status="sold",  # REQUIRED
             location="StockX",
             notes=f"Auto-created for StockX order {order_number}",
-            external_ids={                 # JSONB field for tracking
+            external_ids={  # JSONB field for tracking
                 "stockx_order_number": order_number,
                 "stockx_product_id": stockx_product_id,
                 "stockx_variant_id": variant_id,
                 "is_placeholder": True,
-            }
+            },
         )
         self.db_session.add(placeholder)
         await self.db_session.flush()  # Get the ID without committing
@@ -337,7 +328,7 @@ class OrderImportService:
         product = Product(
             sku=sku,
             category_id=category.id if category else None,  # Category should always exist
-            brand_id=brand.id if brand else None,            # Brand is optional
+            brand_id=brand.id if brand else None,  # Brand is optional
             name=product_name,
             stockx_product_id=stockx_product_id,
             style_code=style_code,  # Store the real manufacturer code
@@ -352,13 +343,11 @@ class OrderImportService:
             style_code=style_code,
             name=product_name,
             brand=brand.name if brand else "Unknown",
-            category=category.name if category else "Unknown"
+            category=category.name if category else "Unknown",
         )
         return product.id
 
-    async def _get_or_create_size(
-        self, size_value: str, region: str = "US"
-    ) -> UUID:
+    async def _get_or_create_size(self, size_value: str, region: str = "US") -> UUID:
         """
         Find or create a Size entry.
 
@@ -368,10 +357,7 @@ class OrderImportService:
         - category_id (UUID, optional)
         """
         # Try to find existing size
-        stmt = select(Size).where(
-            Size.value == size_value,
-            Size.region == region
-        )
+        stmt = select(Size).where(Size.value == size_value, Size.region == region)
         result = await self.db_session.execute(stmt)
         size = result.scalar_one_or_none()
 
@@ -380,17 +366,12 @@ class OrderImportService:
             return size.id
 
         # Create new size
-        size = Size(
-            value=size_value,
-            region=region,
-            category_id=None  # Optional, can be set later
-        )
+        size = Size(value=size_value, region=region, category_id=None)  # Optional, can be set later
         self.db_session.add(size)
         await self.db_session.flush()
 
         logger.debug("Created new size", size_id=str(size.id), value=size_value, region=region)
         return size.id
-
 
     async def _get_platform_id(self, platform_slug: str) -> UUID:
         """
@@ -410,7 +391,9 @@ class OrderImportService:
             raise ValueError(f"Platform '{platform_slug}' not found in database")
 
         self._platform_cache[platform_slug] = platform.id
-        logger.debug("Cached platform ID", platform_slug=platform_slug, platform_id=str(platform.id))
+        logger.debug(
+            "Cached platform ID", platform_slug=platform_slug, platform_id=str(platform.id)
+        )
         return platform.id
 
     @staticmethod

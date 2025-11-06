@@ -5,6 +5,7 @@ import pytest
 from httpx import AsyncClient
 
 from main import app  # Import the app instance
+
 # COVERAGE FIX: Direct import of router to ensure coverage measurement
 
 # Mark all tests in this file as API and integration tests that require a DB
@@ -107,7 +108,9 @@ async def test_get_active_orders_service_error(
     assert "An unexpected error occurred" in response_data["error"]["message"]
 
 
-async def test_get_historical_orders_success(test_client: AsyncClient, mock_stockx_service, override_db_dependency):
+async def test_get_historical_orders_success(
+    test_client: AsyncClient, mock_stockx_service, override_db_dependency
+):
     """
     Tests the happy path for the GET /orders/stockx-history endpoint with all filters.
     """
@@ -134,7 +137,9 @@ async def test_get_historical_orders_success(test_client: AsyncClient, mock_stoc
     assert call_args.kwargs["product_id"] == "prod-123"
 
 
-async def test_get_historical_orders_missing_dates(test_client: AsyncClient, override_db_dependency):
+async def test_get_historical_orders_missing_dates(
+    test_client: AsyncClient, override_db_dependency
+):
     """
     Tests that a 422 validation error is returned if required date params are missing.
     """
@@ -145,7 +150,9 @@ async def test_get_historical_orders_missing_dates(test_client: AsyncClient, ove
     assert response.status_code == 422  # Unprocessable Entity
 
 
-async def test_get_historical_orders_service_error(test_client: AsyncClient, mock_stockx_service, override_db_dependency):
+async def test_get_historical_orders_service_error(
+    test_client: AsyncClient, mock_stockx_service, override_db_dependency
+):
     """
     Tests that a 500 error is returned if the historical orders service raises an exception.
     """

@@ -4,6 +4,7 @@ Uses systematic search queries to find all sales with complete purchase data
 
 This script should be run by Claude Code with Notion MCP access.
 """
+
 from typing import List
 
 # This will be populated by Claude Code via Notion MCP
@@ -16,9 +17,9 @@ SEEN_SALE_IDS = set()
 
 def extract_sale_id(highlight: str) -> str:
     """Extract Sale ID from highlight text"""
-    for line in highlight.split('\n'):
-        if line.startswith('Sale ID:'):
-            return line.split(':', 1)[1].strip()
+    for line in highlight.split("\n"):
+        if line.startswith("Sale ID:"):
+            return line.split(":", 1)[1].strip()
     return None
 
 
@@ -38,12 +39,7 @@ def deduplicate_sales(sales_raw: List[tuple]) -> List[tuple]:
 
 def validate_sale(highlight: str) -> bool:
     """Check if sale has all required fields"""
-    required_fields = [
-        'Gross Buy:',
-        'Supplier:',
-        'Sale Platform: StockX',
-        'Sale ID:'
-    ]
+    required_fields = ["Gross Buy:", "Supplier:", "Sale Platform: StockX", "Sale ID:"]
 
     return all(field in highlight for field in required_fields)
 
@@ -80,9 +76,9 @@ def main():
             print(f"  - {sku}")
 
     # Export for execute_bulk_sync.py
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("COPY THIS TO execute_bulk_sync.py:")
-    print("="*80)
+    print("=" * 80)
     print("\nNOTION_SALES_RAW = [")
     for sku, url, highlight in valid_sales:
         # Escape quotes in highlight
@@ -93,5 +89,5 @@ def main():
     print(f"\n# Total: {len(valid_sales)} valid StockX sales")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

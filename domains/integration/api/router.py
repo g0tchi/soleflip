@@ -37,7 +37,8 @@ async def get_awin_stats(
     logger.info("Fetching Awin product statistics")
 
     try:
-        stats_query = text("""
+        stats_query = text(
+            """
             SELECT
                 COUNT(*) as total_products,
                 COUNT(CASE WHEN in_stock = true THEN 1 END) as in_stock_count,
@@ -48,7 +49,8 @@ async def get_awin_stats(
                 COUNT(CASE WHEN ean IS NOT NULL AND ean != '' THEN 1 END) as products_with_ean,
                 COUNT(CASE WHEN matched_product_id IS NOT NULL THEN 1 END) as matched_products
             FROM integration.awin_products
-        """)
+        """
+        )
 
         result = await db.execute(stats_query)
         stats = result.fetchone()
@@ -61,11 +63,12 @@ async def get_awin_stats(
                     "total_products": 0,
                     "in_stock": 0,
                     "brands": 0,
-                }
+                },
             }
 
         # Get brand breakdown
-        brands_query = text("""
+        brands_query = text(
+            """
             SELECT
                 brand_name,
                 COUNT(*) as product_count,
@@ -75,7 +78,8 @@ async def get_awin_stats(
             WHERE brand_name IS NOT NULL
             GROUP BY brand_name
             ORDER BY product_count DESC
-        """)
+        """
+        )
 
         brands_result = await db.execute(brands_query)
         brands = [
@@ -88,8 +92,14 @@ async def get_awin_stats(
             for row in brands_result.fetchall()
         ]
 
-        ean_coverage = (stats.products_with_ean / stats.total_products * 100) if stats.total_products > 0 else 0
-        match_rate = (stats.matched_products / stats.total_products * 100) if stats.total_products > 0 else 0
+        ean_coverage = (
+            (stats.products_with_ean / stats.total_products * 100)
+            if stats.total_products > 0
+            else 0
+        )
+        match_rate = (
+            (stats.matched_products / stats.total_products * 100) if stats.total_products > 0 else 0
+        )
 
         return {
             "success": True,
@@ -98,7 +108,11 @@ async def get_awin_stats(
                 "total_products": stats.total_products,
                 "in_stock": stats.in_stock_count,
                 "out_of_stock": stats.total_products - stats.in_stock_count,
-                "in_stock_percentage": round((stats.in_stock_count / stats.total_products * 100), 1) if stats.total_products > 0 else 0,
+                "in_stock_percentage": (
+                    round((stats.in_stock_count / stats.total_products * 100), 1)
+                    if stats.total_products > 0
+                    else 0
+                ),
                 "unique_brands": stats.unique_brands,
                 "price_range": {
                     "min_eur": float(stats.min_price_eur) if stats.min_price_eur else 0,
@@ -140,10 +154,17 @@ async def list_awin_products(
     db: AsyncSession = Depends(get_db_session),
 ):
     """List Awin products with optional filters"""
-    logger.info("Fetching Awin products", filters={
-        "in_stock": in_stock, "brand": brand, "min_price": min_price_eur,
-        "max_price": max_price_eur, "has_ean": has_ean, "is_matched": is_matched
-    })
+    logger.info(
+        "Fetching Awin products",
+        filters={
+            "in_stock": in_stock,
+            "brand": brand,
+            "min_price": min_price_eur,
+            "max_price": max_price_eur,
+            "has_ean": has_ean,
+            "is_matched": is_matched,
+        },
+    )
 
     try:
         # Build dynamic WHERE clause
@@ -181,7 +202,8 @@ async def list_awin_products(
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         # Get products
-        query = text(f"""
+        query = text(
+            f"""
             SELECT
                 awin_product_id,
                 product_name,
@@ -202,7 +224,8 @@ async def list_awin_products(
             {where_sql}
             ORDER BY retail_price_cents ASC
             LIMIT :limit OFFSET :offset
-        """)
+        """
+        )
 
         result = await db.execute(query, params)
         products = [
@@ -218,7 +241,9 @@ async def list_awin_products(
                 "merchant_product_id": row.merchant_product_id,
                 "description": row.short_description,
                 "image_url": row.image_url,
-                "matched_stockx_product_id": str(row.matched_product_id) if row.matched_product_id else None,
+                "matched_stockx_product_id": (
+                    str(row.matched_product_id) if row.matched_product_id else None
+                ),
                 "match_confidence": float(row.match_confidence) if row.match_confidence else None,
                 "affiliate_link": row.affiliate_link,
                 "last_updated": row.updated_at.isoformat() if row.updated_at else None,
@@ -227,11 +252,13 @@ async def list_awin_products(
         ]
 
         # Get total count
-        count_query = text(f"""
+        count_query = text(
+            f"""
             SELECT COUNT(*) as total
             FROM integration.awin_products
             {where_sql}
-        """)
+        """
+        )
 
         count_result = await db.execute(count_query, params)
         total_count = count_result.fetchone().total
@@ -258,7 +285,9 @@ async def list_awin_products(
 )
 async def get_profit_opportunities(
     min_profit_eur: float = Query(20.0, ge=0, description="Minimum profit in EUR"),
-    min_profit_percentage: float = Query(10.0, ge=0, description="Minimum profit margin percentage"),
+    min_profit_percentage: float = Query(
+        10.0, ge=0, description="Minimum profit margin percentage"
+    ),
     limit: int = Query(50, ge=1, le=200, description="Number of opportunities to return"),
     currency: str = Query("EUR", description="Currency for StockX prices"),
     db: AsyncSession = Depends(get_db_session),
@@ -271,12 +300,14 @@ async def get_profit_opportunities(
 
     try:
         # First check if we have product table
-        check_products_query = text("""
+        check_products_query = text(
+            """
             SELECT COUNT(*) as count
             FROM information_schema.tables
             WHERE table_name = 'product'
               AND table_schema = 'catalog'
-        """)
+        """
+        )
 
         check_result = await db.execute(check_products_query)
         products_table_exists = check_result.fetchone().count > 0
@@ -290,21 +321,23 @@ async def get_profit_opportunities(
             }
 
         # Use catalog schema (products are now in catalog.product)
-        schema = 'catalog'
+        schema = "catalog"
 
         # Check if products table has the columns we need
-        columns_query = text("""
+        columns_query = text(
+            """
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'product'
               AND table_schema = :schema
               AND column_name IN ('ean', 'lowest_ask', 'name', 'brand_id', 'price', 'product_name')
-        """)
+        """
+        )
 
         columns_result = await db.execute(columns_query, {"schema": schema})
         available_columns = {row.column_name for row in columns_result.fetchall()}
 
-        if 'ean' not in available_columns:
+        if "ean" not in available_columns:
             return {
                 "success": False,
                 "message": f"Products table in schema '{schema}' does not have 'ean' column for matching",
@@ -313,11 +346,11 @@ async def get_profit_opportunities(
             }
 
         # SECURITY: Whitelist validation for column names
-        ALLOWED_PRICE_COLUMNS = {'lowest_ask', 'price'}
-        ALLOWED_NAME_COLUMNS = {'name', 'product_name'}
+        ALLOWED_PRICE_COLUMNS = {"lowest_ask", "price"}
+        ALLOWED_NAME_COLUMNS = {"name", "product_name"}
 
-        price_column = 'lowest_ask' if 'lowest_ask' in available_columns else 'price'
-        name_column = 'name' if 'name' in available_columns else 'product_name'
+        price_column = "lowest_ask" if "lowest_ask" in available_columns else "price"
+        name_column = "name" if "name" in available_columns else "product_name"
 
         if price_column not in ALLOWED_PRICE_COLUMNS or name_column not in ALLOWED_NAME_COLUMNS:
             return {
@@ -334,7 +367,8 @@ async def get_profit_opportunities(
 
         # For complex queries with dynamic schema/columns, use string building but with whitelisted values
         # This is now safe because schema, price_column, and name_column are validated against whitelists
-        query = text(f"""
+        query = text(
+            f"""
             SELECT
                 ap.awin_product_id,
                 ap.product_name as awin_product_name,
@@ -364,13 +398,17 @@ async def get_profit_opportunities(
               AND ROUND(((p.{price_column} - ap.retail_price_cents)::numeric / NULLIF(ap.retail_price_cents, 0)::numeric * 100), 1) >= :min_profit_percentage
             ORDER BY profit_eur DESC
             LIMIT :limit
-        """)
+        """
+        )
 
-        result = await db.execute(query, {
-            "min_profit_cents": min_profit_cents,
-            "min_profit_percentage": min_profit_percentage,
-            "limit": limit
-        })
+        result = await db.execute(
+            query,
+            {
+                "min_profit_cents": min_profit_cents,
+                "min_profit_percentage": min_profit_percentage,
+                "limit": limit,
+            },
+        )
 
         opportunities = [
             {
@@ -395,14 +433,17 @@ async def get_profit_opportunities(
                     "percentage": float(row.profit_percentage),
                     "roi": float(row.profit_percentage),
                 },
-                "opportunity_score": float(row.profit_eur * row.profit_percentage / 100),  # Combined score
+                "opportunity_score": float(
+                    row.profit_eur * row.profit_percentage / 100
+                ),  # Combined score
             }
             for row in result.fetchall()
         ]
 
         # Get total count of opportunities
         # SECURITY: schema and price_column are validated against whitelists above
-        count_query = text(f"""
+        count_query = text(
+            f"""
             SELECT COUNT(*) as total
             FROM integration.awin_products ap
             INNER JOIN {schema}.product p ON ap.ean = p.ean
@@ -414,18 +455,26 @@ async def get_profit_opportunities(
               AND p.{price_column} IS NOT NULL
               AND (p.{price_column} - ap.retail_price_cents) >= :min_profit_cents
               AND ROUND(((p.{price_column} - ap.retail_price_cents)::numeric / NULLIF(ap.retail_price_cents, 0)::numeric * 100), 1) >= :min_profit_percentage
-        """)
+        """
+        )
 
-        count_result = await db.execute(count_query, {
-            "min_profit_cents": min_profit_cents,
-            "min_profit_percentage": min_profit_percentage,
-        })
+        count_result = await db.execute(
+            count_query,
+            {
+                "min_profit_cents": min_profit_cents,
+                "min_profit_percentage": min_profit_percentage,
+            },
+        )
         total_opportunities = count_result.fetchone().total
 
         # Calculate summary statistics
         total_potential_profit = sum(opp["profit"]["amount_eur"] for opp in opportunities)
         avg_profit = total_potential_profit / len(opportunities) if opportunities else 0
-        avg_roi = sum(opp["profit"]["percentage"] for opp in opportunities) / len(opportunities) if opportunities else 0
+        avg_roi = (
+            sum(opp["profit"]["percentage"] for opp in opportunities) / len(opportunities)
+            if opportunities
+            else 0
+        )
 
         return {
             "success": True,
@@ -442,7 +491,9 @@ async def get_profit_opportunities(
                 "total_potential_profit_eur": round(total_potential_profit, 2),
                 "avg_profit_eur": round(avg_profit, 2),
                 "avg_roi_percentage": round(avg_roi, 1),
-                "best_opportunity_eur": round(opportunities[0]["profit"]["amount_eur"], 2) if opportunities else 0,
+                "best_opportunity_eur": (
+                    round(opportunities[0]["profit"]["amount_eur"], 2) if opportunities else 0
+                ),
             },
             "opportunities": opportunities,
             "note": "Prices are StockX lowest ask. Factor in fees: Awin commission (~5-15%), StockX seller fees (~10%), shipping costs.",
@@ -495,19 +546,22 @@ async def debug_products_enrichment(
 
     try:
         # Check table structure
-        columns_query = text("""
+        columns_query = text(
+            """
             SELECT column_name, data_type
             FROM information_schema.columns
             WHERE table_schema = 'catalog' AND table_name = 'product'
             AND column_name IN ('id', 'name', 'sku', 'ean', 'enrichment_data')
             ORDER BY column_name
-        """)
+        """
+        )
 
         result = await db.execute(columns_query)
         columns = {row.column_name: row.data_type for row in result.fetchall()}
 
         # Get sample products with enrichment data
-        sample_query = text("""
+        sample_query = text(
+            """
             SELECT
                 id,
                 name,
@@ -516,7 +570,8 @@ async def debug_products_enrichment(
             FROM catalog.product
             WHERE enrichment_data IS NOT NULL
             LIMIT :limit
-        """)
+        """
+        )
 
         result = await db.execute(sample_query, {"limit": limit})
         samples = []
@@ -526,27 +581,31 @@ async def debug_products_enrichment(
 
             # Extract EAN-related fields
             ean_fields = {}
-            ean_keys = ['ean', 'gtin', 'upc', 'barcode', 'gtins', 'productGtin']
+            ean_keys = ["ean", "gtin", "upc", "barcode", "gtins", "productGtin"]
             for key in ean_keys:
                 if key in enrichment:
                     ean_fields[key] = enrichment[key]
 
-            samples.append({
-                "id": str(row.id),
-                "name": row.name,
-                "sku": row.sku,
-                "enrichment_keys": list(enrichment.keys()) if enrichment else [],
-                "ean_fields": ean_fields,
-                "has_ean_data": len(ean_fields) > 0,
-            })
+            samples.append(
+                {
+                    "id": str(row.id),
+                    "name": row.name,
+                    "sku": row.sku,
+                    "enrichment_keys": list(enrichment.keys()) if enrichment else [],
+                    "ean_fields": ean_fields,
+                    "has_ean_data": len(ean_fields) > 0,
+                }
+            )
 
         # Count products with enrichment
-        count_query = text("""
+        count_query = text(
+            """
             SELECT
                 COUNT(*) as total,
                 COUNT(enrichment_data) as with_enrichment
             FROM catalog.product
-        """)
+        """
+        )
 
         result = await db.execute(count_query)
         counts = result.fetchone()
@@ -558,13 +617,17 @@ async def debug_products_enrichment(
             "stats": {
                 "total_products": counts.total,
                 "products_with_enrichment": counts.with_enrichment,
-                "enrichment_percentage": round((counts.with_enrichment / counts.total * 100), 1) if counts.total > 0 else 0,
+                "enrichment_percentage": (
+                    round((counts.with_enrichment / counts.total * 100), 1)
+                    if counts.total > 0
+                    else 0
+                ),
             },
             "sample_products": samples,
             "analysis": {
                 "products_with_ean_in_enrichment": sum(1 for s in samples if s["has_ean_data"]),
                 "sample_size": len(samples),
-            }
+            },
         }
 
     except Exception as e:
@@ -587,7 +650,8 @@ async def debug_variants_gtin(
 
     try:
         # Get sample products with enrichment and variants
-        sample_query = text("""
+        sample_query = text(
+            """
             SELECT
                 id,
                 name,
@@ -597,47 +661,52 @@ async def debug_variants_gtin(
             WHERE enrichment_data IS NOT NULL
               AND enrichment_data->'variants' IS NOT NULL
             LIMIT :limit
-        """)
+        """
+        )
 
         result = await db.execute(sample_query, {"limit": limit})
         samples = []
 
         for row in result.fetchall():
             enrichment = row.enrichment_data if row.enrichment_data else {}
-            variants = enrichment.get('variants', [])
+            variants = enrichment.get("variants", [])
 
             # Extract GTIN data from variants
             variants_with_gtin = []
             for variant in variants[:5]:  # First 5 variants per product
                 gtin_data = {
-                    'variant_id': variant.get('id'),
-                    'size': variant.get('sizeAllTypes', {}).get('us'),
-                    'gtin': variant.get('gtin'),
-                    'gtins': variant.get('gtins', []),
-                    'hidden': variant.get('hidden'),
+                    "variant_id": variant.get("id"),
+                    "size": variant.get("sizeAllTypes", {}).get("us"),
+                    "gtin": variant.get("gtin"),
+                    "gtins": variant.get("gtins", []),
+                    "hidden": variant.get("hidden"),
                 }
 
                 # Check if has any GTIN
-                has_gtin = bool(gtin_data['gtin'] or gtin_data['gtins'])
+                has_gtin = bool(gtin_data["gtin"] or gtin_data["gtins"])
                 if has_gtin:
                     variants_with_gtin.append(gtin_data)
 
-            samples.append({
-                "id": str(row.id),
-                "name": row.name,
-                "sku": row.sku,
-                "total_variants": len(variants),
-                "variants_with_gtin": len(variants_with_gtin),
-                "sample_variants": variants_with_gtin[:3],  # Show first 3
-            })
+            samples.append(
+                {
+                    "id": str(row.id),
+                    "name": row.name,
+                    "sku": row.sku,
+                    "total_variants": len(variants),
+                    "variants_with_gtin": len(variants_with_gtin),
+                    "sample_variants": variants_with_gtin[:3],  # Show first 3
+                }
+            )
 
         # Count total products with variant GTINs
-        count_query = text("""
+        count_query = text(
+            """
             SELECT COUNT(*) as count
             FROM catalog.product
             WHERE enrichment_data IS NOT NULL
               AND enrichment_data->'variants' IS NOT NULL
-        """)
+        """
+        )
 
         result = await db.execute(count_query)
         total_with_variants = result.fetchone().count
@@ -650,7 +719,7 @@ async def debug_variants_gtin(
                 "sample_size": len(samples),
             },
             "samples": samples,
-            "recommendation": "If variants contain GTINs, we can extract and match them with Awin EANs!"
+            "recommendation": "If variants contain GTINs, we can extract and match them with Awin EANs!",
         }
 
     except Exception as e:
@@ -662,6 +731,7 @@ async def debug_variants_gtin(
 # BUDIBASE INTEGRATION - Enrichment Job Control Endpoints
 # ==============================================================================
 
+
 @router.post(
     "/awin/enrichment/start",
     summary="Start Enrichment Job",
@@ -670,7 +740,9 @@ async def debug_variants_gtin(
 )
 async def start_enrichment_job(
     background_tasks: BackgroundTasks,
-    limit: Optional[int] = Query(None, ge=1, le=10000, description="Limit for testing (default: process all)"),
+    limit: Optional[int] = Query(
+        None, ge=1, le=10000, description="Limit for testing (default: process all)"
+    ),
     rate_limit: int = Query(60, ge=10, le=120, description="Requests per minute (default: 60)"),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -689,10 +761,7 @@ async def start_enrichment_job(
     logger.info("Starting enrichment job", limit=limit, rate_limit=rate_limit)
 
     try:
-        service = AwinStockXEnrichmentService(
-            db,
-            rate_limit_requests_per_minute=rate_limit
-        )
+        service = AwinStockXEnrichmentService(db, rate_limit_requests_per_minute=rate_limit)
 
         # Create job
         job_id = await service.create_enrichment_job()
@@ -700,7 +769,8 @@ async def start_enrichment_job(
         # Count products to process
         # SECURITY: Use parameterized query for limit
         if limit is not None:
-            count_query = text("""
+            count_query = text(
+                """
                 SELECT COUNT(*) as total
                 FROM (
                     SELECT 1
@@ -710,16 +780,19 @@ async def start_enrichment_job(
                       AND (enrichment_status = 'pending' OR enrichment_status IS NULL OR last_enriched_at IS NULL)
                     LIMIT :limit
                 ) subquery
-            """)
+            """
+            )
             result = await db.execute(count_query, {"limit": limit})
         else:
-            count_query = text("""
+            count_query = text(
+                """
                 SELECT COUNT(*) as total
                 FROM integration.awin_products
                 WHERE ean IS NOT NULL
                   AND in_stock = true
                   AND (enrichment_status = 'pending' OR enrichment_status IS NULL OR last_enriched_at IS NULL)
-            """)
+            """
+            )
             result = await db.execute(count_query)
 
         total_products = result.fetchone().total
@@ -731,8 +804,7 @@ async def start_enrichment_job(
         async def run_enrichment():
             async with get_db_session() as bg_session:
                 bg_service = AwinStockXEnrichmentService(
-                    bg_session,
-                    rate_limit_requests_per_minute=rate_limit
+                    bg_session, rate_limit_requests_per_minute=rate_limit
                 )
                 await bg_service.enrich_all_products(job_id=job_id, limit=limit)
 
@@ -774,7 +846,8 @@ async def get_job_status(
     logger.info("Getting job status", job_id=str(job_id))
 
     try:
-        query = text("""
+        query = text(
+            """
             SELECT
                 id,
                 job_type,
@@ -790,7 +863,8 @@ async def get_job_status(
                 updated_at
             FROM integration.awin_enrichment_jobs
             WHERE id = :job_id
-        """)
+        """
+        )
 
         result = await db.execute(query, {"job_id": str(job_id)})
         job = result.fetchone()
@@ -811,7 +885,7 @@ async def get_job_status(
             elapsed_seconds = (datetime.now(timezone.utc) - job.started_at).total_seconds()
             elapsed_minutes = round(elapsed_seconds / 60, 1)
 
-            if job.processed_products > 0 and job.status == 'running':
+            if job.processed_products > 0 and job.status == "running":
                 seconds_per_product = elapsed_seconds / job.processed_products
                 remaining_products = job.total_products - job.processed_products
                 estimated_remaining_seconds = remaining_products * seconds_per_product
@@ -827,7 +901,11 @@ async def get_job_status(
                     "total": job.total_products,
                     "processed": job.processed_products,
                     "matched": job.matched_products,
-                    "not_found": (job.processed_products - job.matched_products - job.failed_products) if job.processed_products else 0,
+                    "not_found": (
+                        (job.processed_products - job.matched_products - job.failed_products)
+                        if job.processed_products
+                        else 0
+                    ),
                     "errors": job.failed_products,
                     "percentage": progress_percentage,
                 },
@@ -839,11 +917,11 @@ async def get_job_status(
         }
 
         # Add results summary if completed
-        if job.status == 'completed' and job.results_summary:
+        if job.status == "completed" and job.results_summary:
             response["results"] = job.results_summary
 
         # Add error log if failed
-        if job.status == 'failed' and job.error_log:
+        if job.status == "failed" and job.error_log:
             response["error"] = job.error_log
 
         return response
@@ -875,7 +953,8 @@ async def get_latest_enrichment(
     logger.info("Getting latest enrichment results")
 
     try:
-        query = text("""
+        query = text(
+            """
             SELECT
                 id,
                 job_type,
@@ -891,7 +970,8 @@ async def get_latest_enrichment(
             WHERE status = 'completed'
             ORDER BY completed_at DESC
             LIMIT 1
-        """)
+        """
+        )
 
         result = await db.execute(query)
         job = result.fetchone()
@@ -917,13 +997,23 @@ async def get_latest_enrichment(
                 "status": job.status,
                 "completed_at": job.completed_at.isoformat() + "Z" if job.completed_at else None,
                 "duration_minutes": duration_minutes,
-                "results": job.results_summary if job.results_summary else {
-                    "total_processed": job.processed_products,
-                    "matched": job.matched_products,
-                    "failed": job.failed_products,
-                    "not_found": job.processed_products - job.matched_products - job.failed_products,
-                    "match_rate_percentage": round((job.matched_products / job.processed_products * 100), 1) if job.processed_products > 0 else 0,
-                },
+                "results": (
+                    job.results_summary
+                    if job.results_summary
+                    else {
+                        "total_processed": job.processed_products,
+                        "matched": job.matched_products,
+                        "failed": job.failed_products,
+                        "not_found": job.processed_products
+                        - job.matched_products
+                        - job.failed_products,
+                        "match_rate_percentage": (
+                            round((job.matched_products / job.processed_products * 100), 1)
+                            if job.processed_products > 0
+                            else 0
+                        ),
+                    }
+                ),
             },
         }
 
@@ -956,11 +1046,13 @@ async def get_enrichment_stats(
         stats = await service.get_enrichment_stats()
 
         # Get last enrichment timestamp
-        last_enrichment_query = text("""
+        last_enrichment_query = text(
+            """
             SELECT MAX(last_enriched_at) as last_enrichment
             FROM integration.awin_products
             WHERE enrichment_status IS NOT NULL
-        """)
+        """
+        )
 
         result = await db.execute(last_enrichment_query)
         last_enrichment = result.fetchone().last_enrichment

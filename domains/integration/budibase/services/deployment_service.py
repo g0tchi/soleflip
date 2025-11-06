@@ -18,13 +18,12 @@ class BudibaseDeploymentService:
     def __init__(self):
         self.deployments = {}
 
-    async def deploy_app(self, config: BudibaseApp, environment: BudibaseEnvironment) -> BudibaseDeployment:
+    async def deploy_app(
+        self, config: BudibaseApp, environment: BudibaseEnvironment
+    ) -> BudibaseDeployment:
         """Deploy Budibase application"""
         logger.info(f"Deploying {config.name} to {environment}")
         # Implementation placeholder
         return BudibaseDeployment(
-            app_id="placeholder",
-            environment=environment,
-            config=config,
-            status="pending"
+            app_id="placeholder", environment=environment, config=config, status="pending"
         )

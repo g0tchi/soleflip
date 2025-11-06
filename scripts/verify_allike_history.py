@@ -2,6 +2,7 @@
 Verify Allike Store supplier history implementation
 Shows complete supplier data and timeline
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -15,7 +16,8 @@ async def main():
     async with db_manager.get_session() as session:
         # Get complete supplier data
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     name, slug, status,
                     founded_year, founder_name,
@@ -25,7 +27,8 @@ async def main():
                     supplier_story
                 FROM core.suppliers
                 WHERE slug = 'allike'
-            """)
+            """
+            )
         )
         supplier = result.fetchone()
 
@@ -53,7 +56,8 @@ async def main():
 
         # Get timeline events
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     event_date, event_type, event_title,
                     event_description, impact_level, source_url
@@ -61,7 +65,8 @@ async def main():
                 JOIN core.suppliers s ON sh.supplier_id = s.id
                 WHERE s.slug = 'allike'
                 ORDER BY event_date
-            """)
+            """
+            )
         )
         events = result.fetchall()
 
@@ -69,12 +74,7 @@ async def main():
         print("=" * 80)
 
         for event in events:
-            impact_markers = {
-                "low": "[ ]",
-                "medium": "[*]",
-                "high": "[**]",
-                "critical": "[***]"
-            }
+            impact_markers = {"low": "[ ]", "medium": "[*]", "high": "[**]", "critical": "[***]"}
             marker = impact_markers.get(event[4], "[*]")
 
             print(f"\n{marker} {event[0].year} - {event[2]}")

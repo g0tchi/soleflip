@@ -51,9 +51,9 @@ def downgrade():
 '''
 
 # Write migration file
-migration_file = '/home/g0tchi/projects/soleflip/migrations/versions/2025_10_21_0508_b12e96585c37_complete_gibson_schema_all_54_tables.py'
+migration_file = "/home/g0tchi/projects/soleflip/migrations/versions/2025_10_21_0508_b12e96585c37_complete_gibson_schema_all_54_tables.py"
 
-with open(migration_file, 'w') as f:
+with open(migration_file, "w") as f:
     f.write(MIGRATION_TEMPLATE)
 
 print(f"✓ Migration template created at {migration_file}")

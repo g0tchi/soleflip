@@ -12,20 +12,14 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, status
 from ..services.view_manager import MetabaseViewManager
 from ..services.dashboard_service import MetabaseDashboardService
 from ..services.sync_service import MetabaseSyncService
-from ..schemas.metabase_models import (
-    MaterializedViewStatus,
-    RefreshJobStatus,
-    MetabaseDashboard
-)
+from ..schemas.metabase_models import MaterializedViewStatus, RefreshJobStatus, MetabaseDashboard
 from ..config.materialized_views import RefreshStrategy
 
 router = APIRouter(prefix="/metabase", tags=["Metabase Integration"])
 
 
 @router.post("/views/create", status_code=status.HTTP_201_CREATED)
-async def create_all_views(
-    drop_existing: bool = False
-) -> Dict[str, bool]:
+async def create_all_views(drop_existing: bool = False) -> Dict[str, bool]:
     """
     Create all Metabase materialized views.
 
@@ -42,8 +36,7 @@ async def create_all_views(
 
 @router.post("/views/{view_name}/refresh")
 async def refresh_view(
-    view_name: str,
-    background_tasks: BackgroundTasks = None
+    view_name: str, background_tasks: BackgroundTasks = None
 ) -> RefreshJobStatus:
     """
     Manually refresh a specific materialized view.
@@ -60,19 +53,13 @@ async def refresh_view(
     # For long-running refreshes, use background tasks
     if background_tasks:
         background_tasks.add_task(view_manager.refresh_view, view_name)
-        return RefreshJobStatus(
-            view_name=view_name,
-            status="pending",
-            started_at=None
-        )
+        return RefreshJobStatus(view_name=view_name, status="pending", started_at=None)
 
     return await view_manager.refresh_view(view_name)
 
 
 @router.post("/views/refresh-by-strategy/{strategy}")
-async def refresh_by_strategy(
-    strategy: RefreshStrategy
-) -> List[RefreshJobStatus]:
+async def refresh_by_strategy(strategy: RefreshStrategy) -> List[RefreshJobStatus]:
     """
     Refresh all views with a specific refresh strategy.
 
@@ -114,18 +101,14 @@ async def get_view_status(view_name: str) -> MaterializedViewStatus:
 
     if not status or not status.exists:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"View '{view_name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"View '{view_name}' not found"
         )
 
     return status
 
 
 @router.delete("/views/{view_name}")
-async def drop_view(
-    view_name: str,
-    cascade: bool = True
-) -> Dict[str, str]:
+async def drop_view(view_name: str, cascade: bool = True) -> Dict[str, str]:
     """
     Drop a materialized view.
 
@@ -142,7 +125,7 @@ async def drop_view(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to drop view '{view_name}'"
+            detail=f"Failed to drop view '{view_name}'",
         )
 
     return {"message": f"View '{view_name}' dropped successfully"}
@@ -225,8 +208,7 @@ async def get_dashboard(dashboard_name: str) -> MetabaseDashboard:
     dashboard = dashboard_service.get_dashboard(dashboard_name)
     if not dashboard:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Dashboard '{dashboard_name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Dashboard '{dashboard_name}' not found"
         )
 
     return dashboard

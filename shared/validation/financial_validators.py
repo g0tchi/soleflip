@@ -47,7 +47,7 @@ class FinancialValidationMixin:
         if decimal_value.as_tuple().exponent < -2:
             raise ValueError("Currency amount cannot have more than 2 decimal places")
 
-        return decimal_value.quantize(Decimal('0.01'))
+        return decimal_value.quantize(Decimal("0.01"))
 
     @staticmethod
     def validate_percentage(value: Union[str, int, float, Decimal]) -> Decimal:
@@ -77,7 +77,7 @@ class FinancialValidationMixin:
         if decimal_value > 100:
             raise ValueError("Percentage cannot exceed 100%")
 
-        return decimal_value.quantize(Decimal('0.01'))
+        return decimal_value.quantize(Decimal("0.01"))
 
     @staticmethod
     def validate_margin_buffer(value: Union[str, int, float]) -> float:
@@ -109,9 +109,7 @@ class FinancialValidationMixin:
 
 # FastAPI Query Parameter Validators
 def PriceQuery(
-    default: Any = ...,
-    description: str = "Price amount in USD",
-    example: float = 100.00
+    default: Any = ..., description: str = "Price amount in USD", example: float = 100.00
 ) -> Annotated[float, Query(...)]:
     """
     Validated price query parameter
@@ -130,14 +128,14 @@ def PriceQuery(
         example=example,
         ge=0.01,  # Minimum $0.01
         le=99999.99,  # Maximum $99,999.99
-        title="Price Amount"
+        title="Price Amount",
     )
 
 
 def MarginQuery(
     default: float = 5.0,
     description: str = "Margin buffer percentage (0-50%)",
-    example: float = 5.0
+    example: float = 5.0,
 ) -> Annotated[float, Query(...)]:
     """
     Validated margin query parameter
@@ -154,16 +152,14 @@ def MarginQuery(
         default,
         description=description,
         example=example,
-        ge=0.0,   # Minimum 0%
+        ge=0.0,  # Minimum 0%
         le=50.0,  # Maximum 50%
-        title="Margin Buffer"
+        title="Margin Buffer",
     )
 
 
 def QuantityQuery(
-    default: int = 1,
-    description: str = "Quantity of items",
-    example: int = 1
+    default: int = 1, description: str = "Quantity of items", example: int = 1
 ) -> Annotated[int, Query(...)]:
     """
     Validated quantity query parameter
@@ -180,16 +176,16 @@ def QuantityQuery(
         default,
         description=description,
         example=example,
-        ge=1,     # Minimum 1
+        ge=1,  # Minimum 1
         le=1000,  # Maximum 1000
-        title="Quantity"
+        title="Quantity",
     )
 
 
 def PricingStrategyQuery(
     default: str = "competitive",
     description: str = "Pricing strategy to use",
-    example: str = "competitive"
+    example: str = "competitive",
 ) -> Annotated[str, Query(...)]:
     """
     Validated pricing strategy query parameter
@@ -207,14 +203,13 @@ def PricingStrategyQuery(
         description=description,
         example=example,
         regex="^(competitive|premium|aggressive)$",
-        title="Pricing Strategy"
+        title="Pricing Strategy",
     )
 
 
 # Path Parameter Validators
 def UUIDPath(
-    description: str = "UUID identifier",
-    example: str = "123e4567-e89b-12d3-a456-426614174000"
+    description: str = "UUID identifier", example: str = "123e4567-e89b-12d3-a456-426614174000"
 ) -> Annotated[UUID, Path(...)]:
     """
     Validated UUID path parameter
@@ -226,17 +221,11 @@ def UUIDPath(
     Returns:
         Annotated path parameter
     """
-    return Path(
-        ...,
-        description=description,
-        example=example,
-        title="UUID"
-    )
+    return Path(..., description=description, example=example, title="UUID")
 
 
 def YearPath(
-    description: str = "Year (2020-2030)",
-    example: int = 2025
+    description: str = "Year (2020-2030)", example: int = 2025
 ) -> Annotated[int, Path(...)]:
     """
     Validated year path parameter
@@ -248,14 +237,7 @@ def YearPath(
     Returns:
         Annotated path parameter
     """
-    return Path(
-        ...,
-        description=description,
-        example=example,
-        ge=2020,
-        le=2030,
-        title="Year"
-    )
+    return Path(..., description=description, example=example, ge=2020, le=2030, title="Year")
 
 
 # Pydantic Model Validators
@@ -270,11 +252,7 @@ class ValidatedFinancialModel(BaseModel, FinancialValidationMixin):
         # Allow population by field name or alias (Pydantic v2 compatible)
         populate_by_name = True
         # Generate schema with examples (Pydantic v2 compatible)
-        json_schema_extra = {
-            "example": {
-                "description": "Example financial data model"
-            }
-        }
+        json_schema_extra = {"example": {"description": "Example financial data model"}}
 
 
 class PriceUpdateRequest(ValidatedFinancialModel):
@@ -286,7 +264,7 @@ class PriceUpdateRequest(ValidatedFinancialModel):
         le=99999.99,
         description="New price amount in USD",
         example=125.50,
-        title="New Price"
+        title="New Price",
     )
 
     reason: str = Field(
@@ -295,19 +273,19 @@ class PriceUpdateRequest(ValidatedFinancialModel):
         max_length=100,
         description="Reason for price change",
         example="market_adjustment",
-        title="Update Reason"
+        title="Update Reason",
     )
 
-    @validator('new_price')
+    @validator("new_price")
     def validate_price_precision(cls, v):
         """Ensure price has max 2 decimal places"""
         return cls.validate_currency_amount(v)
 
-    @validator('reason')
+    @validator("reason")
     def validate_reason_format(cls, v):
         """Ensure reason is properly formatted"""
-        if not re.match(r'^[a-zA-Z0-9_\s\-]+$', v):
-            raise ValueError('Reason contains invalid characters')
+        if not re.match(r"^[a-zA-Z0-9_\s\-]+$", v):
+            raise ValueError("Reason contains invalid characters")
         return v.strip().lower()
 
 
@@ -318,14 +296,14 @@ class ListingCreationRequest(ValidatedFinancialModel):
         ...,
         description="QuickFlip opportunity ID",
         example="123e4567-e89b-12d3-a456-426614174000",
-        title="Opportunity ID"
+        title="Opportunity ID",
     )
 
     pricing_strategy: str = Field(
         default="competitive",
         description="Pricing strategy: competitive, premium, aggressive",
         example="competitive",
-        title="Pricing Strategy"
+        title="Pricing Strategy",
     )
 
     margin_buffer: float = Field(
@@ -334,10 +312,10 @@ class ListingCreationRequest(ValidatedFinancialModel):
         le=50.0,
         description="Additional margin buffer percentage",
         example=5.0,
-        title="Margin Buffer"
+        title="Margin Buffer",
     )
 
-    @validator('pricing_strategy')
+    @validator("pricing_strategy")
     def validate_pricing_strategy(cls, v):
         """Validate pricing strategy"""
         allowed_strategies = {"competitive", "premium", "aggressive"}
@@ -345,7 +323,7 @@ class ListingCreationRequest(ValidatedFinancialModel):
             raise ValueError(f'Pricing strategy must be one of: {", ".join(allowed_strategies)}')
         return v.lower()
 
-    @validator('margin_buffer')
+    @validator("margin_buffer")
     def validate_margin_buffer_precision(cls, v):
         """Validate margin buffer"""
         return cls.validate_margin_buffer(v)
@@ -360,24 +338,24 @@ class BulkListingRequest(ValidatedFinancialModel):
         max_items=100,
         description="List of QuickFlip opportunity IDs (max 100)",
         example=["123e4567-e89b-12d3-a456-426614174000"],
-        title="Opportunity IDs"
+        title="Opportunity IDs",
     )
 
     pricing_strategy: str = Field(
         default="competitive",
         description="Pricing strategy for all listings",
         example="competitive",
-        title="Pricing Strategy"
+        title="Pricing Strategy",
     )
 
-    @validator('opportunity_ids')
+    @validator("opportunity_ids")
     def validate_unique_opportunities(cls, v):
         """Ensure all opportunity IDs are unique"""
         if len(v) != len(set(v)):
-            raise ValueError('Duplicate opportunity IDs are not allowed')
+            raise ValueError("Duplicate opportunity IDs are not allowed")
         return v
 
-    @validator('pricing_strategy')
+    @validator("pricing_strategy")
     def validate_bulk_pricing_strategy(cls, v):
         """Validate pricing strategy for bulk operations"""
         allowed_strategies = {"competitive", "premium", "aggressive"}
@@ -395,18 +373,18 @@ class OrderTrackingUpdate(ValidatedFinancialModel):
         max_length=50,
         description="Shipping tracking number",
         example="1Z999AA1234567890",
-        title="Tracking Number"
+        title="Tracking Number",
     )
 
-    @validator('tracking_number')
+    @validator("tracking_number")
     def validate_tracking_format(cls, v):
         """Validate tracking number format"""
         # Remove whitespace
         cleaned = v.strip().upper()
 
         # Basic format validation (alphanumeric with some special chars)
-        if not re.match(r'^[A-Z0-9\-]+$', cleaned):
-            raise ValueError('Tracking number contains invalid characters')
+        if not re.match(r"^[A-Z0-9\-]+$", cleaned):
+            raise ValueError("Tracking number contains invalid characters")
 
         return cleaned
 
@@ -418,11 +396,7 @@ class FinancialValidationError(HTTPException):
     def __init__(self, detail: str, field: str = None):
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "message": detail,
-                "field": field,
-                "type": "financial_validation_error"
-            }
+            detail={"message": detail, "field": field, "type": "financial_validation_error"},
         )
 
 
@@ -443,10 +417,7 @@ async def validate_price_update(request: PriceUpdateRequest) -> PriceUpdateReque
     try:
         # Additional business logic validation
         if request.new_price < 10.00:
-            raise FinancialValidationError(
-                "Price cannot be less than $10.00",
-                field="new_price"
-            )
+            raise FinancialValidationError("Price cannot be less than $10.00", field="new_price")
 
         return request
     except ValueError as e:
@@ -470,8 +441,7 @@ async def validate_bulk_request(request: BulkListingRequest) -> BulkListingReque
         # Additional business logic validation
         if len(request.opportunity_ids) > 50:
             raise FinancialValidationError(
-                "Bulk operations limited to 50 items maximum",
-                field="opportunity_ids"
+                "Bulk operations limited to 50 items maximum", field="opportunity_ids"
             )
 
         return request

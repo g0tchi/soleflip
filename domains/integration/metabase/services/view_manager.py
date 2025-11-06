@@ -50,11 +50,7 @@ class MetabaseViewManager:
         async with self.db.get_session() as session:
             for view_config in self.config.get_all_views():
                 try:
-                    success = await self._create_view(
-                        session,
-                        view_config,
-                        drop_existing
-                    )
+                    success = await self._create_view(session, view_config, drop_existing)
                     results[view_config["name"]] = success
 
                     if success:
@@ -69,10 +65,7 @@ class MetabaseViewManager:
         return results
 
     async def _create_view(
-        self,
-        session: AsyncSession,
-        view_config: Dict,
-        drop_existing: bool
+        self, session: AsyncSession, view_config: Dict, drop_existing: bool
     ) -> bool:
         """Create single materialized view with indexes"""
         try:
@@ -116,9 +109,7 @@ class MetabaseViewManager:
         logger.info(f"Refreshing materialized view: {view_name}")
 
         job_status = RefreshJobStatus(
-            view_name=view_name,
-            status="running",
-            started_at=datetime.utcnow()
+            view_name=view_name, status="running", started_at=datetime.utcnow()
         )
 
         try:
@@ -135,9 +126,7 @@ class MetabaseViewManager:
                     job_status.completed_at - job_status.started_at
                 ).total_seconds()
 
-                logger.info(
-                    f"✓ Refreshed {view_name} in {job_status.duration_seconds:.2f}s"
-                )
+                logger.info(f"✓ Refreshed {view_name} in {job_status.duration_seconds:.2f}s")
 
         except Exception as e:
             job_status.status = "failed"
@@ -180,21 +169,23 @@ class MetabaseViewManager:
         """
         async with self.db.get_session() as session:
             # Check if view exists
-            result = await session.execute(text("""
+            result = await session.execute(
+                text(
+                    """
                 SELECT
                     schemaname,
                     matviewname,
                     pg_size_pretty(pg_total_relation_size(schemaname||'.'||matviewname)) as size
                 FROM pg_matviews
                 WHERE schemaname = 'analytics' AND matviewname = :view_name
-            """), {"view_name": view_name})
+            """
+                ),
+                {"view_name": view_name},
+            )
 
             row = result.fetchone()
             if not row:
-                return MaterializedViewStatus(
-                    view_name=view_name,
-                    exists=False
-                )
+                return MaterializedViewStatus(view_name=view_name, exists=False)
 
             # Get row count
             count_result = await session.execute(
@@ -203,11 +194,16 @@ class MetabaseViewManager:
             row_count = count_result.fetchone()[0]
 
             # Get indexes
-            indexes_result = await session.execute(text("""
+            indexes_result = await session.execute(
+                text(
+                    """
                 SELECT indexname
                 FROM pg_indexes
                 WHERE schemaname = 'analytics' AND tablename = :view_name
-            """), {"view_name": view_name})
+            """
+                ),
+                {"view_name": view_name},
+            )
 
             indexes = [r[0] for r in indexes_result.fetchall()]
 
@@ -216,7 +212,7 @@ class MetabaseViewManager:
                 exists=True,
                 row_count=row_count,
                 size_bytes=None,  # Would need to parse pg_size_pretty
-                indexes=indexes
+                indexes=indexes,
             )
 
     async def get_all_view_statuses(self) -> List[MaterializedViewStatus]:
@@ -270,15 +266,20 @@ class MetabaseViewManager:
             # Hourly views - Every hour at :00
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.HOURLY):
                 try:
-                    await session.execute(text("""
+                    await session.execute(
+                        text(
+                            """
                         SELECT cron.schedule(
                             :job_name,
                             '0 * * * *',
                             $$REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.{view_name}$$
                         )
-                    """.format(view_name=view["name"])), {
-                        "job_name": f"refresh_{view['name']}"
-                    })
+                    """.format(
+                                view_name=view["name"]
+                            )
+                        ),
+                        {"job_name": f"refresh_{view['name']}"},
+                    )
                     schedules[view["name"]] = "hourly"
                     logger.info(f"✓ Scheduled hourly refresh for {view['name']}")
                 except Exception as e:
@@ -287,15 +288,20 @@ class MetabaseViewManager:
             # Daily views - Every day at 2 AM
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.DAILY):
                 try:
-                    await session.execute(text("""
+                    await session.execute(
+                        text(
+                            """
                         SELECT cron.schedule(
                             :job_name,
                             '0 2 * * *',
                             $$REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.{view_name}$$
                         )
-                    """.format(view_name=view["name"])), {
-                        "job_name": f"refresh_{view['name']}"
-                    })
+                    """.format(
+                                view_name=view["name"]
+                            )
+                        ),
+                        {"job_name": f"refresh_{view['name']}"},
+                    )
                     schedules[view["name"]] = "daily"
                     logger.info(f"✓ Scheduled daily refresh for {view['name']}")
                 except Exception as e:
@@ -304,15 +310,20 @@ class MetabaseViewManager:
             # Weekly views - Every Monday at 3 AM
             for view in self.config.get_views_by_refresh_strategy(RefreshStrategy.WEEKLY):
                 try:
-                    await session.execute(text("""
+                    await session.execute(
+                        text(
+                            """
                         SELECT cron.schedule(
                             :job_name,
                             '0 3 * * 1',
                             $$REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.{view_name}$$
                         )
-                    """.format(view_name=view["name"])), {
-                        "job_name": f"refresh_{view['name']}"
-                    })
+                    """.format(
+                                view_name=view["name"]
+                            )
+                        ),
+                        {"job_name": f"refresh_{view['name']}"},
+                    )
                     schedules[view["name"]] = "weekly"
                     logger.info(f"✓ Scheduled weekly refresh for {view['name']}")
                 except Exception as e:

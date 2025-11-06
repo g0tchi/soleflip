@@ -31,7 +31,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-28T09:53:20.174Z",
         "updatedAt": "2025-09-28T09:53:20.174Z",
-        "expires": "2025-10-28T10:53:18.000Z"
+        "expires": "2025-10-28T10:53:18.000Z",
     },
     {
         "listingId": "84693195-caab-402f-854a-20900653e43a",
@@ -42,7 +42,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-28T09:50:29.182Z",
         "updatedAt": "2025-09-28T09:50:29.182Z",
-        "expires": "2025-10-28T10:50:27.000Z"
+        "expires": "2025-10-28T10:50:27.000Z",
     },
     {
         "listingId": "fd58a956-3c7f-413b-96de-d313a5f7b276",
@@ -53,7 +53,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-28T09:27:42.077Z",
         "updatedAt": "2025-09-28T09:27:42.077Z",
-        "expires": "2025-10-28T10:27:39.000Z"
+        "expires": "2025-10-28T10:27:39.000Z",
     },
     {
         "listingId": "31963a5a-d422-4810-8591-8926b9f65aa1",
@@ -64,7 +64,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-21T16:08:36.379Z",
         "updatedAt": "2025-09-27T08:39:28.986Z",
-        "expires": "2025-10-21T16:08:34.000Z"
+        "expires": "2025-10-21T16:08:34.000Z",
     },
     {
         "listingId": "db3c8fbe-05d5-4229-b332-387b1566667b",
@@ -75,7 +75,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-19T04:02:59.395Z",
         "updatedAt": "2025-09-27T08:27:40.434Z",
-        "expires": "2025-10-19T04:02:56.000Z"
+        "expires": "2025-10-19T04:02:56.000Z",
     },
     {
         "listingId": "ca9c4133-534f-458a-be9a-c84a9529f5c4",
@@ -86,7 +86,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-17T05:52:36.021Z",
         "updatedAt": "2025-09-27T08:23:40.945Z",
-        "expires": "2025-10-17T05:52:34.000Z"
+        "expires": "2025-10-17T05:52:34.000Z",
     },
     {
         "listingId": "d6510297-0c0d-44dd-be3d-3fc2ea02297f",
@@ -97,7 +97,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-08-24T14:59:36.509Z",
         "updatedAt": "2025-09-27T09:14:36.925Z",
-        "expires": "2025-11-12T04:25:10.000Z"
+        "expires": "2025-11-12T04:25:10.000Z",
     },
     {
         "listingId": "551c0c1c-9d24-43ac-9044-c524a921e65c",
@@ -108,7 +108,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-08-24T16:11:40.299Z",
         "updatedAt": "2025-09-27T08:45:21.158Z",
-        "expires": "2025-11-12T04:25:10.000Z"
+        "expires": "2025-11-12T04:25:10.000Z",
     },
     {
         "listingId": "4c82b763-e66f-415d-ab92-7ab338431b4d",
@@ -119,7 +119,7 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-08-26T11:31:46.862Z",
         "updatedAt": "2025-09-16T10:53:51.012Z",
-        "expires": "2025-11-12T04:25:10.000Z"
+        "expires": "2025-11-12T04:25:10.000Z",
     },
     {
         "listingId": "7bc6a5c6-1caf-4b71-b640-d1a5e0c2cbbe",
@@ -130,9 +130,10 @@ SAMPLE_LISTINGS = [
         "currencyCode": "EUR",
         "createdAt": "2025-09-02T17:45:05.934Z",
         "updatedAt": "2025-09-27T06:09:04.657Z",
-        "expires": "2025-11-12T04:25:10.000Z"
-    }
+        "expires": "2025-11-12T04:25:10.000Z",
+    },
 ]
+
 
 async def insert_sample_listings():
     """Insert sample StockX listings to database for testing"""
@@ -184,7 +185,7 @@ async def insert_sample_listings():
                     updated_at,  # last_stockx_updated_at
                     json.dumps(listing),  # raw_data
                     datetime.now(),  # created_at
-                    datetime.now()  # updated_at
+                    datetime.now(),  # updated_at
                 )
 
                 inserted_count += 1
@@ -194,7 +195,9 @@ async def insert_sample_listings():
                 print(f"[ERROR] Error inserting listing {listing['listingId']}: {e}")
                 continue
 
-        print(f"\n[SUCCESS] Successfully inserted {inserted_count}/{len(SAMPLE_LISTINGS)} sample StockX listings!")
+        print(
+            f"\n[SUCCESS] Successfully inserted {inserted_count}/{len(SAMPLE_LISTINGS)} sample StockX listings!"
+        )
 
         # Verify the data
         count_result = await conn.fetchrow("SELECT COUNT(*) as count FROM products.listings")
@@ -205,11 +208,13 @@ async def insert_sample_listings():
     finally:
         await conn.close()
 
+
 async def main():
     """Main function"""
     print("[START] Inserting sample StockX listings...")
     await insert_sample_listings()
     print("[COMPLETE] Sample data insertion complete!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

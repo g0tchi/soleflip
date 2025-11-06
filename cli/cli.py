@@ -739,11 +739,11 @@ class RetroAdminCLI:
 
                     # PERFORMANCE OPTIMIZATION: Batch StockX searches to avoid N+1 queries
                     print(colored_text("\nBatch searching StockX for all products...", "yellow"))
-                    
+
                     # Create batch search terms
                     product_search_map = {}
                     unique_search_terms = set()
-                    
+
                     for product in selected_products:
                         product_id, name, sku, description, retail_price, release_date = product
                         search_term = name.lower().strip()
@@ -753,25 +753,37 @@ class RetroAdminCLI:
                     # Batch search all unique terms (reduces API calls significantly)
                     stockx_results_cache = {}
                     total_terms = len(unique_search_terms)
-                    
+
                     for i, search_term in enumerate(unique_search_terms, 1):
-                        print(colored_text(f"Searching {i}/{total_terms}: {search_term[:30]}...", "dim"))
+                        print(
+                            colored_text(
+                                f"Searching {i}/{total_terms}: {search_term[:30]}...", "dim"
+                            )
+                        )
                         search_results = await stockx_service.search_stockx_catalog(
                             search_term, page_size=5
                         )
-                        if search_results and "results" in search_results and search_results["results"]:
+                        if (
+                            search_results
+                            and "results" in search_results
+                            and search_results["results"]
+                        ):
                             stockx_results_cache[search_term] = search_results["results"][0]
-                        
+
                         # Add small delay to respect API limits
                         await asyncio.sleep(0.1)
 
-                    print(colored_text(f"Found matches for {len(stockx_results_cache)} products\n", "green"))
+                    print(
+                        colored_text(
+                            f"Found matches for {len(stockx_results_cache)} products\n", "green"
+                        )
+                    )
 
                     # Now process each product with cached results
                     for product in selected_products:
                         product_id, name, sku, description, retail_price, release_date = product
                         search_term = name.lower().strip()
-                        
+
                         print(colored_text(f"Processing: {name}", "yellow"))
 
                         # Get cached StockX result
@@ -872,7 +884,6 @@ class RetroAdminCLI:
         try:
             import asyncio
 
-
             from domains.integration.services.stockx_service import StockXService
             from shared.database.connection import db_manager
 
@@ -887,20 +898,27 @@ class RetroAdminCLI:
                         print(colored_text("\nNo products need enrichment!", "green"))
                         return
 
-                    print(colored_text(f"\nStarting bulk enrichment of {total_products} products...", "bright_cyan"))
+                    print(
+                        colored_text(
+                            f"\nStarting bulk enrichment of {total_products} products...",
+                            "bright_cyan",
+                        )
+                    )
                     print(colored_text("This may take several minutes. Please wait...", "yellow"))
 
                     stockx_service = StockXService(session)
-                    
+
                     # PERFORMANCE OPTIMIZATION: Process in intelligent batches
-                    enriched_count, skipped_count, error_count = await self._process_products_in_batches(
-                        products, stockx_service, session
+                    enriched_count, skipped_count, error_count = (
+                        await self._process_products_in_batches(products, stockx_service, session)
                     )
 
                     # Commit all changes
                     await session.commit()
 
-                    self._print_enrichment_summary(total_products, enriched_count, skipped_count, error_count)
+                    self._print_enrichment_summary(
+                        total_products, enriched_count, skipped_count, error_count
+                    )
 
                 await db_manager.close()
 
@@ -914,7 +932,7 @@ class RetroAdminCLI:
     async def _get_products_needing_enrichment(self, session) -> list:
         """Get all products that need enrichment data"""
         from sqlalchemy import text
-        
+
         result = await session.execute(
             text(
                 """
@@ -927,97 +945,106 @@ class RetroAdminCLI:
         )
         return result.fetchall()
 
-    async def _process_products_in_batches(self, products, stockx_service, session) -> tuple[int, int, int]:
+    async def _process_products_in_batches(
+        self, products, stockx_service, session
+    ) -> tuple[int, int, int]:
         """Process products in intelligent batches to avoid N+1 queries"""
         import asyncio
+
         enriched_count = 0
         skipped_count = 0
         error_count = 0
-        
+
         # PERFORMANCE OPTIMIZATION: Batch products by search term similarity
         search_results_cache = {}
         product_updates_batch = []
         inventory_updates_batch = []
-        
+
         total_products = len(products)
-        
+
         for i, product in enumerate(products, 1):
             product_id, name, sku, description, retail_price, release_date = product
-            
+
             # Progress indicator
             progress = (i / total_products) * 100
             print(colored_text(f"\n[{progress:.1f}%] Processing: {name[:50]}...", "cyan"))
-            
+
             try:
                 enrichment_data = await self._get_stockx_enrichment_data(
                     name, stockx_service, search_results_cache
                 )
-                
+
                 if enrichment_data:
                     update_data = self._prepare_product_update_data(
                         enrichment_data, description, retail_price, release_date
                     )
-                    
+
                     if update_data:
                         product_updates_batch.append((product_id, update_data))
-                        
-                        if enrichment_data.get('stockx_product_id'):
-                            inventory_updates_batch.append((
-                                product_id, enrichment_data['stockx_product_id']
-                            ))
-                        
+
+                        if enrichment_data.get("stockx_product_id"):
+                            inventory_updates_batch.append(
+                                (product_id, enrichment_data["stockx_product_id"])
+                            )
+
                         enriched_count += 1
-                        print(colored_text(f"  ✓ Queued for update: {', '.join(update_data.keys())}", "green"))
+                        print(
+                            colored_text(
+                                f"  ✓ Queued for update: {', '.join(update_data.keys())}", "green"
+                            )
+                        )
                     else:
                         skipped_count += 1
                         print(colored_text("  - No new data available", "dim"))
                 else:
                     skipped_count += 1
                     print(colored_text("  ✗ No StockX match found", "red"))
-                
+
                 # Rate limiting - pause between requests
                 await asyncio.sleep(0.5)  # Reduced sleep time since we're batching updates
-                
+
             except Exception as e:
                 error_count += 1
                 print(colored_text(f"  ✗ Error: {str(e)[:100]}", "red"))
                 continue
-        
+
         # PERFORMANCE OPTIMIZATION: Execute all updates in batches
         if product_updates_batch:
             await self._execute_product_updates_batch(session, product_updates_batch)
-        
+
         if inventory_updates_batch:
             await self._execute_inventory_updates_batch(session, inventory_updates_batch)
-        
+
         return enriched_count, skipped_count, error_count
 
-    async def _get_stockx_enrichment_data(self, product_name: str, stockx_service, cache: dict) -> dict:
+    async def _get_stockx_enrichment_data(
+        self, product_name: str, stockx_service, cache: dict
+    ) -> dict:
         """Get enrichment data from StockX with caching"""
         # Use cache to avoid duplicate API calls for similar products
         cache_key = product_name.lower().strip()
         if cache_key in cache:
             return cache[cache_key]
-        
+
         search_results = await stockx_service.search_stockx_catalog(product_name, page_size=3)
-        
+
         if not (search_results and "results" in search_results and search_results["results"]):
             cache[cache_key] = None
             return None
-        
+
         # Find best match using improved matching logic
         best_match = self._find_best_stockx_match(product_name, search_results["results"])
-        
+
         if best_match:
             enrichment_data = {
-                'description': best_match.get("description") or best_match.get("title"),
-                'retail_price': best_match.get("retailPrice"),
-                'release_date': best_match.get("releaseDate"),
-                'stockx_product_id': best_match.get("id")
+                "description": best_match.get("description") or best_match.get("title"),
+                "retail_price": best_match.get("retailPrice"),
+                "release_date": best_match.get("releaseDate"),
+                "stockx_product_id": best_match.get("id"),
             }
             cache[cache_key] = enrichment_data
             return enrichment_data
-        
+
         cache[cache_key] = None
         return None
 
@@ -1025,54 +1052,61 @@ class RetroAdminCLI:
         """Find the best matching StockX result"""
         name_lower = product_name.lower()
         name_words = name_lower.split()[:3]  # First 3 words for better matching
-        
+
         # Strategy 1: Exact substring match
         for result in results:
             result_title = result.get("title", "").lower()
             if name_lower in result_title:
                 return result
-        
+
         # Strategy 2: Word overlap match
         for result in results:
             result_title = result.get("title", "").lower()
             if any(word in result_title for word in name_words if len(word) > 2):
                 return result
-        
+
         # Fallback: First result
         return results[0] if results else None
 
-    def _prepare_product_update_data(self, enrichment_data: dict, description, retail_price, release_date) -> dict:
+    def _prepare_product_update_data(
+        self, enrichment_data: dict, description, retail_price, release_date
+    ) -> dict:
         """Prepare update data for product"""
         update_data = {}
-        
-        if not description and enrichment_data.get('description'):
-            update_data["description"] = enrichment_data['description'][:1000]  # Limit length
-        
-        if not retail_price and enrichment_data.get('retail_price'):
+
+        if not description and enrichment_data.get("description"):
+            update_data["description"] = enrichment_data["description"][:1000]  # Limit length
+
+        if not retail_price and enrichment_data.get("retail_price"):
             try:
-                update_data["retail_price"] = float(enrichment_data['retail_price'])
+                update_data["retail_price"] = float(enrichment_data["retail_price"])
             except (ValueError, TypeError):
                 pass
-        
-        if not release_date and enrichment_data.get('release_date'):
+
+        if not release_date and enrichment_data.get("release_date"):
             try:
                 from datetime import datetime
+
                 update_data["release_date"] = datetime.fromisoformat(
-                    enrichment_data['release_date'].replace("Z", "+00:00")
+                    enrichment_data["release_date"].replace("Z", "+00:00")
                 )
             except (ValueError, TypeError):
                 pass
-        
+
         return update_data
 
     async def _execute_product_updates_batch(self, session, updates_batch: list):
         """Execute product updates using true bulk operations"""
-        
+
         if not updates_batch:
             return
-        
-        print(colored_text(f"\nExecuting optimized bulk update for {len(updates_batch)} products...", "cyan"))
-        
+
+        print(
+            colored_text(
+                f"\nExecuting optimized bulk update for {len(updates_batch)} products...", "cyan"
+            )
+        )
+
         # PERFORMANCE OPTIMIZATION: Group updates by field combinations to enable bulk operations
         update_groups = {}
         for product_id, update_data in updates_batch:
@@ -1081,7 +1115,7 @@ class RetroAdminCLI:
             if field_key not in update_groups:
                 update_groups[field_key] = []
             update_groups[field_key].append((product_id, update_data))
-        
+
         # Execute bulk updates for each field combination
         for field_combination, group_updates in update_groups.items():
             if len(group_updates) == 1:
@@ -1089,24 +1123,25 @@ class RetroAdminCLI:
                 product_id, update_data = group_updates[0]
                 from sqlalchemy import update
                 from shared.database.models import Product
+
                 await session.execute(
-                    update(Product)
-                    .where(Product.id == product_id)
-                    .values(**update_data)
+                    update(Product).where(Product.id == product_id).values(**update_data)
                 )
             else:
                 # Multiple updates with same fields - use bulk operation
                 await self._execute_bulk_product_update(session, field_combination, group_updates)
 
-    async def _execute_bulk_product_update(self, session, field_combination: tuple, group_updates: list):
+    async def _execute_bulk_product_update(
+        self, session, field_combination: tuple, group_updates: list
+    ):
         """Execute bulk product update for products with identical field sets"""
         from sqlalchemy import text
-        
+
         # Build dynamic bulk update query
         fields = list(field_combination)
         set_clauses = []
         values_list = []
-        
+
         for product_id, update_data in group_updates:
             # Build VALUES row
             values_row = [f"'{product_id}'"]  # product_id first
@@ -1119,36 +1154,41 @@ class RetroAdminCLI:
                 else:
                     values_row.append(str(value))
             values_list.append(f"({', '.join(values_row)})")
-        
+
         # Build SET clauses
         for i, field in enumerate(fields, 1):  # Start from 1 because 0 is product_id
             set_clauses.append(f"{field} = v.col{i}")
-        
+
         # Build column list for VALUES
-        col_names = ['product_id'] + [f'col{i}' for i in range(1, len(fields) + 1)]
-        
+        col_names = ["product_id"] + [f"col{i}" for i in range(1, len(fields) + 1)]
+
         values_clause = ", ".join(values_list)
         set_clause = ", ".join(set_clauses)
         col_clause = ", ".join(col_names)
-        
+
         bulk_query = f"""
             UPDATE products.products 
             SET {set_clause}
             FROM (VALUES {values_clause}) AS v({col_clause})
             WHERE products.products.id::text = v.product_id
         """
-        
+
         await session.execute(text(bulk_query))
 
     async def _execute_inventory_updates_batch(self, session, updates_batch: list):
         """Execute inventory updates using true bulk operations"""
         from sqlalchemy import text
-        
+
         if not updates_batch:
             return
-        
-        print(colored_text(f"\nExecuting optimized bulk inventory update for {len(updates_batch)} items...", "cyan"))
-        
+
+        print(
+            colored_text(
+                f"\nExecuting optimized bulk inventory update for {len(updates_batch)} items...",
+                "cyan",
+            )
+        )
+
         # PERFORMANCE OPTIMIZATION: Use VALUES clause for bulk update
         if len(updates_batch) == 1:
             # Single update
@@ -1171,9 +1211,9 @@ class RetroAdminCLI:
             values_list = []
             for product_id, stockx_product_id in updates_batch:
                 values_list.append(f"('{product_id}', '{stockx_product_id}')")
-            
+
             values_clause = ", ".join(values_list)
-            
+
             await session.execute(
                 text(
                     f"""
@@ -1185,7 +1225,9 @@ class RetroAdminCLI:
                 )
             )
 
-    def _print_enrichment_summary(self, total_products: int, enriched_count: int, skipped_count: int, error_count: int):
+    def _print_enrichment_summary(
+        self, total_products: int, enriched_count: int, skipped_count: int, error_count: int
+    ):
         """Print enrichment process summary"""
         print(colored_text("\n" + "=" * 60, "green"))
         print(colored_text("BULK ENRICHMENT COMPLETE!", "bright_green"))

@@ -13,12 +13,14 @@ COLLECTED_SALES = []
 # Add all sales with complete highlight data from searches
 # Note: Only including sales with Sale ID for deduplication
 
+
 def extract_sale_id(highlight: str) -> str:
     """Extract Sale ID from highlight text"""
-    for line in highlight.split('\n'):
-        if 'Sale ID:' in line:
-            return line.split('Sale ID:')[1].strip()
+    for line in highlight.split("\n"):
+        if "Sale ID:" in line:
+            return line.split("Sale ID:")[1].strip()
     return None
+
 
 def deduplicate_sales():
     """Deduplicate by Sale ID"""
@@ -32,6 +34,7 @@ def deduplicate_sales():
             unique_sales.append((title, url, highlight))
 
     return unique_sales
+
 
 def format_for_sync(sales):
     """Format sales for execute_bulk_sync.py"""
@@ -49,7 +52,8 @@ def format_for_sync(sales):
     output += "]\n"
     return output
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print("=" * 80)
     print("SALES COMPILATION REPORT")
     print("=" * 80)
@@ -65,7 +69,7 @@ if __name__ == '__main__':
     output = format_for_sync(unique)
 
     # Write to file
-    with open('COMPILED_SALES_DATA.txt', 'w', encoding='utf-8') as f:
+    with open("COMPILED_SALES_DATA.txt", "w", encoding="utf-8") as f:
         f.write(output)
 
     print("\nWritten to: COMPILED_SALES_DATA.txt")
