@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 class MetabaseDatabase(BaseModel):
     """Metabase database connection configuration"""
+
     id: Optional[int] = None
     name: str
     engine: str = "postgres"
@@ -28,6 +29,7 @@ class MetabaseDatabase(BaseModel):
 
 class MetabaseCollection(BaseModel):
     """Metabase collection for organizing dashboards and questions"""
+
     id: Optional[int] = None
     name: str
     description: Optional[str] = None
@@ -39,6 +41,7 @@ class MetabaseCollection(BaseModel):
 
 class VisualizationType(str, Enum):
     """Metabase visualization types"""
+
     TABLE = "table"
     BAR = "bar"
     LINE = "line"
@@ -55,6 +58,7 @@ class VisualizationType(str, Enum):
 
 class MetabaseCard(BaseModel):
     """Metabase card (question/chart) configuration"""
+
     id: Optional[int] = None
     name: str
     description: Optional[str] = None
@@ -70,6 +74,7 @@ class MetabaseCard(BaseModel):
 
 class MetabaseQuestion(BaseModel):
     """Metabase question (saved query)"""
+
     id: Optional[int] = None
     name: str
     description: Optional[str] = None
@@ -82,6 +87,7 @@ class MetabaseQuestion(BaseModel):
 
 class DashboardParameter(BaseModel):
     """Metabase dashboard parameter (filter)"""
+
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
     slug: str
@@ -91,6 +97,7 @@ class DashboardParameter(BaseModel):
 
 class DashboardCard(BaseModel):
     """Card placement on dashboard"""
+
     id: Optional[int] = None
     card_id: int
     row: int = 0
@@ -103,6 +110,7 @@ class DashboardCard(BaseModel):
 
 class MetabaseDashboard(BaseModel):
     """Metabase dashboard configuration"""
+
     id: Optional[int] = None
     name: str
     description: Optional[str] = None
@@ -116,6 +124,7 @@ class MetabaseDashboard(BaseModel):
 
 class MaterializedViewStatus(BaseModel):
     """Status of materialized view"""
+
     view_name: str
     exists: bool
     last_refresh: Optional[datetime] = None
@@ -126,6 +135,7 @@ class MaterializedViewStatus(BaseModel):
 
 class RefreshJobStatus(BaseModel):
     """Status of materialized view refresh job"""
+
     view_name: str
     job_id: Optional[str] = None
     status: str  # "pending", "running", "completed", "failed"

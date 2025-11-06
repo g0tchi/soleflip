@@ -26,7 +26,7 @@ from shared.config.settings import (
     get_settings_class,
     get_settings,
     reload_settings,
-    validate_settings
+    validate_settings,
 )
 
 
@@ -168,7 +168,7 @@ class TestSecurityConfig:
         """Test parsing comma-separated string to list"""
         config = SecurityConfig(
             allowed_hosts="localhost,127.0.0.1,example.com",
-            cors_origins="http://localhost:3000,https://app.example.com"
+            cors_origins="http://localhost:3000,https://app.example.com",
         )
 
         assert config.allowed_hosts == ["localhost", "127.0.0.1", "example.com"]
@@ -316,7 +316,7 @@ class TestSettings:
         """Test utility methods"""
         settings = Settings(
             database=DatabaseConfig(url="postgresql://localhost/test"),
-            logging=LoggingConfig(level=LogLevel.DEBUG)
+            logging=LoggingConfig(level=LogLevel.DEBUG),
         )
 
         assert settings.get_database_url() == "postgresql://localhost/test"
@@ -331,16 +331,14 @@ class TestSettings:
         """Test production validation fails with CORS wildcard"""
         with pytest.raises(ValidationError, match="CORS origins must be restricted"):
             Settings(
-                environment=Environment.PRODUCTION,
-                security=SecurityConfig(cors_origins=["*"])
+                environment=Environment.PRODUCTION, security=SecurityConfig(cors_origins=["*"])
             )
 
     def test_production_validation_allowed_hosts_wildcard(self):
         """Test production validation fails with allowed hosts wildcard"""
         with pytest.raises(ValidationError, match="Allowed hosts must be restricted"):
             Settings(
-                environment=Environment.PRODUCTION,
-                security=SecurityConfig(allowed_hosts=["*"])
+                environment=Environment.PRODUCTION, security=SecurityConfig(allowed_hosts=["*"])
             )
 
     def test_production_validation_success(self):
@@ -350,8 +348,8 @@ class TestSettings:
             debug=False,
             security=SecurityConfig(
                 cors_origins=["https://app.example.com"],
-                allowed_hosts=["app.example.com", "api.example.com"]
-            )
+                allowed_hosts=["app.example.com", "api.example.com"],
+            ),
         )
 
         assert settings.environment == Environment.PRODUCTION
@@ -360,20 +358,12 @@ class TestSettings:
     def test_to_dict_excludes_sensitive_data(self):
         """Test to_dict method excludes sensitive information"""
         settings = Settings(
-            security=SecurityConfig(
-                encryption_key="secret-key",
-                secret_key="secret-jwt-key"
-            ),
+            security=SecurityConfig(encryption_key="secret-key", secret_key="secret-jwt-key"),
             external_services=ExternalServiceConfig(
-                n8n_api_key="secret-n8n-key",
-                metabase_password="secret-password"
+                n8n_api_key="secret-n8n-key", metabase_password="secret-password"
             ),
-            monitoring=MonitoringConfig(
-                sentry_dsn="https://key@sentry.io/project"
-            ),
-            cache=CacheConfig(
-                redis_url="redis://user:password@localhost:6379/0"
-            )
+            monitoring=MonitoringConfig(sentry_dsn="https://key@sentry.io/project"),
+            cache=CacheConfig(redis_url="redis://user:password@localhost:6379/0"),
         )
 
         data = settings.to_dict()
@@ -479,7 +469,7 @@ class TestSettingsFactory:
     def test_validate_settings_with_error(self):
         """Test validate_settings handles errors gracefully"""
         # Mock get_settings to raise an exception
-        with patch('shared.config.settings.get_settings') as mock_get:
+        with patch("shared.config.settings.get_settings") as mock_get:
             mock_get.side_effect = ValueError("Test error")
 
             result = validate_settings()

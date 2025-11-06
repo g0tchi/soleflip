@@ -138,7 +138,7 @@ class BaseRepository(Generic[T]):
     async def count_all(self, filters: Optional[Dict[str, Any]] = None) -> int:
         """Count total entities with optional filters"""
         from sqlalchemy import func
-        
+
         query = select(func.count(self.model_class.id))
 
         # Apply filters if provided
@@ -263,13 +263,22 @@ class BaseRepository(Generic[T]):
         query_upper = query.strip().upper()
         if not query_upper.startswith("SELECT"):
             raise ValueError("Raw queries are restricted to SELECT statements only")
-        
+
         # SECURITY: Block potentially dangerous keywords
-        dangerous_keywords = ["DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE", "TRUNCATE", "EXEC"]
+        dangerous_keywords = [
+            "DROP",
+            "DELETE",
+            "INSERT",
+            "UPDATE",
+            "ALTER",
+            "CREATE",
+            "TRUNCATE",
+            "EXEC",
+        ]
         for keyword in dangerous_keywords:
             if keyword in query_upper:
                 raise ValueError(f"Raw query contains restricted keyword: {keyword}")
-        
+
         self._logger.debug("Executing raw SELECT query", query=query[:100])
 
         result = await self.db.execute(text(query), params or {})

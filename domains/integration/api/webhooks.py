@@ -122,8 +122,7 @@ async def stockx_import_orders_webhook_background(
 
             # Import orders using OrderImportService (handles API JSON structure)
             import_stats = await order_import_service.import_stockx_orders(
-                orders_data=orders_data,
-                batch_id=str(batch_id)
+                orders_data=orders_data, batch_id=str(batch_id)
             )
 
             # Update batch with results
@@ -131,13 +130,11 @@ async def stockx_import_orders_webhook_background(
                 batch_id,
                 ImportStatus.COMPLETED,
                 processed_records=import_stats["created"] + import_stats["updated"],
-                error_records=len(import_stats.get("errors", []))
+                error_records=len(import_stats.get("errors", [])),
             )
 
             logger.info(
-                "StockX API import completed successfully",
-                batch_id=str(batch_id),
-                **import_stats
+                "StockX API import completed successfully", batch_id=str(batch_id), **import_stats
             )
 
         except Exception as e:
@@ -173,13 +170,18 @@ async def get_import_status(
 
 class SystemConfigStatusResponse(BaseModel):
     """Response model for system config status."""
+
     key: str
     has_value: bool
     created_at: datetime
     updated_at: datetime
 
 
-@router.get("/stockx/credentials/status", response_model=list[SystemConfigStatusResponse], tags=["StockX Integration"])
+@router.get(
+    "/stockx/credentials/status",
+    response_model=list[SystemConfigStatusResponse],
+    tags=["StockX Integration"],
+)
 async def get_stockx_credentials_status(db: AsyncSession = Depends(get_db_session)):
     """
     Get current status of StockX credentials in core.system_config.
@@ -188,7 +190,7 @@ async def get_stockx_credentials_status(db: AsyncSession = Depends(get_db_sessio
     logger.info("Fetching StockX credentials status from core.system_config")
 
     result = await db.execute(
-        select(SystemConfig).where(SystemConfig.key.like('stockx%')).order_by(SystemConfig.key)
+        select(SystemConfig).where(SystemConfig.key.like("stockx%")).order_by(SystemConfig.key)
     )
     configs = result.scalars().all()
 
@@ -201,7 +203,7 @@ async def get_stockx_credentials_status(db: AsyncSession = Depends(get_db_sessio
             key=config.key,
             has_value=bool(config.value_encrypted),
             created_at=config.created_at,
-            updated_at=config.updated_at
+            updated_at=config.updated_at,
         )
         for config in configs
     ]
@@ -217,9 +219,7 @@ async def update_stockx_credentials_timestamps(db: AsyncSession = Depends(get_db
     logger.info("Updating updated_at timestamps for StockX credentials")
 
     # Get current credentials before update
-    result = await db.execute(
-        select(SystemConfig).where(SystemConfig.key.like('stockx%'))
-    )
+    result = await db.execute(select(SystemConfig).where(SystemConfig.key.like("stockx%")))
     configs = result.scalars().all()
 
     if not configs:
@@ -230,12 +230,14 @@ async def update_stockx_credentials_timestamps(db: AsyncSession = Depends(get_db
 
     # Update timestamps using raw SQL for efficiency
     await db.execute(
-        text("""
+        text(
+            """
             UPDATE core.system_config
             SET updated_at = :now
             WHERE key LIKE 'stockx%'
-        """),
-        {"now": current_time}
+        """
+        ),
+        {"now": current_time},
     )
 
     await db.commit()
@@ -243,12 +245,12 @@ async def update_stockx_credentials_timestamps(db: AsyncSession = Depends(get_db
     logger.info(
         "Successfully updated StockX credentials timestamps",
         credential_count=credential_count,
-        new_timestamp=current_time.isoformat()
+        new_timestamp=current_time.isoformat(),
     )
 
     # Verify update
     result = await db.execute(
-        select(SystemConfig).where(SystemConfig.key.like('stockx%')).order_by(SystemConfig.key)
+        select(SystemConfig).where(SystemConfig.key.like("stockx%")).order_by(SystemConfig.key)
     )
     updated_configs = result.scalars().all()
 
@@ -257,10 +259,7 @@ async def update_stockx_credentials_timestamps(db: AsyncSession = Depends(get_db
         "message": f"Updated {credential_count} StockX credential timestamps",
         "updated_at": current_time.isoformat(),
         "credentials": [
-            {
-                "key": config.key,
-                "updated_at": config.updated_at.isoformat()
-            }
+            {"key": config.key, "updated_at": config.updated_at.isoformat()}
             for config in updated_configs
-        ]
+        ],
     }

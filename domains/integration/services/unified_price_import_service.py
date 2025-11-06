@@ -4,6 +4,7 @@ Imports prices from any source (Awin, StockX, eBay, etc.) into price_sources tab
 
 This service replaces source-specific imports with a unified approach
 """
+
 import json
 from typing import Dict, List, Optional, Any
 from uuid import UUID
@@ -228,9 +229,7 @@ class UnifiedPriceImportService:
         }
 
         source_url = (
-            f"https://stockx.com/{stockx_data.get('urlKey')}"
-            if stockx_data.get("urlKey")
-            else None
+            f"https://stockx.com/{stockx_data.get('urlKey')}" if stockx_data.get("urlKey") else None
         )
 
         return await self.import_resale_price(
@@ -264,11 +263,14 @@ class UnifiedPriceImportService:
 
         # Create minimal product record
         # Note: Brand should be created separately or resolved from metadata
-        product_name = metadata.get("product_name", f"Product {ean}") if metadata else f"Product {ean}"
+        product_name = (
+            metadata.get("product_name", f"Product {ean}") if metadata else f"Product {ean}"
+        )
         brand_name = metadata.get("brand_name", "Unknown") if metadata else "Unknown"
 
         result = await self.session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO catalog.product (
                     name, ean, sku,
                     brand_id, color, size,
@@ -283,7 +285,8 @@ class UnifiedPriceImportService:
                     NOW(), NOW()
                 )
                 RETURNING id
-            """),
+            """
+            ),
             {
                 "name": product_name,
                 "ean": ean,
@@ -331,7 +334,8 @@ class UnifiedPriceImportService:
         metadata_json = json.dumps(metadata) if metadata else None
 
         await self.session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO integration.price_sources (
                     product_id, source_type, source_product_id, source_name,
                     price_type, price_cents, currency,
@@ -357,7 +361,8 @@ class UnifiedPriceImportService:
                     source_url = EXCLUDED.source_url,
                     last_updated = NOW(),
                     updated_at = NOW()
-            """),
+            """
+            ),
             {
                 "product_id": str(product_id),
                 "source_type": source_type,
@@ -380,7 +385,8 @@ class UnifiedPriceImportService:
     async def get_price_source_stats(self) -> Dict[str, Any]:
         """Get statistics about imported price sources"""
         result = await self.session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     source_type,
                     price_type,
@@ -393,7 +399,8 @@ class UnifiedPriceImportService:
                 FROM integration.price_sources
                 GROUP BY source_type, price_type
                 ORDER BY source_type, price_type
-            """)
+            """
+            )
         )
 
         stats = []
@@ -428,7 +435,8 @@ class UnifiedPriceImportService:
             List of profit opportunities
         """
         result = await self.session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     product_name,
                     product_sku,
@@ -447,7 +455,8 @@ class UnifiedPriceImportService:
                   AND profit_percentage >= :min_profit_percentage
                 ORDER BY profit_eur DESC
                 LIMIT :limit
-            """),
+            """
+            ),
             {
                 "min_profit_eur": min_profit_eur,
                 "min_profit_percentage": min_profit_percentage,

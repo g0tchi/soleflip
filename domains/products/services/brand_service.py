@@ -92,7 +92,7 @@ class BrandExtractorService:
                 logger.info(
                     "Created brand via intelligent fallback",
                     brand_name=brand_name,
-                    product=product_name
+                    product=product_name,
                 )
                 return brand
 
@@ -117,9 +117,7 @@ class BrandExtractorService:
 
         # Clean words (remove special chars but keep capitalization)
         clean_words = [
-            re.sub(r'[^\w\s-]', '', word)
-            for word in words
-            if word.lower() not in skip_words
+            re.sub(r"[^\w\s-]", "", word) for word in words if word.lower() not in skip_words
         ]
 
         if not clean_words:
@@ -132,7 +130,12 @@ class BrandExtractorService:
 
             if first_word and first_word[0].isupper() and second_word and second_word[0].isupper():
                 # Check if second word looks like part of brand (not a product type)
-                if len(second_word) > 2 and second_word.lower() not in ["air", "max", "pro", "ultra"]:
+                if len(second_word) > 2 and second_word.lower() not in [
+                    "air",
+                    "max",
+                    "pro",
+                    "ultra",
+                ]:
                     return f"{first_word} {second_word}"
 
         # Fallback: Use first capitalized word

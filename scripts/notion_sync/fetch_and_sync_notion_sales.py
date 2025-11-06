@@ -10,6 +10,7 @@ Usage:
     python fetch_and_sync_notion_sales.py --dry-run
     python fetch_and_sync_notion_sales.py
 """
+
 import asyncio
 import argparse
 import structlog
@@ -25,9 +26,9 @@ NOTION_SALES_DATA = []
 
 async def main():
     """Main entry point for fetch and sync"""
-    parser = argparse.ArgumentParser(description='Fetch and sync all Notion sales')
-    parser.add_argument('--dry-run', action='store_true', help='Dry run (no DB writes)')
-    parser.add_argument('--limit', type=int, help='Limit number of sales to sync')
+    parser = argparse.ArgumentParser(description="Fetch and sync all Notion sales")
+    parser.add_argument("--dry-run", action="store_true", help="Dry run (no DB writes)")
+    parser.add_argument("--limit", type=int, help="Limit number of sales to sync")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -78,31 +79,31 @@ async def main():
                 break
 
             # Extract page data
-            page_url = notion_page.get('url', '')
-            properties = notion_page.get('properties', {})
+            page_url = notion_page.get("url", "")
+            properties = notion_page.get("properties", {})
 
             # Parse Notion properties
             sale_data = service.parse_notion_properties(properties, page_url)
 
             if not sale_data:
                 logger.warning(f"Skipping invalid sale [{i}/{len(NOTION_SALES_DATA)}]")
-                service.stats['skipped_invalid'] += 1
+                service.stats["skipped_invalid"] += 1
                 skipped += 1
                 continue
 
-            service.stats['total_found'] += 1
+            service.stats["total_found"] += 1
 
             # Filter: Only StockX sales
-            if sale_data['sale_platform'] != 'StockX':
+            if sale_data["sale_platform"] != "StockX":
                 logger.debug(f"Skipping non-StockX sale: {sale_data.get('sale_id', 'unknown')}")
                 skipped += 1
                 continue
 
             # Check if already synced
             if not args.dry_run:
-                if await service.check_if_synced(session, sale_data['sale_id']):
+                if await service.check_if_synced(session, sale_data["sale_id"]):
                     logger.info(f"Skipping already synced: {sale_data['sale_id']}")
-                    service.stats['already_synced'] += 1
+                    service.stats["already_synced"] += 1
                     skipped += 1
                     continue
 
@@ -110,7 +111,7 @@ async def main():
             if args.dry_run:
                 # Just validate in dry run
                 logger.info(f"[DRY RUN] Would sync: {sale_data['sale_id']} ({sale_data['sku']})")
-                service.stats['newly_synced'] += 1
+                service.stats["newly_synced"] += 1
             else:
                 # Real sync
                 success = await service.sync_sale(session, sale_data)
@@ -124,7 +125,9 @@ async def main():
 
             # Progress update every 25 sales
             if i % 25 == 0:
-                print(f"Progress: {i}/{len(NOTION_SALES_DATA)} sales processed ({processed} synced, {skipped} skipped)")
+                print(
+                    f"Progress: {i}/{len(NOTION_SALES_DATA)} sales processed ({processed} synced, {skipped} skipped)"
+                )
 
         # Final commit
         if not args.dry_run and session:
@@ -136,7 +139,7 @@ async def main():
         service.print_summary()
 
         # Show recommendations
-        if service.stats['newly_synced'] > 0:
+        if service.stats["newly_synced"] > 0:
             print()
             print("=" * 80)
             print("RECOMMENDATIONS")
@@ -174,5 +177,5 @@ async def main():
         await service.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

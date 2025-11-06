@@ -20,11 +20,12 @@ from typing import Dict, List
 
 class RefreshStrategy(str, Enum):
     """Materialized view refresh strategies"""
+
     REALTIME = "realtime"  # Regular view (no materialization)
-    HOURLY = "hourly"      # Refresh every hour
-    DAILY = "daily"        # Refresh daily at 2 AM
-    WEEKLY = "weekly"      # Refresh weekly on Monday
-    MANUAL = "manual"      # Manual refresh only
+    HOURLY = "hourly"  # Refresh every hour
+    DAILY = "daily"  # Refresh daily at 2 AM
+    WEEKLY = "weekly"  # Refresh weekly on Monday
+    MANUAL = "manual"  # Manual refresh only
 
 
 class MetabaseViewConfig:
@@ -78,8 +79,8 @@ class MetabaseViewConfig:
         "indexes": [
             "CREATE INDEX idx_exec_metrics_date ON metabase_executive_metrics(sale_date DESC)",
             "CREATE INDEX idx_exec_metrics_month ON metabase_executive_metrics(sale_month DESC)",
-            "CREATE INDEX idx_exec_metrics_platform ON metabase_executive_metrics(platform_slug)"
-        ]
+            "CREATE INDEX idx_exec_metrics_platform ON metabase_executive_metrics(platform_slug)",
+        ],
     }
 
     # Product Performance Views (Daily refresh)
@@ -139,8 +140,8 @@ class MetabaseViewConfig:
             "CREATE INDEX idx_prod_perf_product ON metabase_product_performance(product_id)",
             "CREATE INDEX idx_prod_perf_brand ON metabase_product_performance(brand_id)",
             "CREATE INDEX idx_prod_perf_revenue ON metabase_product_performance(total_revenue DESC)",
-            "CREATE INDEX idx_prod_perf_units ON metabase_product_performance(units_sold DESC)"
-        ]
+            "CREATE INDEX idx_prod_perf_units ON metabase_product_performance(units_sold DESC)",
+        ],
     }
 
     # Brand Analytics Views (Daily refresh)
@@ -206,8 +207,8 @@ class MetabaseViewConfig:
         "indexes": [
             "CREATE INDEX idx_brand_analytics_id ON metabase_brand_analytics(brand_id)",
             "CREATE INDEX idx_brand_analytics_revenue ON metabase_brand_analytics(total_revenue DESC)",
-            "CREATE INDEX idx_brand_analytics_share ON metabase_brand_analytics(market_share_pct DESC)"
-        ]
+            "CREATE INDEX idx_brand_analytics_share ON metabase_brand_analytics(market_share_pct DESC)",
+        ],
     }
 
     # Platform Performance Views (Hourly refresh)
@@ -264,8 +265,8 @@ class MetabaseViewConfig:
         "indexes": [
             "CREATE INDEX idx_platform_perf_id ON metabase_platform_performance(platform_id)",
             "CREATE INDEX idx_platform_perf_revenue ON metabase_platform_performance(total_revenue DESC)",
-            "CREATE INDEX idx_platform_perf_orders ON metabase_platform_performance(total_orders DESC)"
-        ]
+            "CREATE INDEX idx_platform_perf_orders ON metabase_platform_performance(total_orders DESC)",
+        ],
     }
 
     # Inventory Status Views (Hourly refresh)
@@ -342,8 +343,8 @@ class MetabaseViewConfig:
             "CREATE INDEX idx_inv_status_product ON metabase_inventory_status(product_id)",
             "CREATE INDEX idx_inv_status_brand ON metabase_inventory_status(brand_name)",
             "CREATE INDEX idx_inv_status_category ON metabase_inventory_status(stock_category)",
-            "CREATE INDEX idx_inv_status_aging ON metabase_inventory_status(days_in_stock DESC)"
-        ]
+            "CREATE INDEX idx_inv_status_aging ON metabase_inventory_status(days_in_stock DESC)",
+        ],
     }
 
     # Customer Geography Views (Daily refresh)
@@ -395,8 +396,8 @@ class MetabaseViewConfig:
         "indexes": [
             "CREATE INDEX idx_cust_geo_country ON metabase_customer_geography(country)",
             "CREATE INDEX idx_cust_geo_city ON metabase_customer_geography(city)",
-            "CREATE INDEX idx_cust_geo_revenue ON metabase_customer_geography(total_revenue DESC)"
-        ]
+            "CREATE INDEX idx_cust_geo_revenue ON metabase_customer_geography(total_revenue DESC)",
+        ],
     }
 
     # Supplier Performance Views (Weekly refresh)
@@ -451,8 +452,8 @@ class MetabaseViewConfig:
         "indexes": [
             "CREATE INDEX idx_supp_perf_id ON metabase_supplier_performance(supplier_id)",
             "CREATE INDEX idx_supp_perf_revenue ON metabase_supplier_performance(total_revenue_generated DESC)",
-            "CREATE INDEX idx_supp_perf_roi ON metabase_supplier_performance(avg_roi DESC)"
-        ]
+            "CREATE INDEX idx_supp_perf_roi ON metabase_supplier_performance(avg_roi DESC)",
+        ],
     }
 
     @classmethod
@@ -465,7 +466,7 @@ class MetabaseViewConfig:
             cls.PLATFORM_PERFORMANCE,
             cls.INVENTORY_STATUS,
             cls.CUSTOMER_GEOGRAPHY,
-            cls.SUPPLIER_PERFORMANCE
+            cls.SUPPLIER_PERFORMANCE,
         ]
 
     @classmethod

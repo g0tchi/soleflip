@@ -17,10 +17,9 @@ Configuration:
 """
 
 import os
-import json
 import requests
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, Optional
 import sys
 from datetime import datetime
 
@@ -87,9 +86,9 @@ class MindsDBClient:
                         self.session.headers.update({
                             'Authorization': f'Bearer {self.token}'
                         })
-                        print(f"✅ Successfully authenticated!")
+                        print("✅ Successfully authenticated!")
                         return True
-                    print(f"✅ Login successful (session-based)")
+                    print("✅ Login successful (session-based)")
                     return True
 
                 # Try with email
@@ -106,9 +105,9 @@ class MindsDBClient:
                         self.session.headers.update({
                             'Authorization': f'Bearer {self.token}'
                         })
-                        print(f"✅ Successfully authenticated!")
+                        print("✅ Successfully authenticated!")
                         return True
-                    print(f"✅ Login successful (session-based)")
+                    print("✅ Login successful (session-based)")
                     return True
 
             except Exception as e:
@@ -120,12 +119,12 @@ class MindsDBClient:
             self.session.auth = (self.username, self.password)
             response = self.session.get(f"{self.base_url}/api/status", timeout=10)
             if response.status_code == 200:
-                print(f"✅ Using HTTP Basic Authentication")
+                print("✅ Using HTTP Basic Authentication")
                 return True
         except Exception as e:
             print(f"⚠️  Basic auth failed: {e}")
 
-        print(f"❌ Authentication failed. Please check credentials.")
+        print("❌ Authentication failed. Please check credentials.")
         return False
 
     def execute_sql(self, query: str) -> Dict:
@@ -147,7 +146,7 @@ class MindsDBClient:
         print(f"📁 Creating project '{project_name}'...")
 
         # Check if project exists
-        result = self.execute_sql(f"SHOW DATABASES")
+        result = self.execute_sql("SHOW DATABASES")
         if result and 'data' in result:
             projects = [row[0] for row in result.get('data', [])]
             if project_name in projects:
@@ -433,13 +432,13 @@ This knowledge base answers questions like:
     for use_case in kb_def["use_cases"]:
         content += f"- {use_case}\n"
 
-    content += f"\n---\n\n## Content Sources\n\n"
+    content += "\n---\n\n## Content Sources\n\n"
     content += f"Total files: {len(content_map)}\n\n"
 
     for file_path in sorted(content_map.keys()):
         content += f"- `{file_path}`\n"
 
-    content += f"\n---\n\n## Documentation Content\n\n"
+    content += "\n---\n\n## Documentation Content\n\n"
 
     # Add all file contents
     for file_path, file_content in sorted(content_map.items()):
@@ -461,7 +460,7 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
         return
 
     print(f"\n📂 Processing context folder: {CONTEXT_DIR}\n")
-    print(f"🎯 Strategy: Domain-based knowledge bases (5 KBs)\n")
+    print("🎯 Strategy: Domain-based knowledge bases (5 KBs)\n")
 
     # Track success/failure
     results = {"success": [], "failed": []}
@@ -474,7 +473,7 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
         print(f"{'='*60}\n")
 
         # Collect content
-        print(f"📂 Scanning paths:")
+        print("📂 Scanning paths:")
         for path in kb_def["paths"]:
             print(f"   - {path}")
 
@@ -495,13 +494,13 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
         # Warn if too large
         if size_kb > 500:
             print(f"⚠️  WARNING: Knowledge base is large ({size_kb:.1f} KB)")
-            print(f"   Consider splitting or removing large files")
+            print("   Consider splitting or removing large files")
 
         # Create combined content with metadata
         combined_content = create_kb_content_with_metadata(kb_def, content_map)
 
         # Create knowledge base
-        print(f"🚀 Creating knowledge base...")
+        print("🚀 Creating knowledge base...")
         metadata = {
             "kb_id": kb_id,
             "title": kb_def["title"],
@@ -529,7 +528,7 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
 
     # Summary
     print(f"\n{'='*60}")
-    print(f"SUMMARY")
+    print("SUMMARY")
     print(f"{'='*60}")
     print(f"✅ Successfully created: {len(results['success'])} knowledge bases")
 
@@ -551,16 +550,16 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
         for kb in results['failed']:
             print(f"   - {kb}")
 
-    print(f"\n📊 Total Statistics:")
+    print("\n📊 Total Statistics:")
     print(f"   - Knowledge Bases: {len(results['success'])}")
     print(f"   - Total Files: {total_files}")
     print(f"   - Total Size: {total_size:.1f} KB ({total_size/1024:.2f} MB)")
 
     if OPENAI_API_KEY:
-        print(f"\n✅ OpenAI API key is configured")
+        print("\n✅ OpenAI API key is configured")
     else:
-        print(f"\n⚠️  WARNING: OpenAI API key not set!")
-        print(f"   Set OPENAI_API_KEY environment variable or update script config")
+        print("\n⚠️  WARNING: OpenAI API key not set!")
+        print("   Set OPENAI_API_KEY environment variable or update script config")
 
 
 # ============================================================================

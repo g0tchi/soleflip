@@ -161,7 +161,7 @@ async def get_current_user_info():
     # TODO: Implement with API key authentication
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Authentication system being migrated to API keys"
+        detail="Authentication system being migrated to API keys",
     )
 
 
@@ -178,9 +178,7 @@ async def logout(request: Request):
     """
     # TODO: Implement with API key authentication
     logger.info("Logout endpoint called (auth migration in progress)")
-    return create_success_response(
-        message="Successfully logged out", data={}
-    )
+    return create_success_response(message="Successfully logged out", data={})
 
 
 @router.get("/users", response_model=list[UserResponse])

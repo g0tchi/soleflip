@@ -8,7 +8,19 @@ import uuid
 
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, CheckConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    CheckConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -290,14 +302,22 @@ class Product(Base, TimestampMixin):
     release_date = Column(DateTime(timezone=True))
 
     # StockX Enrichment Fields
-    stockx_product_id = Column(String(255), nullable=True, index=True, comment="StockX product UUID")
+    stockx_product_id = Column(
+        String(255), nullable=True, index=True, comment="StockX product UUID"
+    )
     style_code = Column(String(100), nullable=True, comment="Product style code (e.g., SKU)")
     enrichment_data = Column(JSONB, nullable=True, comment="Complete StockX product data")
     lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Current lowest ask price")
     highest_bid = Column(Numeric(10, 2), nullable=True, comment="Current highest bid price")
-    recommended_sell_faster = Column(Numeric(10, 2), nullable=True, comment="Recommended price for faster sale")
-    recommended_earn_more = Column(Numeric(10, 2), nullable=True, comment="Recommended price for maximum earnings")
-    last_enriched_at = Column(DateTime(timezone=True), nullable=True, comment="Last enrichment timestamp")
+    recommended_sell_faster = Column(
+        Numeric(10, 2), nullable=True, comment="Recommended price for faster sale"
+    )
+    recommended_earn_more = Column(
+        Numeric(10, 2), nullable=True, comment="Recommended price for maximum earnings"
+    )
+    last_enriched_at = Column(
+        DateTime(timezone=True), nullable=True, comment="Last enrichment timestamp"
+    )
     brand = relationship("Brand", back_populates="products")
     category = relationship("Category", back_populates="products")
     inventory_items = relationship("InventoryItem", back_populates="product")
@@ -363,9 +383,20 @@ class InventoryItem(Base, TimestampMixin):
     listed_local = Column(Boolean, nullable=True, default=False)
 
     # Advanced Status Tracking
-    detailed_status = Column(Enum('incoming', 'available', 'consigned', 'need_shipping',
-                                'packed', 'outgoing', 'sale_completed', 'cancelled',
-                                name='inventory_status'), nullable=True)
+    detailed_status = Column(
+        Enum(
+            "incoming",
+            "available",
+            "consigned",
+            "need_shipping",
+            "packed",
+            "outgoing",
+            "sale_completed",
+            "cancelled",
+            name="inventory_status",
+        ),
+        nullable=True,
+    )
 
     product = relationship("Product", back_populates="inventory_items")
     size = relationship("Size", back_populates="inventory_items")
@@ -439,7 +470,9 @@ class Listing(Base, TimestampMixin):
     last_stockx_updated_at = Column(DateTime(timezone=True))
 
     # Unified multi-platform pattern (v2.3.3)
-    platform_specific_data = Column(JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)")
+    platform_specific_data = Column(
+        JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)"
+    )
     raw_data = Column(JSONB)
 
     # Relationships
@@ -460,10 +493,19 @@ class Order(Base, TimestampMixin):
     )
 
     # Multi-platform support (Gibson v2.4)
-    platform_id = Column(UUID(as_uuid=True), nullable=False, index=True, comment="Platform (StockX, eBay, GOAT, Alias)")
-    external_id = Column(String(200), nullable=True, index=True, comment="Platform-specific order ID")
+    platform_id = Column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="Platform (StockX, eBay, GOAT, Alias)",
+    )
+    external_id = Column(
+        String(200), nullable=True, index=True, comment="Platform-specific order ID"
+    )
 
-    stockx_order_number = Column(String(100), nullable=True, unique=True, index=True)  # Now nullable
+    stockx_order_number = Column(
+        String(100), nullable=True, unique=True, index=True
+    )  # Now nullable
     status = Column(String(50), nullable=False, index=True)
     amount = Column(Numeric(10, 2))
     currency_code = Column(String(10))
@@ -489,12 +531,16 @@ class Order(Base, TimestampMixin):
     gross_profit = Column(Numeric(10, 2), nullable=True)  # Sale price - Purchase price
     net_profit = Column(Numeric(10, 2), nullable=True)  # Net profit after all costs
     roi = Column(Numeric(5, 2), nullable=True)  # Return on investment percentage
-    payout_received = Column(Boolean, nullable=True, default=False, index=True)  # Whether payout received
+    payout_received = Column(
+        Boolean, nullable=True, default=False, index=True
+    )  # Whether payout received
     payout_date = Column(DateTime(timezone=True), nullable=True)  # Date payout received
     shelf_life_days = Column(Integer, nullable=True)  # Days between purchase and sale
 
     # Unified multi-platform pattern (v2.3.3)
-    platform_specific_data = Column(JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)")
+    platform_specific_data = Column(
+        JSONB, comment="Platform-specific fields (StockX, eBay, GOAT, Alias)"
+    )
     raw_data = Column(JSONB)
 
     inventory_item = relationship("InventoryItem")
@@ -519,14 +565,14 @@ class ImportBatch(Base, TimestampMixin):
     status = Column(String(50), default="pending")
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
-    
+
     # Retry tracking fields
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=3)
     last_error = Column(String(1000))
     error_message = Column(String(1000))
     next_retry_at = Column(DateTime(timezone=True))
-    
+
     import_records = relationship("ImportRecord", back_populates="batch")
 
 
@@ -571,6 +617,7 @@ class SystemLog(Base):
 
 class StockXPresaleMarking(Base, TimestampMixin):
     """Separate table for StockX presale markings without inventory constraints"""
+
     __tablename__ = "stockx_presale_markings"
     __table_args__ = {"schema": "logging"} if IS_POSTGRES else None
 
@@ -585,13 +632,14 @@ class StockXPresaleMarking(Base, TimestampMixin):
 
 class EventStore(Base, TimestampMixin):
     """Event store for domain events and event sourcing"""
+
     __tablename__ = "event_store"
     __table_args__ = {"schema": "logging"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
     event_type = Column(String(100), nullable=False, index=True)
-    aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True) 
+    aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     event_data = Column(JSONB, nullable=False)
     correlation_id = Column(UUID(as_uuid=True), index=True)
     causation_id = Column(UUID(as_uuid=True), index=True)
@@ -601,6 +649,7 @@ class EventStore(Base, TimestampMixin):
 
 class SourcePrice(Base, TimestampMixin):
     """Source prices from retailers and affiliate platforms for arbitrage detection"""
+
     __tablename__ = "source_prices"
     __table_args__ = {"schema": "integration"} if IS_POSTGRES else None
 
@@ -608,7 +657,9 @@ class SourcePrice(Base, TimestampMixin):
     product_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
-    source = Column(String(100), nullable=False, comment="Data source: awin, webgains, scraping, etc.")
+    source = Column(
+        String(100), nullable=False, comment="Data source: awin, webgains, scraping, etc."
+    )
     supplier_name = Column(String(100), nullable=False, comment="Retailer/supplier name")
     external_id = Column(String(255), nullable=True, comment="External product ID from source")
     buy_price = Column(Numeric(10, 2), nullable=False)
@@ -645,25 +696,29 @@ class SourcePrice(Base, TimestampMixin):
 # Replaced by unified multi-platform pattern in sales.listing and sales.order
 # with platform_specific_data JSONB column for unlimited marketplace support
 
+
 class PricingHistory(Base, TimestampMixin):
     """
     Track pricing changes for listings to analyze pricing strategy performance
     """
+
     __tablename__ = "pricing_history"
     __table_args__ = {"schema": "sales"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     listing_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("listing.id", "sales")),
-        nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("listing.id", "sales")), nullable=False
     )
 
     old_price = Column(Numeric(10, 2), nullable=True, comment="Previous price")
     new_price = Column(Numeric(10, 2), nullable=False, comment="New price")
     change_reason = Column(String(100), nullable=True, comment="Reason for price change")
-    market_lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Market lowest ask at time of change")
-    market_highest_bid = Column(Numeric(10, 2), nullable=True, comment="Market highest bid at time of change")
+    market_lowest_ask = Column(
+        Numeric(10, 2), nullable=True, comment="Market lowest ask at time of change"
+    )
+    market_highest_bid = Column(
+        Numeric(10, 2), nullable=True, comment="Market highest bid at time of change"
+    )
 
     # Relationships
     listing = relationship("Listing", back_populates="pricing_history")
@@ -677,7 +732,9 @@ class PricingHistory(Base, TimestampMixin):
             "new_price": float(self.new_price) if self.new_price else None,
             "change_reason": self.change_reason,
             "market_lowest_ask": float(self.market_lowest_ask) if self.market_lowest_ask else None,
-            "market_highest_bid": float(self.market_highest_bid) if self.market_highest_bid else None,
+            "market_highest_bid": (
+                float(self.market_highest_bid) if self.market_highest_bid else None
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -687,7 +744,11 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     __tablename__ = "account"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"), nullable=False)
+    supplier_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"),
+        nullable=False,
+    )
 
     # Account credentials
     email = Column(String(150), nullable=False)
@@ -713,10 +774,16 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
     # cvv_encrypted = Column(Text(), nullable=True)        # PCI VIOLATION - REMOVED
 
     # PCI-compliant payment method storage
-    payment_provider = Column(String(50), nullable=True, comment="Payment provider: stripe, paypal, etc")
+    payment_provider = Column(
+        String(50), nullable=True, comment="Payment provider: stripe, paypal, etc"
+    )
     payment_method_token = Column(String(255), nullable=True, comment="Tokenized payment method ID")
-    payment_method_last4 = Column(String(4), nullable=True, comment="Last 4 digits for display only")
-    payment_method_brand = Column(String(20), nullable=True, comment="Card brand: visa, mastercard, etc")
+    payment_method_last4 = Column(
+        String(4), nullable=True, comment="Last 4 digits for display only"
+    )
+    payment_method_brand = Column(
+        String(20), nullable=True, comment="Card brand: visa, mastercard, etc"
+    )
     expiry_month = Column(Integer(), nullable=True, comment="Expiry month for display/validation")
     expiry_year = Column(Integer(), nullable=True, comment="Expiry year for display/validation")
 
@@ -740,21 +807,23 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
 
     # Relationships
     supplier = relationship("Supplier", back_populates="accounts")
-    purchase_history = relationship("AccountPurchaseHistory", back_populates="account", cascade="all, delete-orphan")
+    purchase_history = relationship(
+        "AccountPurchaseHistory", back_populates="account", cascade="all, delete-orphan"
+    )
 
     # Combined table args: schema and constraints
     __table_args__ = (
-        UniqueConstraint('supplier_id', 'email', name='uq_supplier_account_email'),
-        {"schema": "supplier"} if IS_POSTGRES else {}
+        UniqueConstraint("supplier_id", "email", name="uq_supplier_account_email"),
+        {"schema": "supplier"} if IS_POSTGRES else {},
     )
 
     def get_encrypted_password(self) -> str:
         """Get encrypted password"""
-        return self.get_encrypted_field('password_hash')
+        return self.get_encrypted_field("password_hash")
 
     def set_encrypted_password(self, password: str):
         """Set encrypted password"""
-        self.set_encrypted_field('password_hash', password)
+        self.set_encrypted_field("password_hash", password)
 
     # REMOVED: Credit card encryption methods - PCI compliance violation
     # def get_encrypted_cc_number(self) -> str:
@@ -777,7 +846,7 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
             "brand": self.payment_method_brand,
             "expiry_month": self.expiry_month,
             "expiry_year": self.expiry_year,
-            "has_payment_method": bool(self.payment_method_token)
+            "has_payment_method": bool(self.payment_method_token),
         }
 
     def to_dict(self, include_sensitive: bool = False):
@@ -810,13 +879,15 @@ class SupplierAccount(Base, TimestampMixin, EncryptedFieldMixin):
         }
 
         if include_sensitive:
-            data.update({
-                "proxy_config": self.proxy_config,
-                "payment_provider": self.payment_provider,
-                "payment_method_last4": self.payment_method_last4,
-                "payment_method_brand": self.payment_method_brand,
-                # Note: payment_method_token is never exposed - it's a secure token
-            })
+            data.update(
+                {
+                    "proxy_config": self.proxy_config,
+                    "payment_provider": self.payment_provider,
+                    "payment_method_last4": self.payment_method_last4,
+                    "payment_method_brand": self.payment_method_brand,
+                    # Note: payment_method_token is never exposed - it's a secure token
+                }
+            )
 
         return data
 
@@ -826,15 +897,29 @@ class AccountPurchaseHistory(Base, TimestampMixin):
     __table_args__ = {"schema": "supplier"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("supplier.account.id" if IS_POSTGRES else "account.id"), nullable=False)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"), nullable=False)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("catalog.product.id" if IS_POSTGRES else "product.id"), nullable=True)
+    account_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("supplier.account.id" if IS_POSTGRES else "account.id"),
+        nullable=False,
+    )
+    supplier_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("supplier.profile.id" if IS_POSTGRES else "profile.id"),
+        nullable=False,
+    )
+    product_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("catalog.product.id" if IS_POSTGRES else "product.id"),
+        nullable=True,
+    )
 
     # Purchase details
     order_reference = Column(String(100), nullable=True)
     purchase_amount = Column(Numeric(12, 2), nullable=False)
     purchase_date = Column(DateTime(), nullable=False)
-    purchase_status = Column(String(30), nullable=False)  # 'pending', 'completed', 'failed', 'cancelled'
+    purchase_status = Column(
+        String(30), nullable=False
+    )  # 'pending', 'completed', 'failed', 'cancelled'
     success = Column(Boolean(), nullable=False, default=False)
     failure_reason = Column(Text(), nullable=True)
 
@@ -868,11 +953,14 @@ class AccountPurchaseHistory(Base, TimestampMixin):
 
 class SupplierPerformance(Base):
     """Monthly supplier performance metrics from Notion intelligence system"""
+
     __tablename__ = "supplier_performance"
     __table_args__ = {"schema": "core"} if IS_POSTGRES else None
 
     id = Column(Integer, primary_key=True)
-    supplier_id = Column(UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=False)
+    supplier_id = Column(
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=False
+    )
     month_year = Column(DateTime(timezone=True), nullable=False)
     total_orders = Column(Integer, nullable=True, default=0)
     avg_delivery_time = Column(Numeric(4, 1), nullable=True)
@@ -897,24 +985,23 @@ class SupplierPerformance(Base):
 
 
 # Update Supplier model to include accounts relationship
-Supplier.accounts = relationship("SupplierAccount", back_populates="supplier", cascade="all, delete-orphan")
+Supplier.accounts = relationship(
+    "SupplierAccount", back_populates="supplier", cascade="all, delete-orphan"
+)
 
 
 class MarketplaceData(Base, TimestampMixin):
     """Market data from multiple platforms (StockX, Alias, GOAT, etc.) for pricing intelligence"""
+
     __tablename__ = "marketplace_data"
     __table_args__ = {"schema": "analytics"} if IS_POSTGRES else None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     inventory_item_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("stock.id", "inventory")),
-        nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("stock.id", "inventory")), nullable=False
     )
     platform_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey(get_schema_ref("marketplace.id", "platform")),
-        nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("marketplace.id", "platform")), nullable=False
     )
     marketplace_listing_id = Column(String(255), comment="External listing identifier")
 
@@ -943,14 +1030,18 @@ class MarketplaceData(Base, TimestampMixin):
     # Constraints
     if IS_POSTGRES:
         __table_args__ = (
-            UniqueConstraint('inventory_item_id', 'platform_id', name='uq_marketplace_data_item_platform'),
-            CheckConstraint('volatility >= 0 AND volatility <= 1', name='chk_volatility_range'),
-            CheckConstraint('fees_percentage >= 0 AND fees_percentage <= 1', name='chk_fees_range'),
-            {"schema": "analytics"}
+            UniqueConstraint(
+                "inventory_item_id", "platform_id", name="uq_marketplace_data_item_platform"
+            ),
+            CheckConstraint("volatility >= 0 AND volatility <= 1", name="chk_volatility_range"),
+            CheckConstraint("fees_percentage >= 0 AND fees_percentage <= 1", name="chk_fees_range"),
+            {"schema": "analytics"},
         )
     else:
         __table_args__ = (
-            UniqueConstraint('inventory_item_id', 'platform_id', name='uq_marketplace_data_item_platform'),
+            UniqueConstraint(
+                "inventory_item_id", "platform_id", name="uq_marketplace_data_item_platform"
+            ),
         )
 
     def to_dict(self):
@@ -962,7 +1053,9 @@ class MarketplaceData(Base, TimestampMixin):
             "ask_price": float(self.ask_price) if self.ask_price else None,
             "bid_price": float(self.bid_price) if self.bid_price else None,
             "market_lowest_ask": float(self.market_lowest_ask) if self.market_lowest_ask else None,
-            "market_highest_bid": float(self.market_highest_bid) if self.market_highest_bid else None,
+            "market_highest_bid": (
+                float(self.market_highest_bid) if self.market_highest_bid else None
+            ),
             "last_sale_price": float(self.last_sale_price) if self.last_sale_price else None,
             "sales_frequency": self.sales_frequency,
             "volatility": float(self.volatility) if self.volatility else None,

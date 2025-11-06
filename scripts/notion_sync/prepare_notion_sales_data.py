@@ -4,6 +4,7 @@ Collects sales from search results and prepares them for sync
 
 This script will be populated by Claude Code with sales data from Notion search results.
 """
+
 from typing import List, Dict
 
 # Raw search results from Notion (highlights contain the data)
@@ -19,16 +20,16 @@ def parse_highlight_to_properties(highlight: str, url: str) -> Dict:
     The highlight contains field data in format:
     Field Name: Value
     """
-    properties = {'url': url}
+    properties = {"url": url}
 
-    lines = highlight.strip().split('\n')
+    lines = highlight.strip().split("\n")
 
     for line in lines:
-        if ':' not in line:
+        if ":" not in line:
             continue
 
         # Split on first colon only
-        parts = line.split(':', 1)
+        parts = line.split(":", 1)
         if len(parts) != 2:
             continue
 
@@ -36,40 +37,54 @@ def parse_highlight_to_properties(highlight: str, url: str) -> Dict:
         value = parts[1].strip()
 
         # Skip empty values
-        if not value or value in ['', '-']:
+        if not value or value in ["", "-"]:
             continue
 
         # Parse different field types
-        if field in ['VAT?', 'Payout Received?', 'Sold?', 'Listed on Alias?', 'Listed on StockX?', 'Listed Local?']:
-            properties[field] = value.lower() in ['true', 'yes', '1']
+        if field in [
+            "VAT?",
+            "Payout Received?",
+            "Sold?",
+            "Listed on Alias?",
+            "Listed on StockX?",
+            "Listed Local?",
+        ]:
+            properties[field] = value.lower() in ["true", "yes", "1"]
 
-        elif field in ['Gross Buy', 'Gross Sale', 'Net Sale', 'Net Buy', 'Profit', 'Price (Excl. Label)']:
+        elif field in [
+            "Gross Buy",
+            "Gross Sale",
+            "Net Sale",
+            "Net Buy",
+            "Profit",
+            "Price (Excl. Label)",
+        ]:
             # Remove currency symbols and convert
-            clean_value = value.replace('€', '').replace(',', '.').strip()
+            clean_value = value.replace("€", "").replace(",", ".").strip()
             try:
                 properties[field] = float(clean_value)
             except:
                 properties[field] = 0.0
 
-        elif field in ['ROI', 'Sale VAT']:
+        elif field in ["ROI", "Sale VAT"]:
             # Remove % and convert
-            clean_value = value.replace('%', '').replace(',', '.').strip()
+            clean_value = value.replace("%", "").replace(",", ".").strip()
             try:
                 properties[field] = float(clean_value)
             except:
                 properties[field] = 0.0
 
-        elif field in ['Size', 'Shelf Life', 'Quantity']:
+        elif field in ["Size", "Shelf Life", "Quantity"]:
             try:
                 # Try as number first
                 properties[field] = value
             except:
                 properties[field] = value
 
-        elif field in ['Buy Date', 'Sale Date', 'Delivery Date']:
+        elif field in ["Buy Date", "Sale Date", "Delivery Date"]:
             # Store as date string
-            properties[f'date:{field}:start'] = value
-            properties[f'date:{field}:is_datetime'] = 0
+            properties[f"date:{field}:start"] = value
+            properties[f"date:{field}:is_datetime"] = 0
 
         else:
             # String fields
@@ -87,9 +102,9 @@ def extract_sales_from_search_results(search_results: List[Dict]) -> List[Dict]:
     sales = []
 
     for result in search_results:
-        url = result.get('url', '')
-        highlight = result.get('highlight', '')
-        title = result.get('title', '')
+        url = result.get("url", "")
+        highlight = result.get("highlight", "")
+        title = result.get("title", "")
 
         if not highlight:
             continue
@@ -98,26 +113,23 @@ def extract_sales_from_search_results(search_results: List[Dict]) -> List[Dict]:
         properties = parse_highlight_to_properties(highlight, url)
 
         # Add SKU from title if not in properties
-        if 'SKU' not in properties and title:
-            properties['SKU'] = title
+        if "SKU" not in properties and title:
+            properties["SKU"] = title
 
         # Skip if missing critical fields
-        if not properties.get('Sale ID') or not properties.get('Sale Platform'):
+        if not properties.get("Sale ID") or not properties.get("Sale Platform"):
             continue
 
         # Only StockX sales
-        if properties.get('Sale Platform') != 'StockX':
+        if properties.get("Sale Platform") != "StockX":
             continue
 
-        sales.append({
-            'url': url,
-            'properties': properties
-        })
+        sales.append({"url": url, "properties": properties})
 
     return sales
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test parsing
     if SEARCH_RESULTS:
         sales = extract_sales_from_search_results(SEARCH_RESULTS)

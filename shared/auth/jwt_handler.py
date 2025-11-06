@@ -28,9 +28,12 @@ class JWTHandler:
         if not jwt_secret:
             # Generate a secure random key if not provided
             import secrets
+
             jwt_secret = secrets.token_urlsafe(64)
-            logger.warning("JWT_SECRET_KEY not set in environment, using generated key. Set JWT_SECRET_KEY in production!")
-        
+            logger.warning(
+                "JWT_SECRET_KEY not set in environment, using generated key. Set JWT_SECRET_KEY in production!"
+            )
+
         self.secret_key = jwt_secret
         self.algorithm = "HS256"
         self.access_token_expire_minutes = 60 * 24  # 24 hours
@@ -66,7 +69,12 @@ class JWTHandler:
             "type": "access",
         }
 
-        logger.debug("Creating access token", user_id=user_id, username=username, expires_at=expire.isoformat())
+        logger.debug(
+            "Creating access token",
+            user_id=user_id,
+            username=username,
+            expires_at=expire.isoformat(),
+        )
 
         try:
             token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
@@ -92,7 +100,7 @@ class JWTHandler:
             # SECURITY: Check if token is blacklisted
             if await is_token_blacklisted(token):
                 raise ValueError("Token has been revoked")
-                
+
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
             # Validate required fields

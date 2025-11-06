@@ -1,6 +1,7 @@
 """
 Check for field duplication between products.inventory and transactions.orders
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import DatabaseManager
@@ -16,21 +17,29 @@ async def check_overlap():
         print("=" * 80)
 
         # Get all columns from inventory table
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
             WHERE table_schema = 'products' AND table_name = 'inventory'
             ORDER BY ordinal_position
-        """))
+        """
+            )
+        )
         inventory_cols = list(result)
 
         # Get all columns from orders table
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
             WHERE table_schema = 'transactions' AND table_name = 'orders'
             ORDER BY ordinal_position
-        """))
+        """
+            )
+        )
         orders_cols = list(result)
 
         print(f"\nproducts.inventory columns: {len(inventory_cols)}")
@@ -44,7 +53,10 @@ async def check_overlap():
         purchase_fields = []
         for col in inventory_cols:
             name = col.column_name
-            if any(keyword in name.lower() for keyword in ['purchase', 'buy', 'cost', 'price', 'supplier', 'vat', 'delivery']):
+            if any(
+                keyword in name.lower()
+                for keyword in ["purchase", "buy", "cost", "price", "supplier", "vat", "delivery"]
+            ):
                 purchase_fields.append(col)
                 print(f"  {name:30} | {col.data_type:20} | {col.is_nullable}")
 
@@ -55,7 +67,21 @@ async def check_overlap():
         sale_fields = []
         for col in orders_cols:
             name = col.column_name
-            if any(keyword in name.lower() for keyword in ['sale', 'sold', 'gross', 'net', 'proceeds', 'profit', 'roi', 'payout', 'platform_fee', 'shipping']):
+            if any(
+                keyword in name.lower()
+                for keyword in [
+                    "sale",
+                    "sold",
+                    "gross",
+                    "net",
+                    "proceeds",
+                    "profit",
+                    "roi",
+                    "payout",
+                    "platform_fee",
+                    "shipping",
+                ]
+            ):
                 sale_fields.append(col)
                 print(f"  {name:30} | {col.data_type:20} | {col.is_nullable}")
 
@@ -69,12 +95,14 @@ async def check_overlap():
         # Check if inventory has sale-related fields
         for col in inventory_cols:
             name = col.column_name
-            if any(keyword in name.lower() for keyword in ['sale', 'sold', 'revenue', 'proceeds']):
-                duplicates.append({
-                    'table': 'inventory',
-                    'column': name,
-                    'issue': 'Sale data in inventory table (should be in orders)'
-                })
+            if any(keyword in name.lower() for keyword in ["sale", "sold", "revenue", "proceeds"]):
+                duplicates.append(
+                    {
+                        "table": "inventory",
+                        "column": name,
+                        "issue": "Sale data in inventory table (should be in orders)",
+                    }
+                )
 
         # Check if orders has purchase-related fields that duplicate inventory
         for col in orders_cols:
@@ -96,17 +124,25 @@ async def check_overlap():
         print("=" * 80)
 
         # Check if all orders have valid inventory references
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT COUNT(*) as total_orders FROM transactions.orders
-        """))
+        """
+            )
+        )
         total_orders = result.fetchone()[0]
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT COUNT(*)
             FROM transactions.orders o
             LEFT JOIN products.inventory i ON o.inventory_item_id = i.id
             WHERE i.id IS NULL
-        """))
+        """
+            )
+        )
         orphaned_orders = result.fetchone()[0]
 
         print(f"\nTotal orders: {total_orders}")
@@ -122,7 +158,9 @@ async def check_overlap():
         print("DATA FLOW EXAMPLE (1 sale)")
         print("=" * 80)
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 i.id as inventory_id,
                 i.purchase_price as inv_purchase_price,
@@ -138,7 +176,9 @@ async def check_overlap():
             WHERE o.status = 'completed'
             ORDER BY o.sold_at DESC
             LIMIT 1
-        """))
+        """
+            )
+        )
 
         example = result.fetchone()
         if example:

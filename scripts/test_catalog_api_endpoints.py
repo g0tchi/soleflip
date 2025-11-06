@@ -36,17 +36,17 @@ async def test_catalog_endpoints():
         try:
             response = await client.get(
                 f"{base_url}/catalog/search",
-                params={"query": test_sku, "page_number": 1, "page_size": 3}
+                params={"query": test_sku, "page_number": 1, "page_size": 3},
             )
             print(f"Status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"Success: Found {data['pagination']['total_results']} results")
                 print(f"Products: {len(data['products'])}")
-                if data['products']:
-                    product = data['products'][0]
+                if data["products"]:
+                    product = data["products"][0]
                     print(f"First product: {product.get('title')} ({product.get('productId')})")
-                    product_id = product.get('productId')
+                    product_id = product.get("productId")
             else:
                 print(f"Error: {response.text}")
                 return
@@ -78,18 +78,17 @@ async def test_catalog_endpoints():
                 data = response.json()
                 print(f"Success: Found {data['total_variants']} variants")
                 # Find variant for test size
-                variants = data['variants']
+                variants = data["variants"]
                 matching_variant = next(
-                    (v for v in variants if v.get('variantValue') == test_size),
-                    None
+                    (v for v in variants if v.get("variantValue") == test_size), None
                 )
                 if matching_variant:
-                    variant_id = matching_variant['variantId']
+                    variant_id = matching_variant["variantId"]
                     print(f"Found size {test_size}: variant_id = {variant_id}")
                 else:
                     # Use first variant
-                    variant_id = variants[0]['variantId']
-                    test_size = variants[0]['variantValue']
+                    variant_id = variants[0]["variantId"]
+                    test_size = variants[0]["variantValue"]
                     print(f"Size {test_size} not found, using {test_size} instead")
             else:
                 print(f"Error: {response.text}")
@@ -103,12 +102,12 @@ async def test_catalog_endpoints():
         try:
             response = await client.get(
                 f"{base_url}/catalog/products/{product_id}/variants/{variant_id}/market-data",
-                params={"currency_code": "EUR"}
+                params={"currency_code": "EUR"},
             )
             print(f"Status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
-                market = data['market_data']
+                market = data["market_data"]
                 print(f"Success: Market data for size {test_size}")
                 print(f"  Lowest Ask: {market.get('lowest_ask')} EUR")
                 print(f"  Highest Bid: {market.get('highest_bid')} EUR")
@@ -124,22 +123,23 @@ async def test_catalog_endpoints():
         print("WARNING: This will update the database!")
         user_input = input("Continue? (y/n): ")
 
-        if user_input.lower() == 'y':
+        if user_input.lower() == "y":
             try:
                 response = await client.post(
-                    f"{base_url}/catalog/enrich-by-sku",
-                    params={"sku": test_sku, "size": test_size}
+                    f"{base_url}/catalog/enrich-by-sku", params={"sku": test_sku, "size": test_size}
                 )
                 print(f"Status: {response.status_code}")
                 if response.status_code == 200:
                     data = response.json()
                     print(f"Success: {data['message']}")
-                    enrichment = data['data']
+                    enrichment = data["data"]
                     print(f"  SKU: {enrichment['sku']}")
                     print(f"  Product: {enrichment['product_title']}")
                     print(f"  Brand: {enrichment['brand']}")
                     print(f"  Variants: {enrichment['total_variants']}")
-                    print(f"  Market Data: {'Available' if enrichment['market_data_available'] else 'Not Available'}")
+                    print(
+                        f"  Market Data: {'Available' if enrichment['market_data_available'] else 'Not Available'}"
+                    )
                     print(f"  Lowest Ask: {enrichment['lowest_ask']} EUR")
                 else:
                     print(f"Error: {response.text}")

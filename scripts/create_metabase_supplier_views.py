@@ -2,6 +2,7 @@
 Create Metabase-optimized views for Supplier History visualization
 Includes multiple view types for different chart types in Metabase
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -48,7 +49,6 @@ VIEWS = {
         JOIN core.suppliers s ON sh.supplier_id = s.id
         ORDER BY sh.event_date, s.name
     """,
-
     "supplier_summary_stats": """
         -- Summary Statistics: Perfect for Metabase Number cards and KPI dashboard
         CREATE OR REPLACE VIEW analytics.supplier_summary_stats AS
@@ -94,7 +94,6 @@ VIEWS = {
                  s.instagram_url, s.website, s.closure_date
         ORDER BY s.founded_year, s.name
     """,
-
     "supplier_event_matrix": """
         -- Event Matrix: Perfect for Metabase Pivot Tables
         CREATE OR REPLACE VIEW analytics.supplier_event_matrix AS
@@ -110,7 +109,6 @@ VIEWS = {
         GROUP BY s.name, EXTRACT(YEAR FROM sh.event_date), sh.event_type, sh.impact_level
         ORDER BY event_year, s.name
     """,
-
     "supplier_geographic_overview": """
         -- Geographic Overview: Perfect for Metabase Maps
         CREATE OR REPLACE VIEW analytics.supplier_geographic_overview AS
@@ -146,7 +144,6 @@ VIEWS = {
         GROUP BY s.name, s.city, s.country, s.status, s.founded_year
         ORDER BY s.name
     """,
-
     "supplier_status_breakdown": """
         -- Status Breakdown: Perfect for Metabase Pie/Donut Charts
         CREATE OR REPLACE VIEW analytics.supplier_status_breakdown AS
@@ -162,7 +159,6 @@ VIEWS = {
         GROUP BY s.status
         ORDER BY supplier_count DESC
     """,
-
     "supplier_detailed_table": """
         -- Detailed Table: Perfect for Metabase Tables with conditional formatting
         CREATE OR REPLACE VIEW analytics.supplier_detailed_table AS
@@ -198,7 +194,7 @@ VIEWS = {
         GROUP BY s.id, s.name, s.city, s.founded_year, s.founder_name,
                  s.status, s.instagram_handle, s.website, s.closure_date
         ORDER BY s.founded_year, s.name
-    """
+    """,
 }
 
 
@@ -234,40 +230,50 @@ async def main():
         # Test 1: Timeline view
         print("\n1. TIMELINE VIEW (First 5 events):")
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     event_date, supplier_name, event_title,
                     impact_level, status_indicator, years_since_founding
                 FROM analytics.supplier_timeline_view
                 LIMIT 5
-            """)
+            """
+            )
         )
         for row in result:
-            print(f"   {row[0]} | {row[1]:15s} | {row[2]:40s} | {row[3]:8s} | {row[4]:10s} | Year {row[5]}")
+            print(
+                f"   {row[0]} | {row[1]:15s} | {row[2]:40s} | {row[3]:8s} | {row[4]:10s} | Year {row[5]}"
+            )
 
         # Test 2: Summary stats
         print("\n2. SUMMARY STATISTICS:")
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     name, city, founded_year, total_events,
                     store_openings, milestones, operational_years, status
                 FROM analytics.supplier_summary_stats
                 ORDER BY founded_year
-            """)
+            """
+            )
         )
         for row in result:
             years = int(row[6]) if row[6] is not None else 0
-            print(f"   {row[0]:15s} | {row[1]:12s} | {row[2]} | Events: {row[3]:2d} | Stores: {row[4]:2d} | Milestones: {row[5]:2d} | {years:2d} years | {row[7]}")
+            print(
+                f"   {row[0]:15s} | {row[1]:12s} | {row[2]} | Events: {row[3]:2d} | Stores: {row[4]:2d} | Milestones: {row[5]:2d} | {years:2d} years | {row[7]}"
+            )
 
         # Test 3: Geographic overview
         print("\n3. GEOGRAPHIC OVERVIEW:")
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT name, city, latitude, longitude, total_events, status
                 FROM analytics.supplier_geographic_overview
                 ORDER BY name
-            """)
+            """
+            )
         )
         for row in result:
             coords = f"{row[2]:.4f}, {row[3]:.4f}" if row[2] and row[3] else "No coords"
@@ -276,13 +282,17 @@ async def main():
         # Test 4: Status breakdown
         print("\n4. STATUS BREAKDOWN:")
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT status, supplier_count, total_events, avg_age_years
                 FROM analytics.supplier_status_breakdown
-            """)
+            """
+            )
         )
         for row in result:
-            print(f"   {row[0]:10s} | Count: {row[1]:2d} | Events: {row[2]:3d} | Avg Age: {row[3]:4.1f} years")
+            print(
+                f"   {row[0]:10s} | Count: {row[1]:2d} | Events: {row[2]:3d} | Avg Age: {row[3]:4.1f} years"
+            )
 
         print("\n" + "=" * 100)
         print("METABASE VISUALIZATION RECOMMENDATIONS")

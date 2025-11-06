@@ -27,7 +27,7 @@ class RateLimiter:
         identifier: str,
         limit: int = 100,
         window_seconds: int = 3600,
-        block_duration_minutes: int = 15
+        block_duration_minutes: int = 15,
     ) -> tuple[bool, Optional[int]]:
         """
         Check if request is allowed under rate limit
@@ -56,8 +56,7 @@ class RateLimiter:
 
         # Clean old requests outside the window
         self.requests[identifier] = [
-            req_time for req_time in self.requests[identifier]
-            if req_time > window_start
+            req_time for req_time in self.requests[identifier] if req_time > window_start
         ]
 
         # Check current request count
@@ -73,7 +72,7 @@ class RateLimiter:
                 identifier=identifier,
                 current_requests=current_requests,
                 limit=limit,
-                blocked_until=block_until.isoformat()
+                blocked_until=block_until.isoformat(),
             )
 
             retry_after = block_duration_minutes * 60
@@ -105,9 +104,7 @@ class APIKeyValidator:
 
     def __init__(self, valid_api_keys: Set[str]):
         # Hash API keys for secure storage
-        self.valid_key_hashes = {
-            hashlib.sha256(key.encode()).hexdigest() for key in valid_api_keys
-        }
+        self.valid_key_hashes = {hashlib.sha256(key.encode()).hexdigest() for key in valid_api_keys}
 
     def validate_api_key(self, api_key: str) -> bool:
         """Validate API key using hash comparison"""
@@ -128,11 +125,11 @@ class InputSanitizer:
             raise ValueError("Input must be a string")
 
         # Remove potential dangerous characters
-        dangerous_chars = ['<', '>', '"', "'", '&', '\x00', '\r', '\n']
+        dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\r", "\n"]
         sanitized = value
 
         for char in dangerous_chars:
-            sanitized = sanitized.replace(char, '')
+            sanitized = sanitized.replace(char, "")
 
         # Limit length
         if len(sanitized) > max_length:
@@ -144,13 +141,14 @@ class InputSanitizer:
     def validate_uuid(value: str) -> bool:
         """Validate UUID format"""
         import re
-        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+        uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         return bool(re.match(uuid_pattern, value.lower()))
 
     @staticmethod
     def sanitize_pricing_strategy(strategy: str) -> str:
         """Sanitize pricing strategy input"""
-        allowed_strategies = {'competitive', 'premium', 'aggressive'}
+        allowed_strategies = {"competitive", "premium", "aggressive"}
         sanitized = InputSanitizer.sanitize_string(strategy, 20).lower()
 
         if sanitized not in allowed_strategies:
@@ -179,7 +177,7 @@ class RequestValidator:
             allowed_types = [
                 "application/json",
                 "application/x-www-form-urlencoded",
-                "multipart/form-data"
+                "multipart/form-data",
             ]
             return any(allowed in content_type.lower() for allowed in allowed_types)
         return True
@@ -193,7 +191,7 @@ class AuditLogger:
         event_type: str,
         request: Request,
         user_id: Optional[str] = None,
-        additional_data: Optional[Dict[str, Any]] = None
+        additional_data: Optional[Dict[str, Any]] = None,
     ):
         """Log security-related events"""
         log_data = {
@@ -203,7 +201,7 @@ class AuditLogger:
             "method": request.method,
             "path": str(request.url.path),
             "timestamp": datetime.utcnow().isoformat(),
-            "user_id": user_id
+            "user_id": user_id,
         }
 
         if additional_data:
@@ -231,11 +229,11 @@ async def security_middleware(request: Request, call_next: Callable) -> Response
             audit_logger.log_security_event(
                 "oversized_request",
                 request,
-                additional_data={"content_length": request.headers.get("content-length")}
+                additional_data={"content_length": request.headers.get("content-length")},
             )
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Request size exceeds limit"
+                detail="Request size exceeds limit",
             )
 
         # Content type validation
@@ -243,7 +241,7 @@ async def security_middleware(request: Request, call_next: Callable) -> Response
             audit_logger.log_security_event("invalid_content_type", request)
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail="Unsupported content type"
+                detail="Unsupported content type",
             )
 
         # Rate limiting for selling endpoints
@@ -251,7 +249,7 @@ async def security_middleware(request: Request, call_next: Callable) -> Response
             is_allowed, retry_after = rate_limiter.is_allowed(
                 identifier=client_ip,
                 limit=200,  # 200 requests per hour for selling operations
-                window_seconds=3600
+                window_seconds=3600,
             )
 
             if not is_allowed:
@@ -259,7 +257,7 @@ async def security_middleware(request: Request, call_next: Callable) -> Response
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Rate limit exceeded",
-                    headers={"Retry-After": str(retry_after)} if retry_after else None
+                    headers={"Retry-After": str(retry_after)} if retry_after else None,
                 )
 
         # Process request
@@ -279,13 +277,10 @@ async def security_middleware(request: Request, call_next: Callable) -> Response
     except Exception as e:
         # Log unexpected errors
         audit_logger.log_security_event(
-            "unexpected_error",
-            request,
-            additional_data={"error": str(e)}
+            "unexpected_error", request, additional_data={"error": str(e)}
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         )
 
 
@@ -308,15 +303,15 @@ def get_client_ip(request: Request) -> str:
 
 def validate_user_permissions(required_permissions: Set[str]):
     """Dependency to validate user permissions"""
-    def permission_checker(user = None):  # User object from auth dependency
+
+    def permission_checker(user=None):  # User object from auth dependency
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
             )
 
         # Check user permissions (implement based on your user model)
-        user_permissions = getattr(user, 'permissions', set())
+        user_permissions = getattr(user, "permissions", set())
         if not required_permissions.issubset(user_permissions):
             audit_logger.log_security_event(
                 "insufficient_permissions",
@@ -324,12 +319,11 @@ def validate_user_permissions(required_permissions: Set[str]):
                 user_id=str(user.id),
                 additional_data={
                     "required": list(required_permissions),
-                    "user_permissions": list(user_permissions)
-                }
+                    "user_permissions": list(user_permissions),
+                },
             )
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
             )
 
         return user

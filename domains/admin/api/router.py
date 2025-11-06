@@ -55,7 +55,7 @@ async def execute_query(
             "count_import_batches": "SELECT COUNT(*) FROM import_batches",
             "import_batch_status": "SELECT status, COUNT(*) FROM import_batches GROUP BY status",
             "count_inventory": "SELECT COUNT(*) FROM inventory_items",
-            "recent_logs": "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100"
+            "recent_logs": "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100",
         }
 
         # Check if query is in allowed list (exact match)
@@ -65,7 +65,7 @@ async def execute_query(
             if request.query not in allowed_queries.values():
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Query not allowed. Allowed query IDs: {', '.join(allowed_queries.keys())}"
+                    detail=f"Query not allowed. Allowed query IDs: {', '.join(allowed_queries.keys())}",
                 )
             sql_query = request.query
 
@@ -75,21 +75,21 @@ async def execute_query(
         start_time = time.time()
 
         result = await db.execute(text(sql_query))
-        
+
         # STREAMING OPTIMIZATION: Use fetchmany() for memory-efficient processing
         execution_time = (time.time() - start_time) * 1000
-        
+
         # Process results in chunks to avoid memory exhaustion
         columns = result.keys() if result.returns_rows else []
         results = []
         chunk_size = 10000  # Process 10k rows at a time
-        
+
         if result.returns_rows:
             while True:
                 chunk = result.fetchmany(chunk_size)
                 if not chunk:
                     break
-                
+
                 # Process chunk
                 for row in chunk:
                     row_dict = {}
@@ -101,7 +101,9 @@ async def execute_query(
                         elif value is None:
                             value = None
                         else:
-                            value = str(value) if not isinstance(value, (int, float, bool)) else value
+                            value = (
+                                str(value) if not isinstance(value, (int, float, bool)) else value
+                            )
                         row_dict[column] = value
                 results.append(row_dict)
         else:

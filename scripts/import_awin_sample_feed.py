@@ -1,6 +1,7 @@
 """
 Import Awin sample feed and test matching
 """
+
 import asyncio
 from domains.integration.services.awin_feed_service import AwinFeedImportService
 from shared.database.connection import db_manager
@@ -63,7 +64,9 @@ async def main():
         for i, row in enumerate(result, 1):
             match_status = "[MATCHED]" if row[5] else "[UNMATCHED]"
             stock_status = "[IN STOCK]" if row[4] else "[OUT OF STOCK]"
-            print(f"{i}. {row[0][:50]:50s} | {row[1]:15s} | Size {row[2]:5s} | EUR {row[3]:6.2f} | {stock_status} {match_status}")
+            print(
+                f"{i}. {row[0][:50]:50s} | {row[1]:15s} | Size {row[2]:5s} | EUR {row[3]:6.2f} | {stock_status} {match_status}"
+            )
 
         # Find profit opportunities (if any matched)
         if matched_count > 0:
@@ -72,15 +75,15 @@ async def main():
             print("=" * 80)
 
             opportunities = await service.find_profit_opportunities(
-                min_profit_cents=1000,  # Min 10 EUR profit
-                in_stock_only=True,
-                limit=10
+                min_profit_cents=1000, in_stock_only=True, limit=10  # Min 10 EUR profit
             )
 
             if opportunities:
                 for i, opp in enumerate(opportunities, 1):
                     print(f"\n{i}. {opp['product_name']}")
-                    print(f"   Brand: {opp['brand_name']} | Size: {opp['size']} | Color: {opp['colour']}")
+                    print(
+                        f"   Brand: {opp['brand_name']} | Size: {opp['size']} | Color: {opp['colour']}"
+                    )
                     print(f"   Retail: EUR {opp['retail_price_eur']:.2f}")
                     print(f"   StockX: EUR {opp['stockx_price_eur']:.2f}")
                     print(f"   Profit: EUR {opp['profit_eur']:.2f}")

@@ -3,6 +3,7 @@ Script to document Allike Store closure in supplier history
 Instagram post: https://www.instagram.com/p/DPo3_FjiEV-/
 Date: October 10, 2025
 """
+
 import asyncio
 from datetime import datetime
 from sqlalchemy import text
@@ -44,7 +45,9 @@ Reason for closure: Industry changes, difficult market conditions for smaller bu
 
 Status changed to: closed
 Last updated: {date}
-""".format(date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+""".format(
+    date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+)
 
 
 async def main():
@@ -56,12 +59,14 @@ async def main():
     async with db_manager.get_session() as session:
         # Search for CTBI supplier (Allike's database name)
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT id, name, slug, status, city, website, notes, internal_notes
                 FROM core.suppliers
                 WHERE LOWER(name) LIKE '%ctbi%' OR LOWER(slug) LIKE '%ctbi%'
                    OR LOWER(name) LIKE '%allike%' OR LOWER(slug) LIKE '%allike%'
-            """)
+            """
+            )
         )
         supplier = result.fetchone()
 
@@ -100,18 +105,17 @@ async def main():
             new_internal_notes = existing_internal_notes + "\n\n" + CLOSURE_NOTE
 
         await session.execute(
-            text("""
+            text(
+                """
                 UPDATE core.suppliers
                 SET
                     status = 'closed',
                     internal_notes = :internal_notes,
                     updated_at = NOW()
                 WHERE id = :supplier_id
-            """),
-            {
-                "supplier_id": supplier[0],
-                "internal_notes": new_internal_notes
-            }
+            """
+            ),
+            {"supplier_id": supplier[0], "internal_notes": new_internal_notes},
         )
 
         await session.commit()
@@ -123,12 +127,14 @@ async def main():
 
         # Verify update
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT status, updated_at
                 FROM core.suppliers
                 WHERE id = :supplier_id
-            """),
-            {"supplier_id": supplier[0]}
+            """
+            ),
+            {"supplier_id": supplier[0]},
         )
         updated = result.fetchone()
         print(f"\n[VERIFY] Current status: {updated[0]}")

@@ -118,11 +118,13 @@ class DatabaseManager:
                     if tables:
                         union_queries = []
                         for table in tables:
-                            union_queries.append(f"SELECT '{table}' as table_name, COUNT(*) as row_count FROM {table}")
-                        
+                            union_queries.append(
+                                f"SELECT '{table}' as table_name, COUNT(*) as row_count FROM {table}"
+                            )
+
                         union_query = " UNION ALL ".join(union_queries)
                         result = session.execute(text(union_query))
-                        
+
                         for row in result:
                             table_row_counts[row.table_name] = row.row_count
             except Exception as e:

@@ -15,13 +15,13 @@ class FinancialCalculator:
     """
 
     # Standard rounding for currency (2 decimal places)
-    CURRENCY_PRECISION = Decimal('0.01')
+    CURRENCY_PRECISION = Decimal("0.01")
 
     # Standard rounding for percentages (2 decimal places)
-    PERCENTAGE_PRECISION = Decimal('0.01')
+    PERCENTAGE_PRECISION = Decimal("0.01")
 
     # High precision for calculations (4 decimal places)
-    CALCULATION_PRECISION = Decimal('0.0001')
+    CALCULATION_PRECISION = Decimal("0.0001")
 
     @staticmethod
     def to_decimal(value: Union[str, int, float, Decimal, None]) -> Decimal:
@@ -35,7 +35,7 @@ class FinancialCalculator:
             Decimal representation of the value, or Decimal('0') if None/invalid
         """
         if value is None:
-            return Decimal('0')
+            return Decimal("0")
 
         if isinstance(value, Decimal):
             return value
@@ -44,7 +44,7 @@ class FinancialCalculator:
             # Convert to string first to avoid float precision issues
             return Decimal(str(value))
         except (ValueError, TypeError, decimal.InvalidOperation):
-            return Decimal('0')
+            return Decimal("0")
 
     @classmethod
     def to_currency(cls, value: Union[str, int, float, Decimal, None]) -> Decimal:
@@ -75,8 +75,9 @@ class FinancialCalculator:
         return decimal_value.quantize(cls.PERCENTAGE_PRECISION, rounding=ROUND_HALF_UP)
 
     @classmethod
-    def calculate_margin(cls, cost: Union[str, int, float, Decimal],
-                        sale_price: Union[str, int, float, Decimal]) -> Decimal:
+    def calculate_margin(
+        cls, cost: Union[str, int, float, Decimal], sale_price: Union[str, int, float, Decimal]
+    ) -> Decimal:
         """
         Calculate profit margin percentage
 
@@ -91,16 +92,17 @@ class FinancialCalculator:
         sale_decimal = cls.to_decimal(sale_price)
 
         if sale_decimal == 0:
-            return Decimal('0')
+            return Decimal("0")
 
         profit = sale_decimal - cost_decimal
-        margin = (profit / sale_decimal) * Decimal('100')
+        margin = (profit / sale_decimal) * Decimal("100")
 
         return cls.to_percentage(margin)
 
     @classmethod
-    def calculate_roi(cls, cost: Union[str, int, float, Decimal],
-                     profit: Union[str, int, float, Decimal]) -> Decimal:
+    def calculate_roi(
+        cls, cost: Union[str, int, float, Decimal], profit: Union[str, int, float, Decimal]
+    ) -> Decimal:
         """
         Calculate Return on Investment (ROI) percentage
 
@@ -115,9 +117,9 @@ class FinancialCalculator:
         profit_decimal = cls.to_decimal(profit)
 
         if cost_decimal == 0:
-            return Decimal('0')
+            return Decimal("0")
 
-        roi = (profit_decimal / cost_decimal) * Decimal('100')
+        roi = (profit_decimal / cost_decimal) * Decimal("100")
 
         return cls.to_percentage(roi)
 
@@ -133,12 +135,12 @@ class FinancialCalculator:
             Average as Decimal, or Decimal('0') if empty list
         """
         if not values:
-            return Decimal('0')
+            return Decimal("0")
 
         decimal_values = [cls.to_decimal(v) for v in values if v is not None]
 
         if not decimal_values:
-            return Decimal('0')
+            return Decimal("0")
 
         total = sum(decimal_values)
         count = Decimal(str(len(decimal_values)))
@@ -160,10 +162,13 @@ class FinancialCalculator:
         return cls.to_currency(sum(decimal_values))
 
     @classmethod
-    def calculate_net_proceeds(cls, sale_price: Union[str, int, float, Decimal],
-                              seller_fee: Union[str, int, float, Decimal] = 0,
-                              processing_fee: Union[str, int, float, Decimal] = 0,
-                              other_fees: Union[str, int, float, Decimal] = 0) -> Decimal:
+    def calculate_net_proceeds(
+        cls,
+        sale_price: Union[str, int, float, Decimal],
+        seller_fee: Union[str, int, float, Decimal] = 0,
+        processing_fee: Union[str, int, float, Decimal] = 0,
+        other_fees: Union[str, int, float, Decimal] = 0,
+    ) -> Decimal:
         """
         Calculate net proceeds after fees
 
@@ -177,17 +182,18 @@ class FinancialCalculator:
             Net proceeds as Decimal
         """
         sale_decimal = cls.to_decimal(sale_price)
-        fee_total = (cls.to_decimal(seller_fee) +
-                    cls.to_decimal(processing_fee) +
-                    cls.to_decimal(other_fees))
+        fee_total = (
+            cls.to_decimal(seller_fee) + cls.to_decimal(processing_fee) + cls.to_decimal(other_fees)
+        )
 
         net_proceeds = sale_decimal - fee_total
 
         return cls.to_currency(net_proceeds)
 
     @classmethod
-    def calculate_gross_profit(cls, sale_price: Union[str, int, float, Decimal],
-                              cost: Union[str, int, float, Decimal]) -> Decimal:
+    def calculate_gross_profit(
+        cls, sale_price: Union[str, int, float, Decimal], cost: Union[str, int, float, Decimal]
+    ) -> Decimal:
         """
         Calculate gross profit
 
@@ -204,8 +210,9 @@ class FinancialCalculator:
         return cls.to_currency(sale_decimal - cost_decimal)
 
     @classmethod
-    def calculate_net_profit(cls, net_proceeds: Union[str, int, float, Decimal],
-                            cost: Union[str, int, float, Decimal]) -> Decimal:
+    def calculate_net_profit(
+        cls, net_proceeds: Union[str, int, float, Decimal], cost: Union[str, int, float, Decimal]
+    ) -> Decimal:
         """
         Calculate net profit after all fees
 
@@ -222,8 +229,9 @@ class FinancialCalculator:
         return cls.to_currency(proceeds_decimal - cost_decimal)
 
     @classmethod
-    def format_currency(cls, value: Union[str, int, float, Decimal, None],
-                       currency_symbol: str = "$") -> str:
+    def format_currency(
+        cls, value: Union[str, int, float, Decimal, None], currency_symbol: str = "$"
+    ) -> str:
         """
         Format value as currency string
 

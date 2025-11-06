@@ -17,7 +17,9 @@ def get_schema_markdown(sync_conn: Connection) -> str:
     markdown_output = ["# Database Schema Analysis"]
 
     schema_names = inspector.get_schema_names()
-    schemas_to_document = [s for s in schema_names if not s.startswith('pg_') and s not in ('information_schema',)]
+    schemas_to_document = [
+        s for s in schema_names if not s.startswith("pg_") and s not in ("information_schema",)
+    ]
     print(f"Found schemas to document: {schemas_to_document}")
 
     for schema in sorted(schemas_to_document):
@@ -36,23 +38,31 @@ def get_schema_markdown(sync_conn: Connection) -> str:
             markdown_output.append("|-------------|-----------|----------|---------|")
             columns = inspector.get_columns(table_name, schema=schema)
             for column in columns:
-                col_name = column['name']
-                col_type = repr(column['type'])
-                col_nullable = column['nullable']
-                col_default = column.get('default', 'N/A')
-                markdown_output.append(f"| `{col_name}` | `{col_type}` | {col_nullable} | `{col_default}` |")
+                col_name = column["name"]
+                col_type = repr(column["type"])
+                col_nullable = column["nullable"]
+                col_default = column.get("default", "N/A")
+                markdown_output.append(
+                    f"| `{col_name}` | `{col_type}` | {col_nullable} | `{col_default}` |"
+                )
 
             # Foreign Keys
             fks = inspector.get_foreign_keys(table_name, schema=schema)
             if fks:
                 markdown_output.append("\n**Foreign Keys:**\n")
-                markdown_output.append("| Constrained Columns | Points To Table | Points To Columns |")
-                markdown_output.append("|---------------------|-----------------|-------------------|")
+                markdown_output.append(
+                    "| Constrained Columns | Points To Table | Points To Columns |"
+                )
+                markdown_output.append(
+                    "|---------------------|-----------------|-------------------|"
+                )
                 for fk in fks:
-                    constrained_cols = ", ".join(fk['constrained_columns'])
+                    constrained_cols = ", ".join(fk["constrained_columns"])
                     referred_table = f"{fk['referred_schema']}.{fk['referred_table']}"
-                    referred_cols = ", ".join(fk['referred_columns'])
-                    markdown_output.append(f"| `{constrained_cols}` | `{referred_table}` | `{referred_cols}` |")
+                    referred_cols = ", ".join(fk["referred_columns"])
+                    markdown_output.append(
+                        f"| `{constrained_cols}` | `{referred_table}` | `{referred_cols}` |"
+                    )
 
             # Indexes
             indexes = inspector.get_indexes(table_name, schema=schema)
@@ -61,9 +71,9 @@ def get_schema_markdown(sync_conn: Connection) -> str:
                 markdown_output.append("| Name | Columns | Unique |")
                 markdown_output.append("|------|---------|--------|")
                 for index in indexes:
-                    name = index['name']
-                    cols = ", ".join(index['column_names'])
-                    unique = index['unique']
+                    name = index["name"]
+                    cols = ", ".join(index["column_names"])
+                    unique = index["unique"]
                     markdown_output.append(f"| `{name}` | `{cols}` | {unique} |")
 
     return "\n".join(markdown_output)

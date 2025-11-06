@@ -10,14 +10,16 @@ import random
 
 API_BASE = "http://localhost:8000"
 
+
 def get_inventory_items():
     """Get current inventory items."""
     response = requests.get(f"{API_BASE}/api/v1/inventory/items")
     if response.status_code == 200:
-        return response.json()['items']
+        return response.json()["items"]
     else:
         print(f"[ERROR] Failed to get inventory: {response.status_code}")
         return []
+
 
 def update_inventory_with_purchase_date(item_id, purchase_date, purchase_price):
     """Update inventory item with purchase date for BI calculations."""
@@ -29,11 +31,12 @@ def update_inventory_with_purchase_date(item_id, purchase_date, purchase_price):
     # For now, we just simulate the data we'd need
     return True
 
+
 def simulate_bi_calculation(item):
     """Simulate BI calculation for an inventory item."""
     # Simulate some purchase data
-    if item['purchase_price']:
-        purchase_price = float(item['purchase_price'])
+    if item["purchase_price"]:
+        purchase_price = float(item["purchase_price"])
 
         # Generate a random purchase date 10-60 days ago
         days_ago = random.randint(10, 60)
@@ -49,17 +52,18 @@ def simulate_bi_calculation(item):
         pas = profit / shelf_life_days if shelf_life_days > 0 else 0
 
         return {
-            'item_id': item['id'],
-            'sku': item.get('product_name', 'Unknown'),
-            'purchase_date': purchase_date.strftime('%Y-%m-%d'),
-            'purchase_price': purchase_price,
-            'sale_price': sale_price,
-            'shelf_life_days': shelf_life_days,
-            'roi_percentage': roi_percentage,
-            'profit': profit,
-            'pas': pas
+            "item_id": item["id"],
+            "sku": item.get("product_name", "Unknown"),
+            "purchase_date": purchase_date.strftime("%Y-%m-%d"),
+            "purchase_price": purchase_price,
+            "sale_price": sale_price,
+            "shelf_life_days": shelf_life_days,
+            "roi_percentage": roi_percentage,
+            "profit": profit,
+            "pas": pas,
         }
     return None
+
 
 def test_dashboard_api():
     """Test the dashboard metrics API."""
@@ -74,9 +78,10 @@ def test_dashboard_api():
         return data
     else:
         print(f"[ERROR] Dashboard API failed: {response.status_code}")
-        if hasattr(response, 'text'):
+        if hasattr(response, "text"):
             print(f"Error details: {response.text}")
         return None
+
 
 def main():
     """Main test function."""
@@ -94,13 +99,15 @@ def main():
     print(f"[INFO] Found {len(items)} inventory items")
 
     # Show some sample items with purchase prices
-    items_with_prices = [item for item in items if item.get('purchase_price')]
+    items_with_prices = [item for item in items if item.get("purchase_price")]
     print(f"[INFO] {len(items_with_prices)} items have purchase prices")
 
     if items_with_prices:
         print("\n[SAMPLE] Sample items with purchase prices:")
         for i, item in enumerate(items_with_prices[:5]):  # Show first 5
-            print(f"  {i+1}. {item['product_name']} - Size {item['size']} - Price: {item['purchase_price']} EUR")
+            print(
+                f"  {i+1}. {item['product_name']} - Size {item['size']} - Price: {item['purchase_price']} EUR"
+            )
 
     # Test dashboard API
     test_dashboard_api()
@@ -122,9 +129,11 @@ def main():
 
     # Summary
     if simulated_results:
-        avg_roi = sum(r['roi_percentage'] for r in simulated_results) / len(simulated_results)
-        avg_pas = sum(r['pas'] for r in simulated_results) / len(simulated_results)
-        avg_shelf_life = sum(r['shelf_life_days'] for r in simulated_results) / len(simulated_results)
+        avg_roi = sum(r["roi_percentage"] for r in simulated_results) / len(simulated_results)
+        avg_pas = sum(r["pas"] for r in simulated_results) / len(simulated_results)
+        avg_shelf_life = sum(r["shelf_life_days"] for r in simulated_results) / len(
+            simulated_results
+        )
 
         print("\n[SUMMARY] Simulation Results:")
         print(f"  Items Processed: {len(simulated_results)}")
@@ -135,6 +144,7 @@ def main():
     print("\n[INFO] BI calculations simulated successfully!")
     print("[INFO] The system has the data structure needed for Business Intelligence.")
     print("[INFO] To activate full BI functionality, inventory items need purchase_date values.")
+
 
 if __name__ == "__main__":
     main()

@@ -333,6 +333,7 @@ class SystemMetrics:
 
             # Disk metrics - cross-platform path
             import os
+
             disk_path = "/" if os.name != "nt" else "C:\\"
             disk = psutil.disk_usage(disk_path)
             disk_percent = (disk.used / disk.total) * 100
@@ -395,23 +396,23 @@ class MetricsCollector:
         """Get all metrics in a format suitable for Prometheus export"""
         try:
             metrics_summary = self.registry.get_metrics_summary()
-            
+
             # Convert to Prometheus-compatible format
             prometheus_data = {
                 "metadata": {
                     "uptime_seconds": self.system_metrics._start_time,
-                    "metrics_collected": len(metrics_summary)
+                    "metrics_collected": len(metrics_summary),
                 },
                 "counters": {},
                 "gauges": {},
-                "histograms": {}
+                "histograms": {},
             }
-            
+
             # Process each metric
             for name, metric_info in metrics_summary.items():
                 metric_type = metric_info.get("type", "gauge")
                 latest_value = metric_info.get("latest_value", 0)
-                
+
                 if metric_type == MetricType.COUNTER:
                     prometheus_data["counters"][name] = {"": latest_value or 0}
                 elif metric_type == MetricType.GAUGE:
@@ -419,25 +420,22 @@ class MetricsCollector:
                 elif metric_type == MetricType.HISTOGRAM:
                     prometheus_data["histograms"][name] = {
                         "count": metric_info.get("sample_count", 0),
-                        "sum": latest_value or 0
+                        "sum": latest_value or 0,
                     }
-                    
+
             return prometheus_data
-            
+
         except Exception as e:
             logger.error("Failed to get all metrics", error=str(e))
             return {
                 "metadata": {"uptime_seconds": 0, "metrics_collected": 0},
                 "counters": {},
                 "gauges": {},
-                "histograms": {}
+                "histograms": {},
             }
 
     def increment_counter(
-        self,
-        metric_name: str,
-        value: float = 1.0,
-        labels: Optional[Dict[str, str]] = None
+        self, metric_name: str, value: float = 1.0, labels: Optional[Dict[str, str]] = None
     ):
         """Increment a counter metric by the specified value"""
         metric = self.registry.get_metric(metric_name)
@@ -449,19 +447,14 @@ class MetricsCollector:
                 type=MetricType.COUNTER,
                 unit=MetricUnit.COUNT,
                 description=f"Auto-registered counter: {metric_name}",
-                labels=labels
+                labels=labels,
             )
 
         # Get current value and add increment
         current_value = metric.get_latest_value() or 0
         metric.add_sample(current_value + value, labels)
 
-    def record_gauge(
-        self,
-        metric_name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
-    ):
+    def record_gauge(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """Record a gauge metric value"""
         metric = self.registry.get_metric(metric_name)
 
@@ -472,16 +465,13 @@ class MetricsCollector:
                 type=MetricType.GAUGE,
                 unit=MetricUnit.COUNT,
                 description=f"Auto-registered gauge: {metric_name}",
-                labels=labels
+                labels=labels,
             )
 
         metric.add_sample(value, labels)
 
     def record_histogram(
-        self,
-        metric_name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
+        self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None
     ):
         """Record a histogram metric value"""
         metric = self.registry.get_metric(metric_name)
@@ -493,17 +483,12 @@ class MetricsCollector:
                 type=MetricType.HISTOGRAM,
                 unit=MetricUnit.MILLISECONDS,
                 description=f"Auto-registered histogram: {metric_name}",
-                labels=labels
+                labels=labels,
             )
 
         metric.add_sample(value, labels)
 
-    def set_gauge(
-        self,
-        metric_name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
-    ):
+    def set_gauge(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """Set a gauge metric to a specific value (alias for record_gauge)"""
         self.record_gauge(metric_name, value, labels)
 

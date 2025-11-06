@@ -1,6 +1,7 @@
 """
 Quick check of Awin import results
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -12,7 +13,8 @@ async def main():
     async with db_manager.get_session() as session:
         # Get stats
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT
                     COUNT(*) as total,
                     COUNT(DISTINCT brand_name) as brands,
@@ -21,7 +23,8 @@ async def main():
                     MIN(retail_price_cents) / 100.0 as min_price,
                     MAX(retail_price_cents) / 100.0 as max_price
                 FROM integration.awin_products
-            """)
+            """
+            )
         )
         stats = result.fetchone()
 
@@ -40,18 +43,22 @@ async def main():
         print("=" * 80)
 
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT product_name, brand_name, size, retail_price_cents / 100.0 as price,
                        in_stock, colour
                 FROM integration.awin_products
                 ORDER BY retail_price_cents DESC
                 LIMIT 10
-            """)
+            """
+            )
         )
 
         for i, row in enumerate(result, 1):
             stock = "[IN STOCK]" if row[4] else "[OUT]"
-            print(f"{i}. EUR {row[3]:6.2f} {stock} | {row[0][:50]:50s} | {row[1]:15s} | Size {row[2]}")
+            print(
+                f"{i}. EUR {row[3]:6.2f} {stock} | {row[0][:50]:50s} | {row[1]:15s} | Size {row[2]}"
+            )
 
         print("\n" + "=" * 80)
 

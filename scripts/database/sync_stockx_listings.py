@@ -21,6 +21,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 API_BASE_URL = "http://localhost:8000"
 
+
 async def fetch_stockx_listings() -> List[Dict]:
     """Fetch current StockX listings from API"""
     async with aiohttp.ClientSession() as session:
@@ -35,6 +36,7 @@ async def fetch_stockx_listings() -> List[Dict]:
         except Exception as e:
             print(f"Error fetching StockX listings: {e}")
             return []
+
 
 async def sync_listings_to_db(listings: List[Dict]) -> None:
     """Sync StockX listings to database"""
@@ -69,7 +71,9 @@ async def sync_listings_to_db(listings: List[Dict]) -> None:
                 if listing.get("updatedAt"):
                     updated_at = datetime.fromisoformat(listing["updatedAt"].replace("Z", "+00:00"))
                 if listing.get("ask", {}).get("askExpiresAt"):
-                    expires_at = datetime.fromisoformat(listing["ask"]["askExpiresAt"].replace("Z", "+00:00"))
+                    expires_at = datetime.fromisoformat(
+                        listing["ask"]["askExpiresAt"].replace("Z", "+00:00")
+                    )
 
                 # Try to find matching inventory item by product name and size
                 inventory_item_id = None
@@ -124,7 +128,7 @@ async def sync_listings_to_db(listings: List[Dict]) -> None:
                     updated_at,  # last_stockx_updated_at
                     json.dumps(listing),  # raw_data
                     datetime.now(),  # created_at
-                    datetime.now()  # updated_at
+                    datetime.now(),  # updated_at
                 )
 
                 inserted_count += 1
@@ -134,12 +138,15 @@ async def sync_listings_to_db(listings: List[Dict]) -> None:
                 print(f"[ERROR] Error inserting listing {listing.get('listingId', 'unknown')}: {e}")
                 continue
 
-        print(f"\n[SUCCESS] Successfully synced {inserted_count}/{len(listings)} StockX listings to database!")
+        print(
+            f"\n[SUCCESS] Successfully synced {inserted_count}/{len(listings)} StockX listings to database!"
+        )
 
     except Exception as e:
         print(f"Database error: {e}")
     finally:
         await conn.close()
+
 
 async def main():
     """Main sync function"""
@@ -156,6 +163,7 @@ async def main():
         print("[ERROR] No listings found or API error")
 
     print("[COMPLETE] Sync complete!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -12,7 +12,8 @@ from dateutil import parser as date_parser
 
 # PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
 _CURRENCY_CLEAN_PATTERN = re.compile(r"[^\d\.-]")
-_SIZE_NUMERIC_PATTERN = re.compile(r"[^\d\.]") 
+_SIZE_NUMERIC_PATTERN = re.compile(r"[^\d\.]")
+
 
 class ValidationUtils:
     """Centralized validation utilities for common data normalization patterns."""
@@ -48,37 +49,37 @@ class ValidationUtils:
             # Remove currency symbols and spaces
             clean_value = value.strip()
             # Remove currency symbols (€, $, £, etc.) and whitespace
-            clean_value = re.sub(r'[€$£¥\s]', '', clean_value)
+            clean_value = re.sub(r"[€$£¥\s]", "", clean_value)
 
             if not clean_value:
                 return None
 
             # Detect format by checking positions of comma and period
-            has_comma = ',' in clean_value
-            has_period = '.' in clean_value
+            has_comma = "," in clean_value
+            has_period = "." in clean_value
 
             if has_comma and has_period:
                 # Both present - last one is decimal separator
-                last_comma = clean_value.rfind(',')
-                last_period = clean_value.rfind('.')
+                last_comma = clean_value.rfind(",")
+                last_period = clean_value.rfind(".")
 
                 if last_comma > last_period:
                     # European format: 1.234,56
-                    clean_value = clean_value.replace('.', '').replace(',', '.')
+                    clean_value = clean_value.replace(".", "").replace(",", ".")
                 else:
                     # American format: 1,234.56
-                    clean_value = clean_value.replace(',', '')
+                    clean_value = clean_value.replace(",", "")
             elif has_comma:
                 # Only comma - check if it's thousands or decimal separator
                 # If there are 3 digits after comma, it's likely thousands separator
                 # Otherwise, it's a decimal separator (European format)
-                parts = clean_value.split(',')
+                parts = clean_value.split(",")
                 if len(parts) == 2 and len(parts[1]) <= 2:
                     # European decimal: 180,50
-                    clean_value = clean_value.replace(',', '.')
+                    clean_value = clean_value.replace(",", ".")
                 else:
                     # American thousands: 1,234
-                    clean_value = clean_value.replace(',', '')
+                    clean_value = clean_value.replace(",", "")
             # If only period, it's already in American format (1234.56)
 
             try:

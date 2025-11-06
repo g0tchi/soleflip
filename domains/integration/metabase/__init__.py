@@ -24,7 +24,7 @@ from .schemas.metabase_models import (
     MetabaseQuestion,
     MetabaseCard,
     MetabaseDatabase,
-    MetabaseCollection
+    MetabaseCollection,
 )
 
 __version__ = "2.2.3"
@@ -38,5 +38,5 @@ __all__ = [
     "MetabaseQuestion",
     "MetabaseCard",
     "MetabaseDatabase",
-    "MetabaseCollection"
+    "MetabaseCollection",
 ]

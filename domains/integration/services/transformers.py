@@ -477,7 +477,7 @@ class NotionTransformer(DataTransformer):
         for prop_name, prop_data in properties.items():
             prop_type = prop_data.get("type")
             strategy = notion_property_strategies.get(prop_type)
-            
+
             if strategy:
                 field_name = prop_name.lower().replace(" ", "_")
                 transformed_value = strategy(prop_data)

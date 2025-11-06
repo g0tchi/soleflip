@@ -128,6 +128,7 @@ class ForecastEngine:
 
         # PERFORMANCE OPTIMIZATION: Use list comprehension with error handling
         results = []
+
         async def safe_forecast(entity_id):
             try:
                 result = await self._forecast_single_entity(config, entity_id, run_id)
@@ -135,7 +136,7 @@ class ForecastEngine:
             except Exception as e:
                 self.logger.error(f"Failed to forecast entity {entity_id}: {str(e)}")
                 return None
-        
+
         # Process all entities and filter out None results
         forecast_results = [await safe_forecast(entity_id) for entity_id in entity_ids]
         results = [result for result in forecast_results if result is not None]
@@ -294,7 +295,9 @@ class ForecastEngine:
         else:
             # Use seasonal pattern with list comprehension
             seasonal_pattern = y[-season_length:]
-            predictions = [seasonal_pattern[i % season_length] for i in range(config.prediction_days)]
+            predictions = [
+                seasonal_pattern[i % season_length] for i in range(config.prediction_days)
+            ]
 
         # Calculate confidence intervals based on historical variance
         recent_variance = np.var(y[-min(30, len(y)) :])
@@ -380,7 +383,7 @@ class ForecastEngine:
                     last_features[0, trend_idx] += 1
 
         # Calculate confidence intervals using prediction quantiles with list comprehensions
-        
+
         # PERFORMANCE OPTIMIZATION: Use nested list comprehensions for tree predictions
         tree_predictions = [
             [max(0, tree.predict(X[-1:].reshape(1, -1))[0]) for tree in model.estimators_]
@@ -392,7 +395,7 @@ class ForecastEngine:
         confidence_intervals = [
             (
                 np.percentile(tree_preds, 100 * alpha / 2),
-                np.percentile(tree_preds, 100 * (1 - alpha / 2))
+                np.percentile(tree_preds, 100 * (1 - alpha / 2)),
             )
             for tree_preds in tree_predictions
         ]
@@ -662,17 +665,17 @@ class ForecastEngine:
         brand_count: int,
     ) -> Dict[str, Any]:
         """Generate predictive insights based on business metrics"""
-        
+
         insights = []
         opportunities = []
         risk_factors = []
-        
+
         # Analyze transaction trends
         if transaction_count > 1000:
             insights.append("High transaction volume indicates strong market presence")
         elif transaction_count < 100:
             risk_factors.append("Low transaction volume may impact revenue stability")
-        
+
         # Revenue analysis
         if revenue > 100000:
             insights.append("Strong revenue performance demonstrates market demand")
@@ -680,34 +683,40 @@ class ForecastEngine:
         elif revenue < 10000:
             risk_factors.append("Revenue below market expectations")
             opportunities.append("Focus on high-margin premium products")
-        
+
         # Average transaction value insights
         if avg_value > 100:
             insights.append("Premium pricing strategy showing effectiveness")
             opportunities.append("Target luxury segment expansion")
         elif avg_value < 30:
             opportunities.append("Opportunity to increase average order value through bundling")
-        
+
         # Product diversity analysis
         if product_count > 500:
             insights.append("Diverse product portfolio reduces market risk")
         elif product_count < 50:
             opportunities.append("Expand product catalog to capture more market share")
-        
+
         # Brand portfolio analysis
         if brand_count > 20:
             insights.append("Multi-brand strategy provides market resilience")
         elif brand_count < 5:
             opportunities.append("Partner with additional brands to diversify portfolio")
-        
+
         # Calculate confidence score based on data quality
-        confidence_score = min(0.95, max(0.1, (
-            min(transaction_count / 1000, 1.0) * 0.3 +
-            min(revenue / 50000, 1.0) * 0.3 +
-            min(product_count / 200, 1.0) * 0.2 +
-            min(brand_count / 10, 1.0) * 0.2
-        )))
-        
+        confidence_score = min(
+            0.95,
+            max(
+                0.1,
+                (
+                    min(transaction_count / 1000, 1.0) * 0.3
+                    + min(revenue / 50000, 1.0) * 0.3
+                    + min(product_count / 200, 1.0) * 0.2
+                    + min(brand_count / 10, 1.0) * 0.2
+                ),
+            ),
+        )
+
         return {
             "predictive_insights": insights,
             "growth_opportunities": opportunities,
@@ -716,6 +725,6 @@ class ForecastEngine:
             "recommendations": [
                 "Monitor market trends for emerging opportunities",
                 "Focus on high-performing product categories",
-                "Optimize pricing strategies based on demand patterns"
-            ]
+                "Optimize pricing strategies based on demand patterns",
+            ],
         }

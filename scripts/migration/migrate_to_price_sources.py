@@ -9,6 +9,7 @@ Options:
     --dry-run: Preview changes without committing
     --batch-size: Number of records per batch (default: 1000)
 """
+
 import asyncio
 import argparse
 from typing import Dict, Any
@@ -70,7 +71,8 @@ class PriceSourcesMigration:
         logger.info("Migrating Awin retail prices...")
 
         # Get all Awin products with EAN (to match with products.products)
-        query = text("""
+        query = text(
+            """
             SELECT
                 ap.id as awin_id,
                 ap.awin_product_id,
@@ -89,7 +91,8 @@ class PriceSourcesMigration:
             LEFT JOIN products.products p ON ap.ean = p.ean
             WHERE ap.ean IS NOT NULL AND ap.ean != ''
             ORDER BY ap.created_at
-        """)
+        """
+        )
 
         result = await self.session.execute(query)
         awin_products = result.fetchall()
@@ -113,7 +116,8 @@ class PriceSourcesMigration:
                         continue
 
                     # Insert into price_sources
-                    insert_query = text("""
+                    insert_query = text(
+                        """
                         INSERT INTO integration.price_sources
                             (product_id, source_type, source_product_id, source_name,
                              price_type, price_cents, currency, in_stock, stock_quantity,
@@ -129,7 +133,8 @@ class PriceSourcesMigration:
                             affiliate_link = EXCLUDED.affiliate_link,
                             last_updated = EXCLUDED.last_updated,
                             updated_at = EXCLUDED.updated_at
-                    """)
+                    """
+                    )
 
                     metadata = {
                         "merchant_id": ap.merchant_id,
@@ -176,7 +181,8 @@ class PriceSourcesMigration:
         logger.info("Migrating StockX resale prices...")
 
         # Get all Awin products that were matched with StockX
-        query = text("""
+        query = text(
+            """
             SELECT
                 ap.stockx_product_id,
                 ap.stockx_url_key,
@@ -190,7 +196,8 @@ class PriceSourcesMigration:
             WHERE ap.stockx_product_id IS NOT NULL
               AND ap.enrichment_status = 'matched'
               AND ap.stockx_lowest_ask_cents IS NOT NULL
-        """)
+        """
+        )
 
         result = await self.session.execute(query)
         stockx_matches = result.fetchall()
@@ -199,7 +206,8 @@ class PriceSourcesMigration:
 
         for match in stockx_matches:
             try:
-                insert_query = text("""
+                insert_query = text(
+                    """
                     INSERT INTO integration.price_sources
                         (product_id, source_type, source_product_id, source_name,
                          price_type, price_cents, currency, in_stock,
@@ -212,7 +220,8 @@ class PriceSourcesMigration:
                         price_cents = EXCLUDED.price_cents,
                         last_updated = EXCLUDED.last_updated,
                         updated_at = EXCLUDED.updated_at
-                """)
+                """
+                )
 
                 metadata = {
                     "url_key": match.stockx_url_key,
@@ -221,9 +230,7 @@ class PriceSourcesMigration:
                 }
 
                 source_url = (
-                    f"https://stockx.com/{match.stockx_url_key}"
-                    if match.stockx_url_key
-                    else None
+                    f"https://stockx.com/{match.stockx_url_key}" if match.stockx_url_key else None
                 )
 
                 await self.session.execute(
@@ -255,7 +262,8 @@ class PriceSourcesMigration:
         logger.info("Linking Awin merchants to suppliers...")
 
         # Find Awin merchants that match existing suppliers by name
-        query = text("""
+        query = text(
+            """
             SELECT DISTINCT
                 ap.merchant_id,
                 ap.merchant_name,
@@ -264,7 +272,8 @@ class PriceSourcesMigration:
             FROM integration.awin_products ap
             LEFT JOIN core.suppliers s ON LOWER(ap.merchant_name) = LOWER(s.name)
             WHERE ap.merchant_id IS NOT NULL
-        """)
+        """
+        )
 
         result = await self.session.execute(query)
         merchant_supplier_links = result.fetchall()
@@ -272,12 +281,14 @@ class PriceSourcesMigration:
         for link in merchant_supplier_links:
             if link.supplier_id:
                 # Update price_sources to link to supplier
-                update_query = text("""
+                update_query = text(
+                    """
                     UPDATE integration.price_sources
                     SET supplier_id = :supplier_id
                     WHERE source_type = 'awin'
                       AND metadata->>'merchant_id' = :merchant_id
-                """)
+                """
+                )
 
                 await self.session.execute(
                     update_query,
@@ -336,17 +347,15 @@ class PriceSourcesMigration:
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Migrate legacy data to price_sources architecture")
-    parser.add_argument("--dry-run", action="store_true", help="Preview changes without committing")
-    parser.add_argument(
-        "--batch-size", type=int, default=1000, help="Number of records per batch"
+    parser = argparse.ArgumentParser(
+        description="Migrate legacy data to price_sources architecture"
     )
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes without committing")
+    parser.add_argument("--batch-size", type=int, default=1000, help="Number of records per batch")
     args = parser.parse_args()
 
     async with get_db_session() as session:
-        migration = PriceSourcesMigration(
-            session, dry_run=args.dry_run, batch_size=args.batch_size
-        )
+        migration = PriceSourcesMigration(session, dry_run=args.dry_run, batch_size=args.batch_size)
 
         # Run migration
         stats = await migration.run_full_migration()

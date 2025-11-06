@@ -178,14 +178,16 @@ class ImportProcessor:
                 retry_count=retry_count,
                 exc_info=True,
             )
-            
+
             # Determine if we should retry based on error type and source
             should_retry = await self._should_retry_batch(batch_id, e, retry_count, source_type)
-            
+
             if should_retry:
                 await self._schedule_retry(batch_id, source_type, data, raw_data, retry_count)
             else:
-                await self.update_batch_status(batch_id, ImportStatus.FAILED, error_records=len(data))
+                await self.update_batch_status(
+                    batch_id, ImportStatus.FAILED, error_records=len(data)
+                )
                 # Store error details in batch record
                 batch = await self.db_session.get(ImportBatch, batch_id)
                 if batch:
@@ -280,32 +282,28 @@ class ImportProcessor:
             logger.error("Transaction creation failed", batch_id=batch_id, error=str(e))
 
     async def _should_retry_batch(
-        self, 
-        batch_id: UUID, 
-        error: Exception, 
-        retry_count: int, 
-        source_type: SourceType
+        self, batch_id: UUID, error: Exception, retry_count: int, source_type: SourceType
     ) -> bool:
         """Determine if a failed batch should be retried based on error type and retry count"""
-        
+
         # Maximum retry attempts based on source type
         max_retries = {
             SourceType.STOCKX: 3,  # StockX API can be flaky
             SourceType.NOTION: 2,  # Notion API less flaky
-            SourceType.SALES: 1,   # Local processing, rarely needs retry
-            SourceType.ALIAS: 1,   # Local processing
-            SourceType.MANUAL: 0   # Manual uploads shouldn't auto-retry
+            SourceType.SALES: 1,  # Local processing, rarely needs retry
+            SourceType.ALIAS: 1,  # Local processing
+            SourceType.MANUAL: 0,  # Manual uploads shouldn't auto-retry
         }.get(source_type, 1)
-        
+
         if retry_count >= max_retries:
             logger.info(
-                "Maximum retry attempts reached", 
-                batch_id=str(batch_id), 
-                retry_count=retry_count, 
-                max_retries=max_retries
+                "Maximum retry attempts reached",
+                batch_id=str(batch_id),
+                retry_count=retry_count,
+                max_retries=max_retries,
             )
             return False
-        
+
         # Determine if error is retryable
         retryable_errors = [
             "timeout",
@@ -316,23 +314,25 @@ class ImportProcessor:
             "429",  # Rate Limited
             "401",  # Unauthorized (token might have expired)
             "network",
-            "temporary"
+            "temporary",
         ]
-        
+
         error_str = str(error).lower()
         is_retryable = any(retryable_error in error_str for retryable_error in retryable_errors)
-        
+
         # Special handling for StockX-specific errors
         if source_type == SourceType.STOCKX:
             stockx_retryable = [
                 "token",
-                "authentication", 
+                "authentication",
                 "rate limit",
                 "api key",
-                "quota exceeded"
+                "quota exceeded",
             ]
-            is_retryable = is_retryable or any(sx_error in error_str for sx_error in stockx_retryable)
-        
+            is_retryable = is_retryable or any(
+                sx_error in error_str for sx_error in stockx_retryable
+            )
+
         logger.info(
             "Retry eligibility check",
             batch_id=str(batch_id),
@@ -340,9 +340,9 @@ class ImportProcessor:
             error_message=str(error)[:200],
             is_retryable=is_retryable,
             retry_count=retry_count,
-            max_retries=max_retries
+            max_retries=max_retries,
         )
-        
+
         return is_retryable
 
     async def _schedule_retry(
@@ -351,10 +351,10 @@ class ImportProcessor:
         source_type: SourceType,
         data: List[Dict[str, Any]],
         raw_data: Optional[List[Dict[str, Any]]],
-        retry_count: int
+        retry_count: int,
     ):
         """Schedule a retry for a failed import batch with exponential backoff"""
-        
+
         # Update batch status to RETRYING
         await self.update_batch_status(batch_id, ImportStatus.RETRYING)
         batch = await self.db_session.get(ImportBatch, batch_id)
@@ -362,20 +362,22 @@ class ImportProcessor:
             batch.retry_count = retry_count + 1
             batch.last_error = f"Retry #{retry_count + 1} scheduled"
             await self.db_session.commit()
-        
+
         # Calculate backoff delay: 30s, 2min, 5min, 15min
         backoff_delays = [30, 120, 300, 900]
         delay = backoff_delays[min(retry_count, len(backoff_delays) - 1)]
-        
+
         logger.info(
             "Scheduling import retry",
             batch_id=str(batch_id),
             retry_count=retry_count + 1,
-            delay_seconds=delay
+            delay_seconds=delay,
         )
-        
+
         # Schedule retry as background task
-        asyncio.create_task(self._execute_retry(batch_id, source_type, data, raw_data, retry_count, delay))
+        asyncio.create_task(
+            self._execute_retry(batch_id, source_type, data, raw_data, retry_count, delay)
+        )
 
     async def _execute_retry(
         self,
@@ -384,27 +386,25 @@ class ImportProcessor:
         data: List[Dict[str, Any]],
         raw_data: Optional[List[Dict[str, Any]]],
         retry_count: int,
-        delay: int
+        delay: int,
     ):
         """Execute a retry after the specified delay"""
         try:
             await asyncio.sleep(delay)
-            
+
             logger.info(
-                "Executing import retry",
-                batch_id=str(batch_id),
-                retry_attempt=retry_count + 1
+                "Executing import retry", batch_id=str(batch_id), retry_attempt=retry_count + 1
             )
-            
+
             # Re-attempt the import with incremented retry count
             await self.process_import(batch_id, source_type, data, raw_data, retry_count + 1)
-            
+
         except Exception as e:
             logger.error(
                 "Retry execution failed",
                 batch_id=str(batch_id),
                 retry_attempt=retry_count + 1,
                 error=str(e),
-                exc_info=True
+                exc_info=True,
             )
             # The process_import method will handle further retries or final failure

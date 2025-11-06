@@ -55,9 +55,7 @@ class OrderProcessor:
         result = await self.db_session.execute(query)
         records = result.scalars().all()
 
-        logger.info(
-            "Processing records for orders", batch_id=batch_id, records_count=len(records)
-        )
+        logger.info("Processing records for orders", batch_id=batch_id, records_count=len(records))
 
         for record in records:
             try:
@@ -144,7 +142,9 @@ class OrderProcessor:
                 or Decimal("0.00"),
                 status="completed",  # Imported sales are completed
                 external_id=external_transaction_id or f"{source_platform}_{order_number}",
-                stockx_order_number=order_number if source_platform == "stockx" else None,  # For backward compat
+                stockx_order_number=(
+                    order_number if source_platform == "stockx" else None
+                ),  # For backward compat
                 buyer_destination_country=processed_data.get("buyer_destination_country"),
                 buyer_destination_city=processed_data.get("buyer_destination_city"),
                 notes=f"Imported from {source_platform.upper()} batch {import_record.batch_id}",

@@ -76,7 +76,9 @@ async def test_extract_brand_from_name_empty_product_name(brand_extractor_servic
     # Pre-load patterns to avoid database calls
     mock_brand = Brand(id=uuid4(), name="Nike")
     mock_pattern = BrandPattern(pattern="Nike", brand=mock_brand, pattern_type="keyword")
-    brand_extractor_service._patterns = [mock_pattern]  # Non-empty list so load_patterns won't be called
+    brand_extractor_service._patterns = [
+        mock_pattern
+    ]  # Non-empty list so load_patterns won't be called
 
     # Act
     brand = await brand_extractor_service.extract_brand_from_name(product_name)
@@ -94,7 +96,9 @@ async def test_extract_brand_from_name_none_product_name(brand_extractor_service
     # Pre-load patterns to avoid database calls
     mock_brand = Brand(id=uuid4(), name="Nike")
     mock_pattern = BrandPattern(pattern="Nike", brand=mock_brand, pattern_type="keyword")
-    brand_extractor_service._patterns = [mock_pattern]  # Non-empty list so load_patterns won't be called
+    brand_extractor_service._patterns = [
+        mock_pattern
+    ]  # Non-empty list so load_patterns won't be called
 
     # Act
     brand = await brand_extractor_service.extract_brand_from_name(product_name)
@@ -105,7 +109,9 @@ async def test_extract_brand_from_name_none_product_name(brand_extractor_service
     mock_db_session.execute.assert_not_called()
 
 
-async def test_extract_brand_from_name_invalid_regex_pattern(brand_extractor_service, mock_db_session):
+async def test_extract_brand_from_name_invalid_regex_pattern(
+    brand_extractor_service, mock_db_session
+):
     # Arrange
     product_name = "Nike Air Max"
     mock_brand = Brand(id=uuid4(), name="Nike")
@@ -123,7 +129,9 @@ async def test_extract_brand_from_name_invalid_regex_pattern(brand_extractor_ser
     assert brand is None  # Should skip invalid regex and return None
 
 
-async def test_extract_brand_from_name_loads_patterns_if_empty(brand_extractor_service, mock_db_session):
+async def test_extract_brand_from_name_loads_patterns_if_empty(
+    brand_extractor_service, mock_db_session
+):
     # Arrange
     product_name = "Adidas Ultraboost"
     mock_brand = Brand(id=uuid4(), name="Adidas")
@@ -148,7 +156,9 @@ async def test_extract_brand_from_name_loads_patterns_if_empty(brand_extractor_s
 
 async def test_load_patterns_skips_if_already_loaded(brand_extractor_service, mock_db_session):
     # Arrange
-    existing_pattern = BrandPattern(pattern="Nike", brand=Brand(id=uuid4(), name="Nike"), pattern_type="keyword")
+    existing_pattern = BrandPattern(
+        pattern="Nike", brand=Brand(id=uuid4(), name="Nike"), pattern_type="keyword"
+    )
     brand_extractor_service._patterns = [existing_pattern]
 
     # Act
@@ -213,7 +223,9 @@ async def test_extract_brand_keyword_no_match(brand_extractor_service, mock_db_s
     assert brand is None
 
 
-async def test_extract_brand_multiple_patterns_mixed_types(brand_extractor_service, mock_db_session):
+async def test_extract_brand_multiple_patterns_mixed_types(
+    brand_extractor_service, mock_db_session
+):
     # Arrange
     product_name = "Adidas Ultraboost"
     mock_nike_brand = Brand(id=uuid4(), name="Nike")
@@ -222,7 +234,9 @@ async def test_extract_brand_multiple_patterns_mixed_types(brand_extractor_servi
     # First pattern is regex that won't match
     mock_nike_pattern = BrandPattern(pattern=r"Nike", brand=mock_nike_brand, pattern_type="regex")
     # Second pattern is keyword that will match
-    mock_adidas_pattern = BrandPattern(pattern="Adidas", brand=mock_adidas_brand, pattern_type="keyword")
+    mock_adidas_pattern = BrandPattern(
+        pattern="Adidas", brand=mock_adidas_brand, pattern_type="keyword"
+    )
 
     # Pre-load patterns to avoid database calls
     brand_extractor_service._patterns = [mock_nike_pattern, mock_adidas_pattern]
@@ -242,9 +256,13 @@ async def test_extract_brand_unknown_pattern_type(brand_extractor_service, mock_
     mock_adidas_brand = Brand(id=uuid4(), name="Adidas")
 
     # Pattern with unknown type (neither "regex" nor "keyword")
-    mock_unknown_pattern = BrandPattern(pattern="Nike", brand=mock_nike_brand, pattern_type="unknown")
+    mock_unknown_pattern = BrandPattern(
+        pattern="Nike", brand=mock_nike_brand, pattern_type="unknown"
+    )
     # Second pattern is keyword that will match
-    mock_adidas_pattern = BrandPattern(pattern="Nike", brand=mock_adidas_brand, pattern_type="keyword")
+    mock_adidas_pattern = BrandPattern(
+        pattern="Nike", brand=mock_adidas_brand, pattern_type="keyword"
+    )
 
     # Pre-load patterns to avoid database calls
     brand_extractor_service._patterns = [mock_unknown_pattern, mock_adidas_pattern]

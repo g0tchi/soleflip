@@ -49,7 +49,9 @@ async def main():
     print(f"✓ Client ID received: {client_id[:20]}...")
     print()
 
-    callback_uri = get_input("Enter your Callback/Redirect URI (e.g., https://localhost/callback): ")
+    callback_uri = get_input(
+        "Enter your Callback/Redirect URI (e.g., https://localhost/callback): "
+    )
 
     if not callback_uri:
         print("\n❌ Error: Callback URI is required. Please try again.")
@@ -189,6 +191,7 @@ async def main():
         print(f"\n❌ Error saving to database: {e}")
         print("Please ensure your DATABASE_URL is correct in your .env file.")
         import traceback
+
         traceback.print_exc()
         return
     finally:
@@ -222,7 +225,9 @@ if __name__ == "__main__":
         print("Please set it in your .env file before running this script.")
         print()
         print("You can generate one with:")
-        print('  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"')
+        print(
+            '  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+        )
         print()
     else:
         asyncio.run(main())

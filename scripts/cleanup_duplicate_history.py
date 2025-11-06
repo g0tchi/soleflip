@@ -1,6 +1,7 @@
 """
 Quick cleanup script to remove duplicate supplier_history entries
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -12,7 +13,8 @@ async def main():
     async with db_manager.get_session() as session:
         # Delete duplicates, keeping only the oldest entry for each unique event
         result = await session.execute(
-            text("""
+            text(
+                """
                 DELETE FROM core.supplier_history
                 WHERE id IN (
                     SELECT id
@@ -23,7 +25,8 @@ async def main():
                     ) t
                     WHERE rn > 1
                 )
-            """)
+            """
+            )
         )
 
         deleted_count = result.rowcount
@@ -32,9 +35,7 @@ async def main():
         print(f"[OK] Removed {deleted_count} duplicate entries")
 
         # Verify
-        result = await session.execute(
-            text("SELECT COUNT(*) FROM core.supplier_history")
-        )
+        result = await session.execute(text("SELECT COUNT(*) FROM core.supplier_history"))
         total = result.scalar()
         print(f"[OK] Total supplier_history entries: {total}")
 

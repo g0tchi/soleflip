@@ -16,6 +16,7 @@ class AwinConnector:
     """
     A connector to handle importing data from an Awin CSV export.
     """
+
     SOURCE_TYPE = "AWIN_CSV"
 
     def __init__(self, session: AsyncSession):
@@ -34,45 +35,46 @@ class AwinConnector:
 
         # MEMORY OPTIMIZATION: Use chunked reading for large CSV files
         import os
+
         file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-        
+
         if file_size_mb > 100:  # Files larger than 100MB use chunked processing
             # First, get row count efficiently without loading full file
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 total_records = sum(1 for line in f) - 1  # -1 for header
-            
+
             batch = ImportBatch(
                 source_type=self.SOURCE_TYPE,
                 source_file=str(file_path),
                 total_records=total_records,
                 status="processing",
-                started_at=datetime.utcnow()
+                started_at=datetime.utcnow(),
             )
             self.session.add(batch)
             await self.session.flush()
-            
+
             # Process in chunks to avoid memory issues
             chunk_size = 10000
             processed_count = 0
             error_count = 0
-            
+
             for chunk_df in pd.read_csv(file_path, chunksize=chunk_size):
                 chunk_processed, chunk_errors = await self._process_chunk(chunk_df, batch.id)
                 processed_count += chunk_processed
                 error_count += chunk_errors
-            
+
             batch.processed_records = processed_count
             batch.error_records = error_count
         else:
             # Regular processing for smaller files
             df = pd.read_csv(file_path)
-            
+
             batch = ImportBatch(
                 source_type=self.SOURCE_TYPE,
                 source_file=str(file_path),
                 total_records=len(df),
                 status="processing",
-                started_at=datetime.utcnow()
+                started_at=datetime.utcnow(),
             )
         self.session.add(batch)
         # We need to flush to get the batch ID for the records
@@ -94,9 +96,9 @@ class AwinConnector:
 
             record = ImportRecord(
                 batch_id=batch.id,
-                source_data=json.loads(row.to_json()), # ensure it's a serializable dict
+                source_data=json.loads(row.to_json()),  # ensure it's a serializable dict
                 status=status,
-                validation_errors=validation_errors if validation_errors else None
+                validation_errors=validation_errors if validation_errors else None,
             )
             self.session.add(record)
 
@@ -111,7 +113,7 @@ class AwinConnector:
             batch_id=str(batch.id),
             total_records=batch.total_records,
             processed_records=batch.processed_records,
-            error_records=batch.error_records
+            error_records=batch.error_records,
         )
 
         return batch
@@ -120,26 +122,26 @@ class AwinConnector:
         """Process a chunk of CSV data for memory-efficient processing"""
         processed_count = 0
         error_count = 0
-        
+
         for index, row in chunk_df.iterrows():
             row.to_dict()
             validation_errors = self._validate_row(row)
-            
+
             if validation_errors:
                 status = "error"
                 error_count += 1
             else:
                 status = "pending"
                 processed_count += 1
-            
+
             record = ImportRecord(
                 batch_id=batch_id,
                 source_data=json.loads(row.to_json()),  # ensure it's a serializable dict
                 status=status,
-                validation_errors=validation_errors if validation_errors else None
+                validation_errors=validation_errors if validation_errors else None,
             )
             self.session.add(record)
-        
+
         # Commit chunk to avoid memory buildup
         await self.session.commit()
         return processed_count, error_count

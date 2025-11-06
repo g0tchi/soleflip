@@ -67,7 +67,9 @@ async def main():
         print("\nDetailed Status:")
         for status in statuses:
             if status.exists:
-                print(f"  ✓ {status.view_name:40} | {status.row_count:>6,} rows | {len(status.indexes)} indexes")
+                print(
+                    f"  ✓ {status.view_name:40} | {status.row_count:>6,} rows | {len(status.indexes)} indexes"
+                )
             else:
                 print(f"  ✗ {status.view_name:40} | NOT FOUND")
 

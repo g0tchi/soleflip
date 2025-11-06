@@ -29,7 +29,7 @@ from shared.exceptions.domain_exceptions import (
     ConfigurationException,
     COMMON_EXCEPTION_MAPPINGS,
     map_exception_by_message,
-    create_specific_exception
+    create_specific_exception,
 )
 
 
@@ -369,7 +369,7 @@ class TestCreateSpecificException:
         expected_details = {
             "original_exception": "FileNotFoundError",
             "original_message": "Config file not found",
-            "context": context
+            "context": context,
         }
 
         assert result.details == expected_details

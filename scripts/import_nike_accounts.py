@@ -19,9 +19,7 @@ async def import_nike_accounts():
 
     async with db_manager.get_session() as session:
         # Check if Nike supplier exists
-        result = await session.execute(
-            select(Supplier).where(Supplier.name.ilike('%nike%'))
-        )
+        result = await session.execute(select(Supplier).where(Supplier.name.ilike("%nike%")))
         nike_supplier = result.scalar_one_or_none()
 
         if not nike_supplier:
@@ -34,7 +32,7 @@ async def import_nike_accounts():
                 supplier_type="brand",
                 business_size="large",
                 website="https://www.nike.com",
-                country="US"
+                country="US",
             )
             session.add(nike_supplier)
             await session.commit()
@@ -51,7 +49,7 @@ async def import_nike_accounts():
             "Ungrouped": nike_supplier.id,
             "Local": nike_supplier.id,
             "clipped": nike_supplier.id,
-            "n!ke discounts": nike_supplier.id
+            "n!ke discounts": nike_supplier.id,
         }
 
         # Initialize import service
@@ -67,7 +65,7 @@ async def import_nike_accounts():
         result = await import_service.import_accounts_from_csv(
             csv_file_path=csv_path,
             supplier_mapping=supplier_mapping,
-            batch_size=10  # Smaller batch size for safety
+            batch_size=10,  # Smaller batch size for safety
         )
 
         print("\n=== IMPORT RESULTS ===")
@@ -77,12 +75,12 @@ async def import_nike_accounts():
         print(f"Skipped rows: {result['skipped_rows']}")
         print(f"Duplicate accounts: {result['duplicate_accounts']}")
 
-        if result['errors']:
+        if result["errors"]:
             print("\n=== ERRORS ===")
-            for error in result['errors'][:5]:  # Show first 5 errors
+            for error in result["errors"][:5]:  # Show first 5 errors
                 print(f"Row {error.get('row', 'N/A')}: {error.get('error', 'Unknown error')}")
 
-            if len(result['errors']) > 5:
+            if len(result["errors"]) > 5:
                 print(f"... and {len(result['errors']) - 5} more errors")
 
         # Get final statistics

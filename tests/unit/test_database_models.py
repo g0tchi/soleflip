@@ -22,7 +22,10 @@ class TestEncryptionSetup:
         empty_key = None
         if not empty_key:
             # This simulates the error condition from lines 29-31
-            with pytest.raises(ValueError, match="FATAL: The 'FIELD_ENCRYPTION_KEY' environment variable is not set"):
+            with pytest.raises(
+                ValueError,
+                match="FATAL: The 'FIELD_ENCRYPTION_KEY' environment variable is not set",
+            ):
                 raise ValueError(
                     "FATAL: The 'FIELD_ENCRYPTION_KEY' environment variable is not set or not passed to the container."
                 )
@@ -33,6 +36,7 @@ class TestEncryptionSetup:
         with pytest.raises(ValueError, match="FATAL: Invalid FIELD_ENCRYPTION_KEY"):
             import importlib
             from shared.database import models
+
             importlib.reload(models)
 
     def test_valid_encryption_key_creates_cipher(self):
@@ -42,6 +46,7 @@ class TestEncryptionSetup:
         with patch.dict(os.environ, {"FIELD_ENCRYPTION_KEY": valid_key}):
             import importlib
             from shared.database import models
+
             importlib.reload(models)
 
             # Should not raise an exception
@@ -79,8 +84,8 @@ class TestTimestampMixin:
         from shared.database.models import TimestampMixin
 
         # Check that the mixin has the expected attributes
-        assert hasattr(TimestampMixin, 'created_at')
-        assert hasattr(TimestampMixin, 'updated_at')
+        assert hasattr(TimestampMixin, "created_at")
+        assert hasattr(TimestampMixin, "updated_at")
 
         # Check column properties
         created_at = TimestampMixin.created_at
@@ -174,7 +179,7 @@ class TestEncryptedFieldMixin:
     def test_set_encrypted_field_encryption_failure(self):
         """Test set_encrypted_field with encryption failure - covers lines 85-87"""
         # Patch Fernet to raise an exception
-        with patch('shared.database.models.Fernet') as mock_fernet:
+        with patch("shared.database.models.Fernet") as mock_fernet:
             mock_fernet.return_value.encrypt.side_effect = Exception("Encryption failed")
 
             # Should set field to None on encryption failure
@@ -207,14 +212,14 @@ class TestBrandModel:
         # Check that it inherits from TimestampMixin (through MRO)
         # The test output shows TimestampMixin is in the MRO, so this should pass
         mro_class_names = [cls.__name__ for cls in Brand.__mro__]
-        assert 'TimestampMixin' in mro_class_names
+        assert "TimestampMixin" in mro_class_names
 
         # Check key fields exist
-        assert hasattr(Brand, 'id')
-        assert hasattr(Brand, 'name')
-        assert hasattr(Brand, 'slug')
-        assert hasattr(Brand, 'products')
-        assert hasattr(Brand, 'patterns')
+        assert hasattr(Brand, "id")
+        assert hasattr(Brand, "name")
+        assert hasattr(Brand, "slug")
+        assert hasattr(Brand, "products")
+        assert hasattr(Brand, "patterns")
 
 
 class TestBrandPatternModel:
@@ -229,7 +234,7 @@ class TestBrandPatternModel:
 
         # Check that it inherits from TimestampMixin (through MRO)
         mro_class_names = [cls.__name__ for cls in BrandPattern.__mro__]
-        assert 'TimestampMixin' in mro_class_names
+        assert "TimestampMixin" in mro_class_names
 
 
 class TestModelIntegration:
@@ -242,22 +247,23 @@ class TestModelIntegration:
         # Check that Base is in the MRO (Method Resolution Order)
         brand_mro_names = [cls.__name__ for cls in Brand.__mro__]
         pattern_mro_names = [cls.__name__ for cls in BrandPattern.__mro__]
-        assert 'Base' in brand_mro_names
-        assert 'Base' in pattern_mro_names
+        assert "Base" in brand_mro_names
+        assert "Base" in pattern_mro_names
 
     def test_postgres_schema_configuration(self):
         """Test PostgreSQL schema configuration"""
 
         # Schema should be conditionally set based on IS_POSTGRES
-        with patch('shared.database.models.IS_POSTGRES', True):
+        with patch("shared.database.models.IS_POSTGRES", True):
             # Reimport to get the class with the schema
             import importlib
             from shared.database import models
+
             importlib.reload(models)
 
             # Check that schema is set for PostgreSQL
             brand = models.Brand
-            if hasattr(brand, '__table_args__') and brand.__table_args__:
+            if hasattr(brand, "__table_args__") and brand.__table_args__:
                 assert isinstance(brand.__table_args__, dict)
-                if 'schema' in brand.__table_args__:
-                    assert brand.__table_args__['schema'] == 'core'
+                if "schema" in brand.__table_args__:
+                    assert brand.__table_args__["schema"] == "core"

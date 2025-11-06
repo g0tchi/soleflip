@@ -34,12 +34,12 @@ from .event_bus import (
 __all__ = [
     # Base classes
     "BaseEvent",
-    "DomainEvent", 
+    "DomainEvent",
     "IntegrationEvent",
     # Import events
     "ImportEvent",
     "ImportBatchCreatedEvent",
-    "ImportBatchProgressEvent", 
+    "ImportBatchProgressEvent",
     "ImportBatchCompletedEvent",
     "ImportBatchFailedEvent",
     # Product events

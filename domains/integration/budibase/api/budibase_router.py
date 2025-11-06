@@ -20,10 +20,7 @@ from shared.api.responses import SuccessResponse
 from ..services.config_generator import BudibaseConfigGenerator
 from ..services.deployment_service import BudibaseDeploymentService
 from ..services.sync_service import BudibaseSyncService
-from ..schemas.budibase_models import (
-    BudibaseApp,
-    BudibaseEnvironment
-)
+from ..schemas.budibase_models import BudibaseApp, BudibaseEnvironment
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,6 +28,7 @@ router = APIRouter()
 
 class GenerateConfigRequest(BaseModel):
     """Request model for configuration generation"""
+
     app_name: str = "SoleFlipper Business App"
     environment: BudibaseEnvironment = BudibaseEnvironment.DEVELOPMENT
     validate_endpoints: bool = True
@@ -38,6 +36,7 @@ class GenerateConfigRequest(BaseModel):
 
 class DeploymentRequest(BaseModel):
     """Request model for Budibase deployment"""
+
     app_name: str
     environment: BudibaseEnvironment
     auto_deploy: bool = False
@@ -45,6 +44,7 @@ class DeploymentRequest(BaseModel):
 
 class SyncRequest(BaseModel):
     """Request model for synchronization"""
+
     app_names: Optional[List[str]] = None
     force_sync: bool = False
 
@@ -53,13 +53,15 @@ class SyncRequest(BaseModel):
     "/config/generate",
     response_model=Dict,
     summary="Generate Budibase Configuration",
-    description="Generate v2.2.1 compatible Budibase configuration with validated endpoints"
+    description="Generate v2.2.1 compatible Budibase configuration with validated endpoints",
 )
 async def generate_budibase_config(
     app_name: str = Query("SoleFlipper Business App", description="Application name"),
-    environment: BudibaseEnvironment = Query(BudibaseEnvironment.DEVELOPMENT, description="Target environment"),
+    environment: BudibaseEnvironment = Query(
+        BudibaseEnvironment.DEVELOPMENT, description="Target environment"
+    ),
     validate_endpoints: bool = Query(True, description="Validate API endpoints"),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Generate a new Budibase configuration with v2.2.1 compatibility.
@@ -78,9 +80,7 @@ async def generate_budibase_config(
 
         # Generate configuration
         config = await generator.generate_app_config(
-            app_name=app_name,
-            environment=environment,
-            validate_endpoints=validate_endpoints
+            app_name=app_name, environment=environment, validate_endpoints=validate_endpoints
         )
 
         # Validate configuration
@@ -94,20 +94,19 @@ async def generate_budibase_config(
                 "generated_at": datetime.utcnow().isoformat(),
                 "generator_version": "2.2.1",
                 "validated_endpoints": len(generator.validated_endpoints),
-                "broken_endpoints": len(generator.broken_endpoints)
-            }
+                "broken_endpoints": len(generator.broken_endpoints),
+            },
         }
 
         return SuccessResponse(
-            message=f"Generated Budibase configuration for {app_name}",
-            data=response_data
+            message=f"Generated Budibase configuration for {app_name}", data=response_data
         )
 
     except Exception as e:
         logger.error(f"Failed to generate Budibase config: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Configuration generation failed: {str(e)}"
+            detail=f"Configuration generation failed: {str(e)}",
         )
 
 
@@ -115,11 +114,10 @@ async def generate_budibase_config(
     "/config/validate",
     response_model=Dict,
     summary="Validate Budibase Configuration",
-    description="Validate an existing Budibase configuration against v2.2.1 API"
+    description="Validate an existing Budibase configuration against v2.2.1 API",
 )
 async def validate_budibase_config(
-    config: BudibaseApp,
-    session: AsyncSession = Depends(get_db_session)
+    config: BudibaseApp, session: AsyncSession = Depends(get_db_session)
 ):
     """
     Validate a Budibase configuration for v2.2.1 compatibility.
@@ -144,27 +142,31 @@ async def validate_budibase_config(
                     "is_valid": validation_result.is_valid,
                     "error_count": len(validation_result.errors),
                     "warning_count": len(validation_result.warnings),
-                    "compatibility_score": len(validation_result.api_compatibility) / max(1, len(validation_result.api_compatibility) + len(validation_result.missing_endpoints)) * 100
-                }
-            }
+                    "compatibility_score": len(validation_result.api_compatibility)
+                    / max(
+                        1,
+                        len(validation_result.api_compatibility)
+                        + len(validation_result.missing_endpoints),
+                    )
+                    * 100,
+                },
+            },
         )
 
     except Exception as e:
         logger.error(f"Configuration validation failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Validation failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Validation failed: {str(e)}"
         )
 
 
 @router.get(
     "/config/download/{config_type}",
     summary="Download Configuration Files",
-    description="Download generated Budibase configuration files"
+    description="Download generated Budibase configuration files",
 )
 async def download_config_file(
-    config_type: str,
-    format: str = Query("json", description="File format")
+    config_type: str, format: str = Query("json", description="File format")
 ):
     """
     Download specific Budibase configuration files.
@@ -184,13 +186,13 @@ async def download_config_file(
             "datasources": "datasources-v221.json",
             "screens": "screens-v221.json",
             "automations": "automations-v221.json",
-            "validation": "validation-report-v221.json"
+            "validation": "validation-report-v221.json",
         }
 
         if config_type not in file_mapping:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid config type. Available: {list(file_mapping.keys())}"
+                detail=f"Invalid config type. Available: {list(file_mapping.keys())}",
             )
 
         file_path = config_dir / file_mapping[config_type]
@@ -198,13 +200,13 @@ async def download_config_file(
         if not file_path.exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Configuration file not found: {config_type}"
+                detail=f"Configuration file not found: {config_type}",
             )
 
         return FileResponse(
             path=str(file_path),
             filename=f"budibase-{config_type}-v221.{format}",
-            media_type="application/json"
+            media_type="application/json",
         )
 
     except HTTPException:
@@ -212,8 +214,7 @@ async def download_config_file(
     except Exception as e:
         logger.error(f"File download failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Download failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Download failed: {str(e)}"
         )
 
 
@@ -221,7 +222,7 @@ async def download_config_file(
     "/status",
     response_model=Dict,
     summary="Get Budibase Integration Status",
-    description="Get status of Budibase integration and configurations"
+    description="Get status of Budibase integration and configurations",
 )
 async def get_budibase_status():
     """
@@ -245,31 +246,30 @@ async def get_budibase_status():
                 "validated_endpoints": len(generator.validated_endpoints),
                 "broken_endpoints": len(generator.broken_endpoints),
                 "working_endpoints": list(generator.validated_endpoints),
-                "failed_endpoints": list(generator.broken_endpoints)
+                "failed_endpoints": list(generator.broken_endpoints),
             },
             "configurations": {
                 "available": config_dir.exists(),
-                "config_files": [f.name for f in config_dir.glob("*.json")] if config_dir.exists() else [],
-                "last_generated": None  # Would get from file timestamps
+                "config_files": (
+                    [f.name for f in config_dir.glob("*.json")] if config_dir.exists() else []
+                ),
+                "last_generated": None,  # Would get from file timestamps
             },
             "capabilities": {
                 "config_generation": True,
                 "endpoint_validation": True,
                 "auto_deployment": False,  # Placeholder
-                "real_time_sync": False    # Placeholder
-            }
+                "real_time_sync": False,  # Placeholder
+            },
         }
 
-        return SuccessResponse(
-            message="Budibase integration status retrieved",
-            data=status_data
-        )
+        return SuccessResponse(message="Budibase integration status retrieved", data=status_data)
 
     except Exception as e:
         logger.error(f"Status check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Status check failed: {str(e)}"
+            detail=f"Status check failed: {str(e)}",
         )
 
 
@@ -277,11 +277,10 @@ async def get_budibase_status():
     "/deploy",
     response_model=Dict,
     summary="Deploy Budibase Application",
-    description="Deploy Budibase configuration to target environment"
+    description="Deploy Budibase configuration to target environment",
 )
 async def deploy_budibase_app(
-    request: DeploymentRequest,
-    session: AsyncSession = Depends(get_db_session)
+    request: DeploymentRequest, session: AsyncSession = Depends(get_db_session)
 ):
     """
     Deploy Budibase application to specified environment.
@@ -306,19 +305,17 @@ async def deploy_budibase_app(
             "app_name": request.app_name,
             "environment": request.environment,
             "status": "queued",
-            "message": "Deployment initiated (placeholder implementation)"
+            "message": "Deployment initiated (placeholder implementation)",
         }
 
         return SuccessResponse(
-            message=f"Deployment initiated for {request.app_name}",
-            data=deployment_result
+            message=f"Deployment initiated for {request.app_name}", data=deployment_result
         )
 
     except Exception as e:
         logger.error(f"Deployment failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Deployment failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Deployment failed: {str(e)}"
         )
 
 
@@ -326,11 +323,10 @@ async def deploy_budibase_app(
     "/sync",
     response_model=Dict,
     summary="Synchronize Configurations",
-    description="Sync Budibase configurations with SoleFlipper API changes"
+    description="Sync Budibase configurations with SoleFlipper API changes",
 )
 async def sync_budibase_configs(
-    request: SyncRequest,
-    session: AsyncSession = Depends(get_db_session)
+    request: SyncRequest, session: AsyncSession = Depends(get_db_session)
 ):
     """
     Synchronize Budibase configurations with API changes.
@@ -352,26 +348,22 @@ async def sync_budibase_configs(
             "app_names": request.app_names or ["all"],
             "changes_detected": 0,
             "status": "completed",
-            "message": "Sync completed (placeholder implementation)"
+            "message": "Sync completed (placeholder implementation)",
         }
 
-        return SuccessResponse(
-            message="Configuration sync completed",
-            data=sync_result
-        )
+        return SuccessResponse(message="Configuration sync completed", data=sync_result)
 
     except Exception as e:
         logger.error(f"Sync failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Sync failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync failed: {str(e)}"
         )
 
 
 @router.get(
     "/health",
     summary="Budibase Module Health Check",
-    description="Health check for Budibase integration module"
+    description="Health check for Budibase integration module",
 )
 async def budibase_health_check():
     """
@@ -390,17 +382,14 @@ async def budibase_health_check():
             "status": "healthy",
             "module_version": "2.2.1",
             "api_base": generator.api_base_url,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
-        return SuccessResponse(
-            message="Budibase module is healthy",
-            data=health_status
-        )
+        return SuccessResponse(message="Budibase module is healthy", data=health_status)
 
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Module health check failed: {str(e)}"
+            detail=f"Module health check failed: {str(e)}",
         )

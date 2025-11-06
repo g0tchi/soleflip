@@ -2,6 +2,7 @@
 Price Sources API Router
 Unified API endpoints for multi-source pricing data
 """
+
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,7 +83,9 @@ async def get_profit_opportunities_v2(
 @router.get("/sources/{source_type}")
 async def get_prices_by_source(
     source_type: str,
-    price_type: Optional[str] = Query(None, description="Filter by price_type (retail, resale, etc.)"),
+    price_type: Optional[str] = Query(
+        None, description="Filter by price_type (retail, resale, etc.)"
+    ),
     in_stock_only: bool = Query(True, description="Only show in-stock items"),
     limit: int = Query(100, le=1000),
     session: AsyncSession = Depends(get_db_session),
@@ -175,9 +178,7 @@ async def get_prices_by_source(
 
 
 @router.get("/product/{product_ean}/prices")
-async def get_product_prices(
-    product_ean: str, session: AsyncSession = Depends(get_db_session)
-):
+async def get_product_prices(product_ean: str, session: AsyncSession = Depends(get_db_session)):
     """
     Get all price sources for a specific product by EAN
 
@@ -191,7 +192,8 @@ async def get_product_prices(
     """
     from sqlalchemy import text
 
-    query = text("""
+    query = text(
+        """
         SELECT
             ps.source_type,
             ps.source_name,
@@ -208,7 +210,8 @@ async def get_product_prices(
         LEFT JOIN core.suppliers s ON ps.supplier_id = s.id
         WHERE p.ean = :ean
         ORDER BY ps.price_type, ps.price_cents ASC
-    """)
+    """
+    )
 
     result = await session.execute(query, {"ean": product_ean})
     rows = result.fetchall()
@@ -272,7 +275,9 @@ async def get_product_prices(
 
 @router.get("/history/{price_source_id}")
 async def get_price_history(
-    price_source_id: str, limit: int = Query(100, le=1000), session: AsyncSession = Depends(get_db_session)
+    price_source_id: str,
+    limit: int = Query(100, le=1000),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """
     Get price history for a specific price source
@@ -288,7 +293,8 @@ async def get_price_history(
     """
     from sqlalchemy import text
 
-    query = text("""
+    query = text(
+        """
         SELECT
             ph.price_cents / 100.0 as price_eur,
             ph.in_stock,
@@ -304,7 +310,8 @@ async def get_price_history(
         WHERE ph.price_source_id = CAST(:price_source_id AS uuid)
         ORDER BY ph.recorded_at DESC
         LIMIT :limit
-    """)
+    """
+    )
 
     result = await session.execute(query, {"price_source_id": price_source_id, "limit": limit})
     rows = result.fetchall()
@@ -332,9 +339,7 @@ async def get_price_history(
         latest_price = history[0]["price_eur"]
         oldest_price = history[-1]["price_eur"]
         price_change = latest_price - oldest_price
-        price_change_pct = (
-            round((price_change / oldest_price * 100), 1) if oldest_price > 0 else 0
-        )
+        price_change_pct = round((price_change / oldest_price * 100), 1) if oldest_price > 0 else 0
     else:
         price_change = 0
         price_change_pct = 0

@@ -15,7 +15,7 @@ from shared.types.api_types import (
     HealthCheckResponse,
     BaseResponse,
     SuccessResponse,
-    ErrorResponse
+    ErrorResponse,
 )
 
 
@@ -25,12 +25,7 @@ class TestPaginationInfo:
     def test_pagination_info_direct_creation(self):
         """Test direct PaginationInfo creation with validation"""
         pagination = PaginationInfo(
-            skip=10,
-            limit=20,
-            total=100,
-            has_more=True,
-            page=1,
-            total_pages=5
+            skip=10, limit=20, total=100, has_more=True, page=1, total_pages=5
         )
 
         assert pagination.skip == 10
@@ -115,11 +110,7 @@ class TestPaginatedResponse:
         pagination = PaginationInfo.create(skip=0, limit=10, total=25)
         data = [{"id": 1}, {"id": 2}]
 
-        response = PaginatedResponse[dict](
-            data=data,
-            pagination=pagination,
-            success=True
-        )
+        response = PaginatedResponse[dict](data=data, pagination=pagination, success=True)
 
         assert response.data == data
         assert response.pagination == pagination
@@ -137,7 +128,7 @@ class TestPaginatedResponse:
             pagination=pagination,
             success=False,
             message="Partial results",
-            request_id="req-123"
+            request_id="req-123",
         )
 
         assert response.data == data
@@ -151,10 +142,7 @@ class TestBaseResponse:
 
     def test_base_response_success(self):
         """Test basic successful response"""
-        response = BaseResponse(
-            success=True,
-            message="Operation completed"
-        )
+        response = BaseResponse(success=True, message="Operation completed")
 
         assert response.success is True
         assert response.message == "Operation completed"
@@ -163,11 +151,7 @@ class TestBaseResponse:
 
     def test_base_response_with_request_id(self):
         """Test base response with request ID"""
-        response = BaseResponse(
-            success=False,
-            message="Operation failed",
-            request_id="req-123"
-        )
+        response = BaseResponse(success=False, message="Operation failed", request_id="req-123")
 
         assert response.success is False
         assert response.message == "Operation failed"
@@ -179,11 +163,7 @@ class TestSuccessResponse:
 
     def test_success_response_basic(self):
         """Test basic success response"""
-        response = SuccessResponse(
-            success=True,
-            message="Operation completed",
-            data={"id": 123}
-        )
+        response = SuccessResponse(success=True, message="Operation completed", data={"id": 123})
 
         assert response.success is True
         assert response.message == "Operation completed"
@@ -191,10 +171,7 @@ class TestSuccessResponse:
 
     def test_success_response_without_data(self):
         """Test success response without data"""
-        response = SuccessResponse(
-            success=True,
-            message="Delete completed"
-        )
+        response = SuccessResponse(success=True, message="Delete completed")
 
         assert response.success is True
         assert response.data is None
@@ -206,9 +183,7 @@ class TestErrorResponse:
     def test_error_response_basic(self):
         """Test basic error response"""
         response = ErrorResponse(
-            success=False,
-            message="Something went wrong",
-            error_code="ERR_001"
+            success=False, message="Something went wrong", error_code="ERR_001"
         )
 
         assert response.success is False
@@ -223,7 +198,7 @@ class TestErrorResponse:
             success=False,
             message="Validation error",
             error_code="VALIDATION_FAILED",
-            details=details
+            details=details,
         )
 
         assert response.details == details
@@ -236,13 +211,11 @@ class TestValidationErrorResponse:
         """Test validation error response"""
         errors = [
             {"field": "name", "message": "Required field"},
-            {"field": "email", "message": "Invalid format"}
+            {"field": "email", "message": "Invalid format"},
         ]
 
         response = ValidationErrorResponse(
-            success=False,
-            message="Validation failed",
-            errors=errors
+            success=False, message="Validation failed", errors=errors
         )
 
         assert response.success is False
@@ -262,7 +235,7 @@ class TestBulkOperationResponse:
             operation="import_products",
             total_items=100,
             successful_items=95,
-            failed_items=5
+            failed_items=5,
         )
 
         assert response.success is True
@@ -285,7 +258,7 @@ class TestBulkOperationResponse:
             failed_items=10,
             errors=errors,
             processing_time_seconds=25.5,
-            request_id="bulk-123"
+            request_id="bulk-123",
         )
 
         assert response.success is False
@@ -307,7 +280,7 @@ class TestSyncOperationResponse:
             operation="stockx_sync",
             service_name="StockX API",
             sync_stats=stats,
-            next_sync_time=next_sync
+            next_sync_time=next_sync,
         )
 
         assert response.success is True
@@ -325,14 +298,10 @@ class TestHealthCheckResponse:
         """Test health check response"""
         checks = {
             "database": {"status": "healthy", "latency_ms": 5},
-            "redis": {"status": "healthy", "latency_ms": 2}
+            "redis": {"status": "healthy", "latency_ms": 2},
         }
 
-        response = HealthCheckResponse(
-            status="healthy",
-            checks=checks,
-            version="2.2.0"
-        )
+        response = HealthCheckResponse(status="healthy", checks=checks, version="2.2.0")
 
         assert response.status == "healthy"
         assert response.checks == checks

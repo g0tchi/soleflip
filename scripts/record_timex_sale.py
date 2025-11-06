@@ -1,6 +1,7 @@
 """
 Record Timex Camper x Stranger Things sale from StockX order 04-UW2Q0ZAQT8
 """
+
 import asyncio
 import os
 from datetime import datetime
@@ -14,13 +15,14 @@ load_dotenv()
 
 
 async def create_timex_sale():
-    engine = create_async_engine(os.getenv('DATABASE_URL'), echo=False)
+    engine = create_async_engine(os.getenv("DATABASE_URL"), echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
         # Get the Timex inventory item
         inventory_result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT i.id, i.purchase_price, i.gross_purchase_price, p.id as product_id
                 FROM products.inventory i
                 JOIN products.products p ON i.product_id = p.id
@@ -28,7 +30,8 @@ async def create_timex_sale():
                 AND i.status = 'in_stock'
                 ORDER BY i.created_at DESC
                 LIMIT 1
-            """)
+            """
+            )
         )
         inventory = inventory_result.fetchone()
 
@@ -84,7 +87,8 @@ async def create_timex_sale():
 
         # Create order record
         await session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO transactions.orders (
                     id, inventory_item_id, platform_id, stockx_order_number, status,
                     amount, currency_code, inventory_type, platform_fee,
@@ -100,29 +104,31 @@ async def create_timex_sale():
                     NOW(), NOW()
                 )
                 RETURNING id
-            """),
+            """
+            ),
             {
-                'inventory_id': inventory_id,
-                'platform_id': platform_id,
-                'order_number': order_number,
-                'amount': sale_price,
-                'platform_fee': total_fees,
-                'stockx_created': stockx_created_at,
-                'stockx_updated': datetime.now(),
-                'sold_at': stockx_created_at,
-                'gross_sale': sale_price,
-                'net_proceeds': net_proceeds,
-                'gross_profit': gross_profit,
-                'net_profit': net_profit,
-                'roi': roi
-            }
+                "inventory_id": inventory_id,
+                "platform_id": platform_id,
+                "order_number": order_number,
+                "amount": sale_price,
+                "platform_fee": total_fees,
+                "stockx_created": stockx_created_at,
+                "stockx_updated": datetime.now(),
+                "sold_at": stockx_created_at,
+                "gross_sale": sale_price,
+                "net_proceeds": net_proceeds,
+                "gross_profit": gross_profit,
+                "net_profit": net_profit,
+                "roi": roi,
+            },
         )
         await session.commit()
         print(f"\n[OK] Created order record: {order_number}")
 
         # Create transaction record
         await session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO transactions.transactions (
                     id, inventory_id, platform_id, transaction_date,
                     sale_price, platform_fee, shipping_cost, net_profit,
@@ -136,33 +142,33 @@ async def create_timex_sale():
                     NOW(), NOW()
                 )
                 RETURNING id
-            """),
+            """
+            ),
             {
-                'inventory_id': inventory_id,
-                'platform_id': platform_id,
-                'transaction_date': stockx_created_at,
-                'sale_price': sale_price,
-                'platform_fee': total_fees,
-                'net_profit': net_profit,
-                'external_id': order_number
-            }
+                "inventory_id": inventory_id,
+                "platform_id": platform_id,
+                "transaction_date": stockx_created_at,
+                "sale_price": sale_price,
+                "platform_fee": total_fees,
+                "net_profit": net_profit,
+                "external_id": order_number,
+            },
         )
         await session.commit()
         print("[OK] Created transaction record")
 
         # Update inventory status to sold
         await session.execute(
-            text("""
+            text(
+                """
                 UPDATE products.inventory
                 SET status = 'sold',
                     roi_percentage = :roi,
                     updated_at = NOW()
                 WHERE id = :inventory_id
-            """),
-            {
-                'inventory_id': inventory_id,
-                'roi': roi
-            }
+            """
+            ),
+            {"inventory_id": inventory_id, "roi": roi},
         )
         await session.commit()
         print("[OK] Updated inventory status to 'sold'")

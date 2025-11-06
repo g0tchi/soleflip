@@ -1,9 +1,11 @@
 """
 Check transactions schema tables: orders and transactions
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import DatabaseManager
+
 
 async def main():
     db = DatabaseManager()
@@ -15,7 +17,9 @@ async def main():
         print("TRANSACTIONS.ORDERS TABLE")
         print("=" * 80)
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 column_name,
                 data_type,
@@ -25,7 +29,9 @@ async def main():
             WHERE table_schema = 'transactions'
             AND table_name = 'orders'
             ORDER BY ordinal_position
-        """))
+        """
+            )
+        )
 
         print("\nColumns:")
         for row in result:
@@ -39,7 +45,9 @@ async def main():
         print(f"\nTotal Records: {count}")
 
         # Sample data
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 id,
                 stockx_order_number,
@@ -53,7 +61,9 @@ async def main():
             FROM transactions.orders
             ORDER BY created_at DESC
             LIMIT 5
-        """))
+        """
+            )
+        )
 
         print("\nRecent Orders (5 most recent):")
         for row in result:
@@ -71,7 +81,9 @@ async def main():
         print("TRANSACTIONS.TRANSACTIONS TABLE")
         print("=" * 80)
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 column_name,
                 data_type,
@@ -81,7 +93,9 @@ async def main():
             WHERE table_schema = 'transactions'
             AND table_name = 'transactions'
             ORDER BY ordinal_position
-        """))
+        """
+            )
+        )
 
         print("\nColumns:")
         for row in result:
@@ -96,7 +110,9 @@ async def main():
 
         # Sample data if exists
         if count > 0:
-            result = await session.execute(text("""
+            result = await session.execute(
+                text(
+                    """
                 SELECT
                     id,
                     external_id,
@@ -107,7 +123,9 @@ async def main():
                 FROM transactions.transactions
                 ORDER BY created_at DESC
                 LIMIT 5
-            """))
+            """
+                )
+            )
 
             print("\nRecent Transactions (5 most recent):")
             for row in result:
@@ -123,7 +141,9 @@ async def main():
         print("=" * 80)
 
         # Check if orders reference transactions
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 c.column_name,
                 c.data_type,
@@ -139,7 +159,9 @@ async def main():
             WHERE c.table_schema = 'transactions'
             AND c.table_name = 'orders'
             AND tc.constraint_type = 'FOREIGN KEY'
-        """))
+        """
+            )
+        )
 
         fkeys = result.fetchall()
         if fkeys:
@@ -150,12 +172,16 @@ async def main():
             print("\nNo foreign keys found between orders and transactions tables")
 
         # Check data overlap
-        result = await session.execute(text("""
+        result = await session.execute(
+            text(
+                """
             SELECT
                 (SELECT COUNT(*) FROM transactions.orders) as orders_count,
                 (SELECT COUNT(*) FROM transactions.transactions) as transactions_count,
                 (SELECT COUNT(DISTINCT inventory_item_id) FROM transactions.orders) as unique_inventory_in_orders
-        """))
+        """
+            )
+        )
 
         row = result.fetchone()
         print("\nData Summary:")
@@ -165,5 +191,6 @@ async def main():
 
     await db.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())

@@ -1,6 +1,7 @@
 """
 Find asphaltgold supplier in database
 """
+
 import asyncio
 from sqlalchemy import text
 from shared.database.connection import db_manager
@@ -12,14 +13,16 @@ async def main():
     async with db_manager.get_session() as session:
         # Search for asphaltgold variations
         result = await session.execute(
-            text("""
+            text(
+                """
                 SELECT id, name, slug, city
                 FROM core.suppliers
                 WHERE LOWER(name) LIKE '%asphalt%'
                    OR LOWER(slug) LIKE '%asphalt%'
                    OR LOWER(city) LIKE '%darmstadt%'
                 ORDER BY name
-            """)
+            """
+            )
         )
         suppliers = result.fetchall()
 

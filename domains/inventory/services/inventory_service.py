@@ -13,7 +13,15 @@ import structlog
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Brand, Category, InventoryItem, MarketplaceData, Platform, Product, Size
+from shared.database.models import (
+    Brand,
+    Category,
+    InventoryItem,
+    MarketplaceData,
+    Platform,
+    Product,
+    Size,
+)
 from shared.repositories import BaseRepository
 
 from ..repositories.inventory_repository import (
@@ -104,25 +112,22 @@ class InventoryService:
             # Find inventory item by StockX listing ID
             from sqlalchemy import select
             from shared.database.models import InventoryItem
-            
+
             stmt = select(InventoryItem).where(
                 and_(
                     InventoryItem.external_ids.is_not(None),
-                    InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+                    InventoryItem.external_ids["stockx_listing_id"].astext == stockx_listing_id,
                 )
             )
             result = await self.db_session.execute(stmt)
             item = result.scalar_one_or_none()
-            
+
             if not item:
                 self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
                 return False
 
             # Simply update the status to presale
-            await self.inventory_repo.update(
-                item.id,
-                {"status": "presale"}
-            )
+            await self.inventory_repo.update(item.id, {"status": "presale"})
 
             self.logger.info(f"Marked StockX listing {stockx_listing_id} as presale")
             return True
@@ -137,25 +142,22 @@ class InventoryService:
             # Find inventory item by StockX listing ID
             from sqlalchemy import select
             from shared.database.models import InventoryItem
-            
+
             stmt = select(InventoryItem).where(
                 and_(
                     InventoryItem.external_ids.is_not(None),
-                    InventoryItem.external_ids['stockx_listing_id'].astext == stockx_listing_id
+                    InventoryItem.external_ids["stockx_listing_id"].astext == stockx_listing_id,
                 )
             )
             result = await self.db_session.execute(stmt)
             item = result.scalar_one_or_none()
-            
+
             if not item:
                 self.logger.error(f"No inventory item found for StockX listing {stockx_listing_id}")
                 return False
 
             # Reset status back to listed_stockx
-            await self.inventory_repo.update(
-                item.id,
-                {"status": "listed_stockx"}
-            )
+            await self.inventory_repo.update(item.id, {"status": "listed_stockx"})
 
             self.logger.info(f"Removed presale marking from StockX listing {stockx_listing_id}")
             return True
@@ -163,31 +165,32 @@ class InventoryService:
         except Exception as e:
             self.logger.error(f"Failed to remove presale marking: {e}")
             return False
-    
+
     async def get_stockx_presale_markings(self) -> dict:
         """Get all StockX presale markings as a dict"""
         try:
             from shared.database.models import StockXPresaleMarking
             from sqlalchemy import select
-            
-            stmt = select(StockXPresaleMarking).where(
-                StockXPresaleMarking.is_presale.is_(True)
-            )
+
+            stmt = select(StockXPresaleMarking).where(StockXPresaleMarking.is_presale.is_(True))
             result = await self.db_session.execute(stmt)
             markings = result.scalars().all()
-            
+
             # Return as dict with stockx_listing_id as key
-            return {marking.stockx_listing_id: {
-                'is_presale': marking.is_presale,
-                'marked_at': marking.marked_at.isoformat() if marking.marked_at else None,
-                'product_name': marking.product_name,
-                'size': marking.size
-            } for marking in markings}
-            
+            return {
+                marking.stockx_listing_id: {
+                    "is_presale": marking.is_presale,
+                    "marked_at": marking.marked_at.isoformat() if marking.marked_at else None,
+                    "product_name": marking.product_name,
+                    "size": marking.size,
+                }
+                for marking in markings
+            }
+
         except Exception as e:
             self.logger.error("Failed to get StockX presale markings", error=str(e))
             return {}
-    
+
     async def sync_all_stockx_listings_to_inventory(self) -> Dict[str, int]:
         """
         SIMPLIFIED: Sync StockX listings to inventory without complex queries
@@ -200,13 +203,15 @@ class InventoryService:
             stockx_service = self.stockx_service
             if not stockx_service:
                 from domains.integration.services.stockx_service import StockXService
+
                 stockx_service = StockXService(self.db_session)
 
             # Get all ACTIVE StockX listings only (not history)
             all_listings = await stockx_service.get_all_listings()
             # Filter for ACTIVE and PENDING listings only
             listings = [
-                listing for listing in all_listings
+                listing
+                for listing in all_listings
                 if listing.get("status", "").upper() in ["ACTIVE", "PENDING"]
             ]
             self.logger.info(
@@ -234,14 +239,20 @@ class InventoryService:
                     if existing_item:
                         stats["matched"] += 1
                         # Update marketplace data for existing items
-                        await self._create_or_update_marketplace_data(existing_item, listing, stockx_platform)
+                        await self._create_or_update_marketplace_data(
+                            existing_item, listing, stockx_platform
+                        )
                         continue
 
                     # Create new inventory item
-                    inventory_item = await self._create_simple_inventory_item(listing, default_category, default_brand)
+                    inventory_item = await self._create_simple_inventory_item(
+                        listing, default_category, default_brand
+                    )
 
                     # Create marketplace data for the new item
-                    await self._create_or_update_marketplace_data(inventory_item, listing, stockx_platform)
+                    await self._create_or_update_marketplace_data(
+                        inventory_item, listing, stockx_platform
+                    )
 
                     stats["created"] += 1
 
@@ -264,6 +275,7 @@ class InventoryService:
     async def _get_default_category(self):
         """Get or create default category for StockX items"""
         from shared.database.models import Category
+
         result = await self.db_session.execute(
             select(Category).where(Category.name == "StockX Import")
         )
@@ -277,9 +289,8 @@ class InventoryService:
     async def _get_default_brand(self):
         """Get or create default brand for unknown brands"""
         from shared.database.models import Brand
-        result = await self.db_session.execute(
-            select(Brand).where(Brand.name == "Unknown Brand")
-        )
+
+        result = await self.db_session.execute(select(Brand).where(Brand.name == "Unknown Brand"))
         brand = result.scalar_one_or_none()
         if not brand:
             brand = Brand(name="Unknown Brand", slug="unknown-brand")
@@ -290,12 +301,13 @@ class InventoryService:
     async def _simple_listing_check(self, listing_id: str):
         """Simple check if listing already exists in external_ids"""
         from shared.database.models import InventoryItem
+
         try:
             result = await self.db_session.execute(
                 select(InventoryItem).where(
                     and_(
                         InventoryItem.external_ids.is_not(None),
-                        InventoryItem.external_ids.op('->>')('stockx_listing_id') == listing_id
+                        InventoryItem.external_ids.op("->>")("stockx_listing_id") == listing_id,
                     )
                 )
             )
@@ -338,17 +350,13 @@ class InventoryService:
             select(Size).where(
                 or_(
                     and_(Size.value.is_not(None), Size.value == size_value),
-                    and_(Size.value.is_(None), size_value in [None, "", "Unknown Size"])
+                    and_(Size.value.is_(None), size_value in [None, "", "Unknown Size"]),
                 )
             )
         )
         size_obj = size_result.scalar_one_or_none()
         if not size_obj:
-            size_obj = Size(
-                value=size_value,
-                category_id=default_category.id,
-                region="US"
-            )
+            size_obj = Size(value=size_value, category_id=default_category.id, region="US")
             self.db_session.add(size_obj)
             await self.db_session.flush()
 
@@ -367,8 +375,8 @@ class InventoryService:
                 "created_from_sync": True,
                 "sync_timestamp": datetime.now(timezone.utc).isoformat(),
                 "currency_code": listing.get("currencyCode", "EUR"),
-                "listing_status": listing.get("status", "ACTIVE")
-            }
+                "listing_status": listing.get("status", "ACTIVE"),
+            },
         )
         self.db_session.add(inventory_item)
         await self.db_session.flush()
@@ -380,21 +388,14 @@ class InventoryService:
         from shared.database.models import Product
 
         # Check if product with this SKU exists
-        result = await self.db_session.execute(
-            select(Product).where(Product.sku == sku)
-        )
+        result = await self.db_session.execute(select(Product).where(Product.sku == sku))
         existing_product = result.scalar_one_or_none()
 
         if existing_product:
             return existing_product
 
         # Create new product
-        product = Product(
-            sku=sku,
-            name=name,
-            brand_id=brand.id,
-            category_id=category.id
-        )
+        product = Product(sku=sku, name=name, brand_id=brand.id, category_id=category.id)
         self.db_session.add(product)
         await self.db_session.flush()
         return product
@@ -402,65 +403,76 @@ class InventoryService:
     async def _preload_sync_entities(self, listings: List[Dict]) -> Dict[str, Any]:
         """Pre-load all entities needed for sync to avoid N+1 queries"""
         from shared.database.models import Category
+
         # Extract unique values from listings
         brand_names = set(listing.get("brand", "Unknown") for listing in listings)
-        product_skus = set(f"stockx-{listing.get('listingId')}" for listing in listings if listing.get('listingId'))
-        size_values = set(listing.get("variant", {}).get("variantValue", "Unknown Size") for listing in listings)
-        
+        product_skus = set(
+            f"stockx-{listing.get('listingId')}" for listing in listings if listing.get("listingId")
+        )
+        size_values = set(
+            listing.get("variant", {}).get("variantValue", "Unknown Size") for listing in listings
+        )
+
         # Batch load all brands
         brands_query = select(Brand).where(Brand.name.in_(brand_names))
         brands_result = await self.db_session.execute(brands_query)
         existing_brands = {brand.name: brand for brand in brands_result.scalars().all()}
-        
+
         # Batch load all products
-        products_query = select(Product).where(Product.sku.in_(product_skus)) if product_skus else None
+        products_query = (
+            select(Product).where(Product.sku.in_(product_skus)) if product_skus else None
+        )
         existing_products = {}
         if products_query:
             products_result = await self.db_session.execute(products_query)
-            existing_products = {product.sku: product for product in products_result.scalars().all()}
-        
+            existing_products = {
+                product.sku: product for product in products_result.scalars().all()
+            }
+
         # Get default category (Sneakers)
         category_query = select(Category).where(Category.name == "Sneakers")
         category_result = await self.db_session.execute(category_query)
         category = category_result.scalar_one_or_none()
-        
+
         if not category:
             category = Category(name="Sneakers", slug="sneakers")
             self.db_session.add(category)
             await self.db_session.flush()
-        
+
         # Batch load all sizes for this category
         sizes_query = select(Size).where(
             and_(
                 Size.value.is_not(None),
                 Size.value.in_(size_values),
                 Size.category_id == category.id,
-                Size.region == "US"
+                Size.region == "US",
             )
         )
         sizes_result = await self.db_session.execute(sizes_query)
         existing_sizes = {size.value: size for size in sizes_result.scalars().all()}
-        
+
         return {
             "brands": existing_brands,
             "products": existing_products,
             "category": category,
-            "sizes": existing_sizes
+            "sizes": existing_sizes,
         }
 
-    async def _process_listings_batch(self, listings: List[Dict], entities: Dict[str, Any], stats: Dict[str, int]) -> Dict[str, int]:
+    async def _process_listings_batch(
+        self, listings: List[Dict], entities: Dict[str, Any], stats: Dict[str, int]
+    ) -> Dict[str, int]:
         """Process listings in optimized batches"""
         new_brands = []
         new_products = []
         new_sizes = []
         new_inventory_items = []
-        
+
         for listing in listings:
             listing_id = listing.get("listingId")
             if not listing_id:
                 stats["skipped"] += 1
                 continue
-            
+
             try:
                 # Skip duplicate detection for now to avoid Boolean errors
                 # TODO: Fix boolean clause issues in duplicate detection
@@ -470,163 +482,181 @@ class InventoryService:
                 #     duplicate_handled = self._handle_duplicates(listing_id, duplicate_matches, stats)
                 #     if duplicate_handled:
                 #         continue
-                
+
                 # Extract listing data
                 product_info = listing.get("product", {})
                 variant_info = listing.get("variant", {})
                 product_name = product_info.get("productName", "Unknown Product")
                 size_value = variant_info.get("variantValue", "Unknown Size")
                 brand_name = listing.get("brand", "Unknown")
-                
+
                 # Get or create brand
                 brand = await self._get_or_prepare_brand(brand_name, entities["brands"], new_brands)
-                
+
                 # Get or create product
                 product_sku = f"stockx-{listing_id}"
                 product = await self._get_or_prepare_product(
-                    product_sku, product_name, brand, entities["category"], 
-                    entities["products"], new_products
+                    product_sku,
+                    product_name,
+                    brand,
+                    entities["category"],
+                    entities["products"],
+                    new_products,
                 )
-                
+
                 # Get or create size (use fallback for null/unknown sizes)
-                normalized_size = size_value if size_value and size_value.strip() else "Unknown Size"
+                normalized_size = (
+                    size_value if size_value and size_value.strip() else "Unknown Size"
+                )
                 size_obj = await self._get_or_prepare_size(
                     normalized_size, entities["category"], entities["sizes"], new_sizes
                 )
-                
+
                 # Prepare inventory item
-                new_inventory_items.append({
-                    "product_id": product.id,
-                    "size_id": size_obj.id,
-                    "quantity": 1,
-                    "status": "listed_stockx",
-                    "external_ids": {
-                        "stockx_listing_id": listing_id,
-                        "created_from_sync": True
+                new_inventory_items.append(
+                    {
+                        "product_id": product.id,
+                        "size_id": size_obj.id,
+                        "quantity": 1,
+                        "status": "listed_stockx",
+                        "external_ids": {
+                            "stockx_listing_id": listing_id,
+                            "created_from_sync": True,
+                        },
                     }
-                })
+                )
                 stats["created"] += 1
-                
+
             except Exception as e:
                 self.logger.error(f"Failed to prepare inventory item for listing {listing_id}: {e}")
                 stats["skipped"] += 1
-        
+
         # Batch insert all new entities
         await self._batch_insert_entities(new_brands, new_products, new_sizes, new_inventory_items)
-        
+
         return stats
 
-    def _handle_duplicates(self, listing_id: str, duplicate_matches: List[Dict], stats: Dict[str, int]) -> bool:
+    def _handle_duplicates(
+        self, listing_id: str, duplicate_matches: List[Dict], stats: Dict[str, int]
+    ) -> bool:
         """Handle duplicate detection results"""
         self.logger.info(
             f"Duplicate detected for listing {listing_id}",
             duplicate_count=len(duplicate_matches),
-            match_types=[match["match_type"] for match in duplicate_matches]
+            match_types=[match["match_type"] for match in duplicate_matches],
         )
         stats["duplicates_detected"] += 1
-        
+
         # Handle high-confidence exact matches automatically
         exact_matches = [match for match in duplicate_matches if match["confidence"] >= 1.0]
         if exact_matches:
             stats["matched"] += 1
             return True
-        
+
         # For other duplicates, log and potentially merge based on business rules
-        high_confidence_matches = [match for match in duplicate_matches if match["confidence"] >= 0.9]
+        high_confidence_matches = [
+            match for match in duplicate_matches if match["confidence"] >= 0.9
+        ]
         if high_confidence_matches:
             primary_match = high_confidence_matches[0]
             existing_item = primary_match["item"]
-            
+
             # Update external IDs to include this listing ID
             if not existing_item.external_ids:
                 existing_item.external_ids = {}
             existing_item.external_ids["stockx_listing_id"] = listing_id
-            
+
             stats["duplicates_merged"] += 1
             stats["matched"] += 1
             return True
-        
+
         return False
 
-    async def _get_or_prepare_brand(self, brand_name: str, existing_brands: Dict, new_brands: List) -> Brand:
+    async def _get_or_prepare_brand(
+        self, brand_name: str, existing_brands: Dict, new_brands: List
+    ) -> Brand:
         """Get existing brand or prepare new one for batch insert"""
         if brand_name in existing_brands:
             return existing_brands[brand_name]
-        
+
         # Check if already prepared for creation
         for brand in new_brands:
             if brand.name == brand_name:
                 return brand
-        
+
         # Create new brand for batch insert
         from shared.database.models import Brand
+
         new_brand = Brand(name=brand_name, slug=brand_name.lower().replace(" ", "-"))
         new_brands.append(new_brand)
         existing_brands[brand_name] = new_brand  # Add to cache to avoid duplicates
         return new_brand
 
-    async def _get_or_prepare_product(self, sku: str, name: str, brand: Brand, category: Category, 
-                                      existing_products: Dict, new_products: List) -> Product:
+    async def _get_or_prepare_product(
+        self,
+        sku: str,
+        name: str,
+        brand: Brand,
+        category: Category,
+        existing_products: Dict,
+        new_products: List,
+    ) -> Product:
         """Get existing product or prepare new one for batch insert"""
         if sku in existing_products:
             return existing_products[sku]
-        
+
         # Check if already prepared for creation
         for product in new_products:
             if product.sku == sku:
                 return product
-        
+
         # Create new product for batch insert
         from shared.database.models import Product
-        new_product = Product(
-            sku=sku,
-            name=name,
-            brand_id=brand.id,
-            category_id=category.id
-        )
+
+        new_product = Product(sku=sku, name=name, brand_id=brand.id, category_id=category.id)
         new_products.append(new_product)
         existing_products[sku] = new_product  # Add to cache
         return new_product
 
-    async def _get_or_prepare_size(self, size_value: str, category: Category, 
-                                   existing_sizes: Dict, new_sizes: List) -> Size:
+    async def _get_or_prepare_size(
+        self, size_value: str, category: Category, existing_sizes: Dict, new_sizes: List
+    ) -> Size:
         """Get existing size or prepare new one for batch insert"""
         if size_value in existing_sizes:
             return existing_sizes[size_value]
-        
+
         # Check if already prepared for creation
         for size in new_sizes:
             if size.value == size_value:
                 return size
-        
+
         # Create new size for batch insert
         from shared.database.models import Size
-        new_size = Size(
-            value=size_value,
-            category_id=category.id,
-            region="US"
-        )
+
+        new_size = Size(value=size_value, category_id=category.id, region="US")
         new_sizes.append(new_size)
         existing_sizes[size_value] = new_size  # Add to cache
         return new_size
 
-    async def _batch_insert_entities(self, brands: List, products: List, sizes: List, inventory_items: List):
+    async def _batch_insert_entities(
+        self, brands: List, products: List, sizes: List, inventory_items: List
+    ):
         """Batch insert all new entities to minimize database round trips"""
         # Insert brands first (no dependencies)
         if brands:
             self.db_session.add_all(brands)
             await self.db_session.flush()  # Get IDs for dependent entities
-        
+
         # Insert sizes (depends on category, already exists)
         if sizes:
             self.db_session.add_all(sizes)
             await self.db_session.flush()
-        
+
         # Insert products (depends on brands)
         if products:
             self.db_session.add_all(products)
             await self.db_session.flush()
-        
+
         # Insert inventory items (depends on products and sizes)
         if inventory_items:
             inventory_objects = []
@@ -733,16 +763,16 @@ class InventoryService:
         # Map modern status names to backend database status names
         status_mapping = {
             "in_stock": "in_stock",
-            "listed": "listed_stockx", 
+            "listed": "listed_stockx",
             "sold": "sold",
             "presale": "in_stock",  # For presale, keep as in_stock until actually listed
             "preorder": "in_stock",  # For preorder, keep as in_stock until actually listed
             "listed_alias": "listed_alias",  # Alias listing
             "multi_platform": "listed_stockx",  # Listed on multiple platforms - default to stockx
             "reserved": "reserved",
-            "error": "error"
+            "error": "error",
         }
-        
+
         mapped_status = status_mapping.get(status, status)
         return await self.update_inventory_status(item_id, mapped_status)
 
@@ -750,41 +780,36 @@ class InventoryService:
         """Update multiple fields of an inventory item"""
         try:
             # Handle status field with mapping if present
-            if 'status' in update_data:
-                status = update_data['status']
+            if "status" in update_data:
+                status = update_data["status"]
                 status_mapping = {
                     "in_stock": "in_stock",
-                    "listed": "listed_stockx", 
+                    "listed": "listed_stockx",
                     "sold": "sold",
                     "presale": "presale",
                     "preorder": "preorder",
                     "canceled": "canceled",
                     "listed_alias": "listed_alias",
                 }
-                update_data['status'] = status_mapping.get(status, status)
-            
+                update_data["status"] = status_mapping.get(status, status)
+
             # Update the item using the inventory repository
             success = await self.inventory_repo.update(item_id, **update_data)
-            
+
             if success:
                 self.logger.info(
                     "Updated inventory item fields",
                     item_id=str(item_id),
-                    fields=list(update_data.keys())
+                    fields=list(update_data.keys()),
                 )
             else:
-                self.logger.error(
-                    "Failed to update inventory item fields",
-                    item_id=str(item_id)
-                )
-                
+                self.logger.error("Failed to update inventory item fields", item_id=str(item_id))
+
             return success
-            
+
         except Exception as e:
             self.logger.error(
-                "Error updating inventory item fields",
-                item_id=str(item_id),
-                error=str(e)
+                "Error updating inventory item fields", item_id=str(item_id), error=str(e)
             )
             return False
 
@@ -793,19 +818,19 @@ class InventoryService:
         try:
             # For demonstration, return items that are currently listed
             # In a real implementation, you'd track platform associations more explicitly
-            items = await self.inventory_repo.get_all(filters={'status': 'listed'})
-            
+            items = await self.inventory_repo.get_all(filters={"status": "listed"})
+
             # Simulate multi-platform potential by checking if items have high value
             multi_platform_candidates = []
             for item in items:
                 item_dict = item.to_dict()
                 if item.purchase_price and item.purchase_price > 200:  # High-value items
-                    item_dict['platforms'] = ['StockX']  # Currently only on StockX
-                    item_dict['potential_platforms'] = ['Alias', 'GOAT']  # Could be listed here
+                    item_dict["platforms"] = ["StockX"]  # Currently only on StockX
+                    item_dict["potential_platforms"] = ["Alias", "GOAT"]  # Could be listed here
                     multi_platform_candidates.append(item_dict)
-                    
+
             return multi_platform_candidates
-            
+
         except Exception as e:
             self.logger.error("Failed to get multi-platform items", error=str(e))
             return []
@@ -971,7 +996,7 @@ class InventoryService:
                 query_time_ms=round(query_time, 2),
                 count_time_ms=round(count_time, 2),
                 total_time_ms=round(query_time + count_time, 2),
-                filters=filters
+                filters=filters,
             )
 
             # Convert to dictionaries with related data
@@ -1005,7 +1030,7 @@ class InventoryService:
             self.logger.debug(
                 "Inventory data transformation performance",
                 transform_time_ms=round(transform_time, 2),
-                items_processed=len(result_items)
+                items_processed=len(result_items),
             )
 
             return result_items, total_count
@@ -1058,7 +1083,7 @@ class InventoryService:
         """Get top brands by inventory count"""
         from sqlalchemy import text
         from shared.database.connection import get_db_session
-        
+
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:
             try:
@@ -1079,22 +1104,22 @@ class InventoryService:
                     LIMIT 5
                     """
                 )
-                
+
                 result = await isolated_session.execute(brands_query)
                 top_brands = []
-                
+
                 for row in result.fetchall():
                     brand = {
                         "name": row.brand_name or "Unknown Brand",
                         "item_count": int(row.item_count or 0),
                         "total_quantity": int(row.total_quantity or 0),
                         "avg_price": float(row.avg_price or 0),
-                        "total_value": float(row.total_value or 0)
+                        "total_value": float(row.total_value or 0),
                     }
                     top_brands.append(brand)
-                
+
                 return top_brands
-                
+
             except Exception as e:
                 self.logger.error("Failed to get top brands", error=str(e), exc_info=True)
                 await isolated_session.rollback()
@@ -1104,7 +1129,7 @@ class InventoryService:
         """Get breakdown of items by status"""
         from sqlalchemy import text
         from shared.database.connection import get_db_session
-        
+
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:
             try:
@@ -1118,15 +1143,15 @@ class InventoryService:
                     ORDER BY count DESC
                     """
                 )
-                
+
                 result = await isolated_session.execute(status_query)
                 status_breakdown = {}
-                
+
                 for row in result.fetchall():
                     status_breakdown[row.status] = int(row.count)
-                
+
                 return status_breakdown
-                
+
             except Exception as e:
                 self.logger.error("Failed to get status breakdown", error=str(e), exc_info=True)
                 await isolated_session.rollback()
@@ -1136,7 +1161,7 @@ class InventoryService:
         """Get recent inventory activity"""
         from sqlalchemy import text
         from shared.database.connection import get_db_session
-        
+
         # Use isolated session to prevent transaction cascade failures
         async with get_db_session() as isolated_session:
             try:
@@ -1161,31 +1186,33 @@ class InventoryService:
                     LIMIT 10
                     """
                 )
-                
+
                 result = await isolated_session.execute(recent_query)
                 recent_activity = []
-                
+
                 for row in result.fetchall():
                     activity = {
                         "date": row.updated_at.isoformat() if row.updated_at else None,
                         "activity_type": row.activity_type,
                         "product_name": row.product_name or "Unknown Product",
-                        "brand_name": row.brand_name or "Unknown Brand", 
+                        "brand_name": row.brand_name or "Unknown Brand",
                         "size": row.size_value or "N/A",
                         "status": row.status or "unknown",
                         "quantity": int(row.quantity or 0),
                         "purchase_price": float(row.purchase_price or 0),
-                        "description": self._format_activity_description(row)
+                        "description": self._format_activity_description(row),
                     }
                     recent_activity.append(activity)
-                
+
                 return recent_activity
-                
+
             except Exception as e:
-                self.logger.error("Failed to get recent inventory activity", error=str(e), exc_info=True)
+                self.logger.error(
+                    "Failed to get recent inventory activity", error=str(e), exc_info=True
+                )
                 await isolated_session.rollback()
                 return []
-    
+
     def _format_activity_description(self, row) -> str:
         """Format activity description based on the row data"""
         if row.status == "listed":
@@ -1244,7 +1271,9 @@ class InventoryService:
             self.logger.error("Failed to sync item from StockX", item_id=str(item_id), error=str(e))
             raise
 
-    async def detect_duplicate_listings(self, listing_data: Dict[str, Any]) -> Tuple[bool, List[Dict[str, Any]]]:
+    async def detect_duplicate_listings(
+        self, listing_data: Dict[str, Any]
+    ) -> Tuple[bool, List[Dict[str, Any]]]:
         """
         Comprehensive duplicate detection for StockX listings
         Returns (has_duplicates, list_of_duplicate_items)
@@ -1252,64 +1281,61 @@ class InventoryService:
         listing_id = listing_data.get("listingId")
         product_info = listing_data.get("product", {})
         variant_info = listing_data.get("variant", {})
-        
+
         product_name = product_info.get("productName", "")
         size = variant_info.get("variantValue", "")
         brand_name = listing_data.get("brand", "")
-        
+
         potential_duplicates = []
-        
+
         # Check 1: Exact StockX listing ID match
         existing_by_listing_id = await self._find_by_stockx_listing_id(listing_id)
         if existing_by_listing_id:
-            potential_duplicates.append({
-                "item": existing_by_listing_id,
-                "match_type": "exact_listing_id",
-                "confidence": 1.0
-            })
+            potential_duplicates.append(
+                {
+                    "item": existing_by_listing_id,
+                    "match_type": "exact_listing_id",
+                    "confidence": 1.0,
+                }
+            )
             return True, potential_duplicates
-        
+
         # Check 2: Product name + size combination
         similar_by_name_size = await self._find_similar_by_name_size(product_name, size, brand_name)
         for item in similar_by_name_size:
-            potential_duplicates.append({
-                "item": item,
-                "match_type": "name_size_match",
-                "confidence": 0.9
-            })
-        
+            potential_duplicates.append(
+                {"item": item, "match_type": "name_size_match", "confidence": 0.9}
+            )
+
         # Check 3: SKU-based matching (if StockX product ID exists)
         stockx_product_id = product_info.get("productId")
         if stockx_product_id:
             similar_by_sku = await self._find_by_stockx_product_id(stockx_product_id, size)
             for item in similar_by_sku:
                 if item not in [d["item"] for d in potential_duplicates]:
-                    potential_duplicates.append({
-                        "item": item,
-                        "match_type": "product_id_match", 
-                        "confidence": 0.8
-                    })
-        
+                    potential_duplicates.append(
+                        {"item": item, "match_type": "product_id_match", "confidence": 0.8}
+                    )
+
         # Check 4: Fuzzy text matching for product names
         fuzzy_matches = await self._fuzzy_match_products(product_name, size, brand_name)
         for item, similarity_score in fuzzy_matches:
             if item not in [d["item"] for d in potential_duplicates] and similarity_score > 0.85:
-                potential_duplicates.append({
-                    "item": item,
-                    "match_type": "fuzzy_name_match",
-                    "confidence": similarity_score
-                })
-        
+                potential_duplicates.append(
+                    {"item": item, "match_type": "fuzzy_name_match", "confidence": similarity_score}
+                )
+
         return len(potential_duplicates) > 0, potential_duplicates
 
     async def _find_by_stockx_listing_id(self, listing_id: str) -> Optional[Any]:
         """Find inventory item by exact StockX listing ID"""
         try:
             from shared.database.models import InventoryItem
+
             stmt = select(InventoryItem).where(
                 and_(
                     InventoryItem.external_ids.is_not(None),
-                    InventoryItem.external_ids['stockx_listing_id'].astext == listing_id
+                    InventoryItem.external_ids["stockx_listing_id"].astext == listing_id,
                 )
             )
             result = await self.db_session.execute(stmt)
@@ -1318,24 +1344,32 @@ class InventoryService:
             self.logger.error(f"Error finding item by listing ID: {e}")
             return None
 
-    async def _find_similar_by_name_size(self, product_name: str, size: str, brand_name: str) -> List[Any]:
+    async def _find_similar_by_name_size(
+        self, product_name: str, size: str, brand_name: str
+    ) -> List[Any]:
         """Find items with similar product name and exact size match"""
         try:
             from shared.database.models import InventoryItem, Product, Brand, Size
-            
+
             # Normalize product name for comparison
             normalized_name = product_name.lower().strip()
-            
-            stmt = select(InventoryItem).join(Product).join(Brand, isouter=True).join(Size, isouter=True).where(
-                and_(
-                    func.lower(Product.name).like(f"%{normalized_name}%"),
-                    or_(
-                        and_(Size.value.is_not(None), Size.value == size),
-                        and_(Size.value.is_(None), size in [None, "", "Unknown Size"])
-                    ),
-                    or_(
-                        and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
-                        brand_name == ""  # Handle cases where brand is not specified
+
+            stmt = (
+                select(InventoryItem)
+                .join(Product)
+                .join(Brand, isouter=True)
+                .join(Size, isouter=True)
+                .where(
+                    and_(
+                        func.lower(Product.name).like(f"%{normalized_name}%"),
+                        or_(
+                            and_(Size.value.is_not(None), Size.value == size),
+                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
+                        ),
+                        or_(
+                            and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
+                            brand_name == "",  # Handle cases where brand is not specified
+                        ),
                     )
                 )
             )
@@ -1349,13 +1383,18 @@ class InventoryService:
         """Find items by StockX product ID and size"""
         try:
             from shared.database.models import InventoryItem, Size
-            stmt = select(InventoryItem).join(Size, isouter=True).where(
-                and_(
-                    InventoryItem.external_ids.is_not(None),
-                    InventoryItem.external_ids['stockx_product_id'].astext == product_id,
-                    or_(
-                        and_(Size.value.is_not(None), Size.value == size),
-                        and_(Size.value.is_(None), size in [None, "", "Unknown Size"])
+
+            stmt = (
+                select(InventoryItem)
+                .join(Size, isouter=True)
+                .where(
+                    and_(
+                        InventoryItem.external_ids.is_not(None),
+                        InventoryItem.external_ids["stockx_product_id"].astext == product_id,
+                        or_(
+                            and_(Size.value.is_not(None), Size.value == size),
+                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
+                        ),
                     )
                 )
             )
@@ -1365,38 +1404,48 @@ class InventoryService:
             self.logger.error(f"Error finding items by product ID: {e}")
             return []
 
-    async def _fuzzy_match_products(self, product_name: str, size: str, brand_name: str) -> List[Tuple[Any, float]]:
+    async def _fuzzy_match_products(
+        self, product_name: str, size: str, brand_name: str
+    ) -> List[Tuple[Any, float]]:
         """Perform fuzzy text matching on product names"""
         try:
             from shared.database.models import InventoryItem, Product, Brand, Size
-            
+
             # Get all inventory items with the same size and similar brand
-            stmt = select(InventoryItem, Product, Brand).join(Product).join(Brand, isouter=True).join(Size, isouter=True).where(
-                and_(
-                    or_(
-                        and_(Size.value.is_not(None), Size.value == size),
-                        and_(Size.value.is_(None), size in [None, "", "Unknown Size"])
-                    ),
-                    or_(
-                        and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
-                        brand_name == ""
+            stmt = (
+                select(InventoryItem, Product, Brand)
+                .join(Product)
+                .join(Brand, isouter=True)
+                .join(Size, isouter=True)
+                .where(
+                    and_(
+                        or_(
+                            and_(Size.value.is_not(None), Size.value == size),
+                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
+                        ),
+                        or_(
+                            and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
+                            brand_name == "",
+                        ),
                     )
                 )
             )
             result = await self.db_session.execute(stmt)
             items_with_details = result.all()
-            
+
             fuzzy_matches = []
             for item, product, brand in items_with_details:
                 if product and product.name:
-                    similarity = self._calculate_text_similarity(product_name.lower(), product.name.lower())
+                    similarity = self._calculate_text_similarity(
+                        product_name.lower(), product.name.lower()
+                    )
                     if similarity > 0.7:  # Only include reasonably similar items
                         fuzzy_matches.append((item, similarity))
-            
+
             # Sort by similarity descending
             fuzzy_matches.sort(key=lambda x: x[1], reverse=True)
             return fuzzy_matches[:5]  # Return top 5 matches
-            
+
         except Exception as e:
             self.logger.error(f"Error in fuzzy matching: {e}")
             return []
@@ -1407,49 +1456,65 @@ class InventoryService:
             # Simple tokenization and normalization
             words1 = set(text1.lower().split())
             words2 = set(text2.lower().split())
-            
+
             # Remove common stop words that don't help with matching
-            stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+            stop_words = {
+                "the",
+                "and",
+                "or",
+                "but",
+                "in",
+                "on",
+                "at",
+                "to",
+                "for",
+                "of",
+                "with",
+                "by",
+            }
             words1 = words1 - stop_words
             words2 = words2 - stop_words
-            
+
             # Jaccard similarity
             intersection = len(words1.intersection(words2))
             union = len(words1.union(words2))
-            
+
             if union == 0:
                 return 0.0
-            
+
             return intersection / union
         except Exception:
             return 0.0
 
-    async def merge_duplicate_inventory_items(self, primary_item_id: UUID, duplicate_item_ids: List[UUID]) -> Dict[str, Any]:
+    async def merge_duplicate_inventory_items(
+        self, primary_item_id: UUID, duplicate_item_ids: List[UUID]
+    ) -> Dict[str, Any]:
         """
         Merge duplicate inventory items into a primary item
         """
         try:
             from shared.database.models import InventoryItem
-            
+
             # Get primary item
             primary_item = await self.db_session.get(InventoryItem, primary_item_id)
             if not primary_item:
                 raise ValueError(f"Primary item {primary_item_id} not found")
-            
+
             merge_stats = {
                 "primary_item_id": str(primary_item_id),
                 "merged_items": 0,
                 "total_quantity_added": 0,
-                "external_ids_merged": 0
+                "external_ids_merged": 0,
             }
-            
+
             # PERFORMANCE OPTIMIZATION: Batch load all duplicate items at once
             from sqlalchemy import select
+
             duplicate_items_result = await self.db_session.execute(
                 select(InventoryItem).where(InventoryItem.id.in_(duplicate_item_ids))
             )
             duplicate_items = duplicate_items_result.scalars().all()
-            
+
             # Process merging in memory first
             items_to_delete = []
             for duplicate_item in duplicate_items:
@@ -1457,41 +1522,47 @@ class InventoryService:
                 if duplicate_item.quantity:
                     primary_item.quantity = (primary_item.quantity or 0) + duplicate_item.quantity
                     merge_stats["total_quantity_added"] += duplicate_item.quantity
-                
+
                 # Merge external IDs
                 if duplicate_item.external_ids:
                     if not primary_item.external_ids:
                         primary_item.external_ids = {}
                     primary_item.external_ids.update(duplicate_item.external_ids)
                     merge_stats["external_ids_merged"] += len(duplicate_item.external_ids)
-                
+
                 # Keep the earliest purchase date
-                if duplicate_item.purchase_date and (not primary_item.purchase_date or duplicate_item.purchase_date < primary_item.purchase_date):
+                if duplicate_item.purchase_date and (
+                    not primary_item.purchase_date
+                    or duplicate_item.purchase_date < primary_item.purchase_date
+                ):
                     primary_item.purchase_date = duplicate_item.purchase_date
-                
+
                 # Keep the lowest purchase price (assuming it's more accurate)
-                if duplicate_item.purchase_price and (not primary_item.purchase_price or duplicate_item.purchase_price < primary_item.purchase_price):
+                if duplicate_item.purchase_price and (
+                    not primary_item.purchase_price
+                    or duplicate_item.purchase_price < primary_item.purchase_price
+                ):
                     primary_item.purchase_price = duplicate_item.purchase_price
-                
+
                 items_to_delete.append(duplicate_item.id)
                 merge_stats["merged_items"] += 1
-            
+
             # PERFORMANCE OPTIMIZATION: Bulk delete all duplicates in one query
             if items_to_delete:
                 await self.db_session.execute(
                     InventoryItem.__table__.delete().where(InventoryItem.id.in_(items_to_delete))
                 )
-            
+
             await self.db_session.commit()
-            
+
             self.logger.info(
                 "Successfully merged duplicate inventory items",
                 primary_item_id=str(primary_item_id),
-                merged_count=merge_stats["merged_items"]
+                merged_count=merge_stats["merged_items"],
             )
-            
+
             return merge_stats
-            
+
         except Exception as e:
             await self.db_session.rollback()
             self.logger.error(f"Failed to merge duplicate items: {e}")
@@ -1502,66 +1573,69 @@ class InventoryService:
         Run a comprehensive scan for duplicate inventory items across the entire inventory
         """
         self.logger.info("Starting comprehensive duplicate detection scan")
-        
+
         scan_results = {
             "total_items_scanned": 0,
             "duplicate_groups_found": 0,
             "total_duplicates": 0,
             "auto_merged": 0,
             "require_manual_review": 0,
-            "duplicate_groups": []
+            "duplicate_groups": [],
         }
-        
+
         try:
             from shared.database.models import InventoryItem, Product
-            
-            # Get all inventory items with related data  
+
+            # Get all inventory items with related data
             from sqlalchemy.orm import selectinload
+
             stmt = select(InventoryItem).options(
                 # Include related objects for comparison
                 selectinload(InventoryItem.product).selectinload(Product.brand),
                 selectinload(InventoryItem.product).selectinload(Product.category),
-                selectinload(InventoryItem.size)
+                selectinload(InventoryItem.size),
             )
             result = await self.db_session.execute(stmt)
             all_items = result.scalars().all()
-            
+
             scan_results["total_items_scanned"] = len(all_items)
-            
+
             # Group items by potential duplicate criteria
             processed_items = set()
-            
+
             for item in all_items:
                 if item.id in processed_items:
                     continue
-                
+
                 # Find all potential duplicates for this item
                 duplicates = await self._find_all_duplicates_for_item(item, all_items)
-                
+
                 if duplicates:
                     duplicate_group = {
                         "primary_item_id": str(item.id),
-                        "duplicates": [{"item_id": str(dup.id), "confidence": 0.9} for dup in duplicates],
-                        "can_auto_merge": self._can_auto_merge_group([item] + duplicates)
+                        "duplicates": [
+                            {"item_id": str(dup.id), "confidence": 0.9} for dup in duplicates
+                        ],
+                        "can_auto_merge": self._can_auto_merge_group([item] + duplicates),
                     }
-                    
+
                     scan_results["duplicate_groups"].append(duplicate_group)
                     scan_results["duplicate_groups_found"] += 1
                     scan_results["total_duplicates"] += len(duplicates)
-                    
+
                     if duplicate_group["can_auto_merge"]:
                         scan_results["auto_merged"] += 1
                     else:
                         scan_results["require_manual_review"] += 1
-                    
+
                     # Mark all items in this group as processed
                     processed_items.add(item.id)
                     for dup in duplicates:
                         processed_items.add(dup.id)
-            
+
             self.logger.info("Duplicate detection scan completed", results=scan_results)
             return scan_results
-            
+
         except Exception as e:
             self.logger.error(f"Failed to run duplicate detection scan: {e}")
             return {"error": str(e)}
@@ -1569,36 +1643,32 @@ class InventoryService:
     async def _find_all_duplicates_for_item(self, item: Any, all_items: List[Any]) -> List[Any]:
         """Find all duplicate items for a given inventory item"""
         duplicates = []
-        
+
         if not item.product:
             return duplicates
-        
+
         item_name = item.product.name.lower() if item.product.name else ""
         item_size = item.size.value if item.size else ""
         item_brand = item.product.brand.name.lower() if item.product.brand else ""
-        
+
         for other_item in all_items:
             if other_item.id == item.id or not other_item.product:
                 continue
-            
+
             other_name = other_item.product.name.lower() if other_item.product.name else ""
             other_size = other_item.size.value if other_item.size else ""
             other_brand = other_item.product.brand.name.lower() if other_item.product.brand else ""
-            
+
             # Check for exact matches
-            if (item_name == other_name and 
-                item_size == other_size and 
-                item_brand == other_brand):
+            if item_name == other_name and item_size == other_size and item_brand == other_brand:
                 duplicates.append(other_item)
                 continue
-            
+
             # Check for high similarity matches
             name_similarity = self._calculate_text_similarity(item_name, other_name)
-            if (name_similarity > 0.9 and 
-                item_size == other_size and 
-                item_brand == other_brand):
+            if name_similarity > 0.9 and item_size == other_size and item_brand == other_brand:
                 duplicates.append(other_item)
-        
+
         return duplicates
 
     def _can_auto_merge_group(self, items: List[Any]) -> bool:
@@ -1608,7 +1678,7 @@ class InventoryService:
             statuses = {item.status for item in items if item.status}
             if len(statuses) > 1:
                 return False  # Different statuses require manual review
-            
+
             # Check for conflicting external listing IDs
             all_external_ids = {}
             for item in items:
@@ -1617,18 +1687,16 @@ class InventoryService:
                         if key in all_external_ids and all_external_ids[key] != value:
                             return False  # Conflicting external IDs
                         all_external_ids[key] = value
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error determining auto-merge eligibility: {e}")
             return False
 
     async def _get_or_create_stockx_platform(self) -> Platform:
         """Get or create the StockX platform entry"""
-        result = await self.db_session.execute(
-            select(Platform).where(Platform.slug == "stockx")
-        )
+        result = await self.db_session.execute(select(Platform).where(Platform.slug == "stockx"))
         platform = result.scalar_one_or_none()
 
         if not platform:
@@ -1637,14 +1705,16 @@ class InventoryService:
                 slug="stockx",
                 fee_percentage=10.0,  # StockX typical 10% seller fee
                 supports_fees=True,
-                active=True
+                active=True,
             )
             self.db_session.add(platform)
             await self.db_session.flush()
 
         return platform
 
-    async def _create_or_update_marketplace_data(self, inventory_item: InventoryItem, listing: dict, platform: Platform):
+    async def _create_or_update_marketplace_data(
+        self, inventory_item: InventoryItem, listing: dict, platform: Platform
+    ):
         """Create or update marketplace data for the inventory item"""
         try:
             # Check if marketplace data already exists for this item and platform
@@ -1652,7 +1722,7 @@ class InventoryService:
                 select(MarketplaceData).where(
                     and_(
                         MarketplaceData.inventory_item_id == inventory_item.id,
-                        MarketplaceData.platform_id == platform.id
+                        MarketplaceData.platform_id == platform.id,
                     )
                 )
             )
@@ -1674,7 +1744,7 @@ class InventoryService:
                 "condition_grade": "new",  # StockX typically deals with new items
                 "processing_time_days": 3,  # Typical StockX processing time
                 "currency_code": listing.get("currencyCode", "EUR"),
-                "listing_status": listing.get("status", "ACTIVE")
+                "listing_status": listing.get("status", "ACTIVE"),
             }
 
             if existing_data:
@@ -1689,7 +1759,7 @@ class InventoryService:
                     "Updated marketplace data",
                     inventory_item_id=str(inventory_item.id),
                     platform=platform.slug,
-                    ask_price=float(ask_price) if ask_price else None
+                    ask_price=float(ask_price) if ask_price else None,
                 )
             else:
                 # Create new marketplace data
@@ -1699,7 +1769,7 @@ class InventoryService:
                     marketplace_listing_id=listing.get("listingId"),
                     ask_price=ask_price,
                     fees_percentage=Decimal("0.095"),  # StockX typically charges 9.5%
-                    platform_specific=platform_specific
+                    platform_specific=platform_specific,
                 )
 
                 self.db_session.add(marketplace_data)
@@ -1708,7 +1778,7 @@ class InventoryService:
                     "Created marketplace data",
                     inventory_item_id=str(inventory_item.id),
                     platform=platform.slug,
-                    ask_price=float(ask_price) if ask_price else None
+                    ask_price=float(ask_price) if ask_price else None,
                 )
 
         except Exception as e:
@@ -1716,5 +1786,5 @@ class InventoryService:
                 "Failed to create/update marketplace data",
                 inventory_item_id=str(inventory_item.id),
                 platform=platform.slug,
-                error=str(e)
+                error=str(e),
             )

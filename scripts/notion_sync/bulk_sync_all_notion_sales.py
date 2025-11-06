@@ -18,6 +18,7 @@ Usage:
     # Skip already synced
     python bulk_sync_all_notion_sales.py --skip-existing
 """
+
 import asyncio
 import argparse
 from typing import List, Dict
@@ -53,11 +54,11 @@ async def fetch_all_notion_sales() -> List[Dict]:
 
 async def main():
     """Main bulk sync entry point"""
-    parser = argparse.ArgumentParser(description='Bulk sync all Notion sales')
-    parser.add_argument('--dry-run', action='store_true', help='Dry run (no DB writes)')
-    parser.add_argument('--platform', type=str, default='StockX', help='Filter by platform')
-    parser.add_argument('--skip-existing', action='store_true', help='Skip already synced sales')
-    parser.add_argument('--limit', type=int, help='Limit number of sales to sync')
+    parser = argparse.ArgumentParser(description="Bulk sync all Notion sales")
+    parser.add_argument("--dry-run", action="store_true", help="Dry run (no DB writes)")
+    parser.add_argument("--platform", type=str, default="StockX", help="Filter by platform")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip already synced sales")
+    parser.add_argument("--limit", type=int, help="Limit number of sales to sync")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -108,34 +109,33 @@ async def main():
 
             # Parse Notion properties
             sale_data = service.parse_notion_properties(
-                notion_sale['properties'],
-                notion_sale['url']
+                notion_sale["properties"], notion_sale["url"]
             )
 
             if not sale_data:
                 logger.warning(f"Skipping invalid sale [{i}/{len(notion_sales)}]")
-                service.stats['skipped_invalid'] += 1
+                service.stats["skipped_invalid"] += 1
                 continue
 
-            service.stats['total_found'] += 1
+            service.stats["total_found"] += 1
 
             # Filter by platform
-            if sale_data['sale_platform'] != args.platform:
+            if sale_data["sale_platform"] != args.platform:
                 logger.debug(f"Skipping non-{args.platform} sale: {sale_data['sale_id']}")
                 continue
 
             # Check if already synced
             if not args.dry_run and args.skip_existing:
-                if await service.check_if_synced(session, sale_data['sale_id']):
+                if await service.check_if_synced(session, sale_data["sale_id"]):
                     logger.info(f"Skipping already synced: {sale_data['sale_id']}")
-                    service.stats['already_synced'] += 1
+                    service.stats["already_synced"] += 1
                     continue
 
             # Sync to database
             if args.dry_run:
                 # Just validate in dry run
                 logger.info(f"[DRY RUN] Would sync: {sale_data['sale_id']} ({sale_data['sku']})")
-                service.stats['newly_synced'] += 1
+                service.stats["newly_synced"] += 1
             else:
                 # Real sync
                 success = await service.sync_sale(session, sale_data)
@@ -161,7 +161,7 @@ async def main():
         service.print_summary()
 
         # Show some statistics
-        if service.stats['newly_synced'] > 0:
+        if service.stats["newly_synced"] > 0:
             print()
             print("=" * 80)
             print("RECOMMENDATIONS")
@@ -194,5 +194,5 @@ async def main():
         await service.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
