@@ -6,7 +6,7 @@ Tests the safety mechanisms that prevent infinite loops in automated operations.
 
 import pytest
 
-from shared.monitoring.loop_detector import LoopDetector, SafetyLimiter, LoopDetectionError
+from shared.monitoring.loop_detector import LoopDetector, SafetyLimiter
 
 
 class TestLoopDetector:

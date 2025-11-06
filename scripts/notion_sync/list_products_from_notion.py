@@ -107,14 +107,12 @@ class ProductDiscoveryService:
         logger.info("Searching Notion for StockX sales...")
 
         # We'll collect sales pages by searching for common patterns
-        all_sales = []
 
         # Search for pages with "StockX" content - this will find sale pages
         logger.info("Fetching sales from Notion (this may take a moment)...")
 
         # For now, we'll use the search results as-is
         # In production, you'd want to search the specific sales database
-        notion_sales_raw = []
 
         # Since we don't have direct MCP access in this script yet,
         # we'll keep the mock data but note that Notion has many sales

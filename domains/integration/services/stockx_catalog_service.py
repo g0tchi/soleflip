@@ -5,14 +5,12 @@ Provides methods to search and enrich products from StockX catalog API.
 Fetches detailed product information, market data, and variant details.
 """
 
-import asyncio
 from typing import Dict, List, Optional, Any
 from decimal import Decimal
 from uuid import UUID
 from datetime import datetime
 
 import structlog
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
@@ -60,13 +58,13 @@ class StockXCatalogService:
         try:
             response = await self.stockx_service._make_get_request(endpoint, params=params)
             logger.info(
-                f"Catalog search successful",
+                "Catalog search successful",
                 query=query,
                 results_count=response.get('count', 0)
             )
             return response
         except Exception as e:
-            logger.error(f"Catalog search failed", query=query, error=str(e))
+            logger.error("Catalog search failed", query=query, error=str(e))
             raise
 
     async def get_product_details(self, product_id: str) -> Dict[str, Any]:
@@ -88,10 +86,10 @@ class StockXCatalogService:
 
         try:
             response = await self.stockx_service._make_get_request(endpoint)
-            logger.info(f"Product details retrieved", product_id=product_id)
+            logger.info("Product details retrieved", product_id=product_id)
             return response
         except Exception as e:
-            logger.error(f"Failed to get product details", product_id=product_id, error=str(e))
+            logger.error("Failed to get product details", product_id=product_id, error=str(e))
             raise
 
     async def get_product_variants(self, product_id: str) -> List[Dict[str, Any]]:
@@ -113,14 +111,14 @@ class StockXCatalogService:
         try:
             response = await self.stockx_service._make_get_request(endpoint)
             logger.info(
-                f"Product variants retrieved",
+                "Product variants retrieved",
                 product_id=product_id,
                 variant_count=len(response)
             )
             return response
         except Exception as e:
             logger.error(
-                f"Failed to get product variants",
+                "Failed to get product variants",
                 product_id=product_id,
                 error=str(e)
             )
@@ -157,7 +155,7 @@ class StockXCatalogService:
         try:
             response = await self.stockx_service._make_get_request(endpoint, params=params)
             logger.info(
-                f"Market data retrieved",
+                "Market data retrieved",
                 product_id=product_id,
                 variant_id=variant_id,
                 lowest_ask=response.get('lowestAskAmount'),
@@ -166,7 +164,7 @@ class StockXCatalogService:
             return response
         except Exception as e:
             logger.error(
-                f"Failed to get market data",
+                "Failed to get market data",
                 product_id=product_id,
                 variant_id=variant_id,
                 error=str(e)
@@ -201,7 +199,7 @@ class StockXCatalogService:
             search_results = await self.search_catalog(query=sku, page_size=1)
 
             if not search_results.get('products'):
-                logger.warning(f"No products found for SKU", sku=sku)
+                logger.warning("No products found for SKU", sku=sku)
                 return {"error": "Product not found", "sku": sku}
 
             product_summary = search_results['products'][0]
@@ -249,7 +247,7 @@ class StockXCatalogService:
                 )
 
             logger.info(
-                f"Product enrichment completed",
+                "Product enrichment completed",
                 sku=sku,
                 product_id=product_id,
                 variant_count=len(variants),
@@ -259,7 +257,7 @@ class StockXCatalogService:
             return enriched_data
 
         except Exception as e:
-            logger.error(f"Product enrichment failed", sku=sku, error=str(e))
+            logger.error("Product enrichment failed", sku=sku, error=str(e))
             raise
 
     async def _update_product_in_db(
@@ -289,7 +287,7 @@ class StockXCatalogService:
             try:
                 release_date = datetime.strptime(release_date_str, '%Y-%m-%d')
             except (ValueError, TypeError):
-                logger.warning(f"Invalid release date format", date=release_date_str)
+                logger.warning("Invalid release date format", date=release_date_str)
                 release_date = None
 
         # Market data fields
@@ -380,7 +378,7 @@ class StockXCatalogService:
             await session.commit()
 
             logger.info(
-                f"Product created/updated in database",
+                "Product created/updated in database",
                 sku=sku,
                 stockx_product_id=stockx_product_id,
                 brand=brand_name,
@@ -404,7 +402,7 @@ class StockXCatalogService:
             await session.commit()
 
             logger.info(
-                f"Product created/updated in database",
+                "Product created/updated in database",
                 sku=sku,
                 stockx_product_id=stockx_product_id,
                 brand=brand_name,
@@ -413,7 +411,7 @@ class StockXCatalogService:
 
         except Exception as e:
             await session.rollback()
-            logger.error(f"Failed to create/update product in database", sku=sku, error=str(e))
+            logger.error("Failed to create/update product in database", sku=sku, error=str(e))
             raise
 
     def _parse_size_value(self, size_str: str) -> Optional[float]:

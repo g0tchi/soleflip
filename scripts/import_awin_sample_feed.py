@@ -25,10 +25,10 @@ async def main():
         print(f"\n[*] Importing {len(products)} products...")
         imported_count = await service.import_products(products)
 
-        print(f"\n[*] Matching products by EAN...")
+        print("\n[*] Matching products by EAN...")
         matched_count = await service.match_products_by_ean()
 
-        print(f"\n[*] Getting import statistics...")
+        print("\n[*] Getting import statistics...")
         stats = await service.get_import_stats()
 
         print("\n" + "=" * 80)
@@ -36,7 +36,7 @@ async def main():
         print("=" * 80)
         print(f"Imported: {imported_count} products")
         print(f"Matched by EAN: {matched_count} products")
-        print(f"\nDatabase Statistics:")
+        print("\nDatabase Statistics:")
         print(f"  Total Products: {stats['total_products']}")
         print(f"  Unique Brands: {stats['total_brands']}")
         print(f"  Merchants: {stats['total_merchants']}")

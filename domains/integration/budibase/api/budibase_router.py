@@ -293,7 +293,7 @@ async def deploy_budibase_app(
         logger.info(f"Deploying {request.app_name} to {request.environment}")
 
         # Placeholder implementation
-        deployment_service = BudibaseDeploymentService()
+        BudibaseDeploymentService()
 
         # In real implementation, this would:
         # 1. Generate configuration
@@ -344,7 +344,7 @@ async def sync_budibase_configs(
     try:
         logger.info(f"Syncing Budibase configurations: {request.app_names}")
 
-        sync_service = BudibaseSyncService()
+        BudibaseSyncService()
 
         # Placeholder implementation
         sync_result = {

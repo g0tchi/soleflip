@@ -494,7 +494,7 @@ class TestEnvironmentVariableHandling:
 
     def test_list_parsing_with_spaces(self):
         """Test list parsing handles spaces correctly"""
-        config = SecurityConfig()
+        SecurityConfig()
 
         # Test the static method directly
         parsed = SecurityConfig.parse_list_env("  item1 ,  item2  , item3  ")
@@ -502,7 +502,7 @@ class TestEnvironmentVariableHandling:
 
     def test_list_parsing_single_item(self):
         """Test list parsing with single item"""
-        config = SecurityConfig()
+        SecurityConfig()
         parsed = SecurityConfig.parse_list_env("single-item")
         assert parsed == ["single-item"]
 

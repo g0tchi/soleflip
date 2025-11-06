@@ -132,7 +132,7 @@ class BrandExtractorService:
 
             if first_word and first_word[0].isupper() and second_word and second_word[0].isupper():
                 # Check if second word looks like part of brand (not a product type)
-                if len(second_word) > 2 and not second_word.lower() in ["air", "max", "pro", "ultra"]:
+                if len(second_word) > 2 and second_word.lower() not in ["air", "max", "pro", "ultra"]:
                     return f"{first_word} {second_word}"
 
         # Fallback: Use first capitalized word

@@ -105,7 +105,7 @@ class SafeMigrationManager:
                 env["PGPASSWORD"] = self.db_config["password"]
 
             # Execute pg_dump
-            result = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
 
             logger.info(
                 "Database backup created successfully",
@@ -209,7 +209,7 @@ class SafeMigrationManager:
                 env["PGPASSWORD"] = self.db_config["password"]
 
             # Execute psql
-            result = subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, env=env, capture_output=True, text=True, check=True)
 
             logger.info("Database restored from backup successfully", backup_file=backup_file)
 

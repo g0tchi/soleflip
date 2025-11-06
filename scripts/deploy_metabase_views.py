@@ -24,7 +24,7 @@ async def deploy_views():
     in_view_definition = False
 
     for line in sql_content.split('\n'):
-        stripped = line.strip()
+        line.strip()
 
         # Start of a new view
         if 'CREATE OR REPLACE VIEW' in line.upper():

@@ -67,7 +67,7 @@ async def main():
             events = result.fetchall()
 
             if events:
-                print(f"\n    Timeline:")
+                print("\n    Timeline:")
                 for event in events:
                     impact_markers = {
                         "low": "[ ]",
@@ -116,7 +116,7 @@ async def main():
         )
         event_types = result.fetchall()
 
-        print(f"\nEvent Type Breakdown:")
+        print("\nEvent Type Breakdown:")
         for et in event_types:
             print(f"  {et[0]:15s}: {et[1]:3d}")
 

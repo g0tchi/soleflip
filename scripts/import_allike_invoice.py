@@ -132,13 +132,11 @@ async def create_purchases():
             # Determine category
             if 'watch' in purchase['name'].lower() or 'uhr' in purchase['name'].lower():
                 category_id = watches_cat[0] if watches_cat else None
-                category_name = 'Watches'
             else:
                 category_id = sneakers_cat[0] if sneakers_cat else None
-                category_name = 'Sneakers'
 
             if not category_id:
-                print(f"  [WARNING] No category found, skipping item")
+                print("  [WARNING] No category found, skipping item")
                 continue
 
             # Check if product exists
@@ -249,7 +247,7 @@ async def create_purchases():
         print("Summary:")
         print(f"  Invoice: {invoice_number}")
         print(f"  Date: {purchase_date.strftime('%Y-%m-%d')}")
-        print(f"  Supplier: allike")
+        print("  Supplier: allike")
         print(f"  Items: {len(created_items)}")
         print(f"  Total Net: {sum(item['net_price'] for item in created_items):.2f} EUR")
         print(f"  Total Gross: {sum(item['gross_price'] for item in created_items):.2f} EUR")

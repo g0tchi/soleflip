@@ -79,7 +79,7 @@ class AwinConnector:
         error_count = 0
 
         for index, row in df.iterrows():
-            source_data = row.to_dict()
+            row.to_dict()
             validation_errors = self._validate_row(row)
 
             if validation_errors:
@@ -119,7 +119,7 @@ class AwinConnector:
         error_count = 0
         
         for index, row in chunk_df.iterrows():
-            source_data = row.to_dict()
+            row.to_dict()
             validation_errors = self._validate_row(row)
             
             if validation_errors:

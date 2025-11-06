@@ -63,7 +63,7 @@ def example_safety_limiter():
             action_sig = f"process:{task_id}:iteration={iteration}"
 
             if limiter.should_stop(task_id=task_id, action_signature=action_sig):
-                print(f"  ❌ Stopped due to safety limits")
+                print("  ❌ Stopped due to safety limits")
                 break
 
             limiter.increment(task_id)

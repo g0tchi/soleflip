@@ -10,10 +10,9 @@ from uuid import UUID
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Order, InventoryItem, Product, Size, Category, Brand
+from shared.database.models import Order, InventoryItem, Product, Size
 from domains.products.services.brand_service import BrandExtractorService
 from domains.products.services.category_service import CategoryDetectionService
 
