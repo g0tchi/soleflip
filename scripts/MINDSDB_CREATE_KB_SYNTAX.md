@@ -1,8 +1,6 @@
 # MindsDB CREATE KNOWLEDGE_BASE - Vollständige Syntax für SoleFlipper
 
-## 📖 Basis-Syntax
-
-⚠️ **WICHTIG:** Kein Komma nach dem letzten Parameter!
+## 📖 Basis-Syntax (VERIFIED WORKING ✅)
 
 ```sql
 CREATE KNOWLEDGE_BASE [project_name.]kb_name
@@ -13,12 +11,12 @@ USING
     embedding_model = {
         "provider": "openai",              -- openai | azure_openai | custom_openai | huggingface
         "model_name": "text-embedding-3-small",  -- Embedding-Modell
-        "api_key": "sk-..."                -- Optional, falls nicht in ENV
+        "api_key": "sk-...",               -- Optional, falls nicht in ENV
     },
     reranking_model = {
         "provider": "openai",              -- openai | azure_openai | custom_openai
         "model_name": "gpt-4o",           -- Reranking-Modell
-        "api_key": "sk-..."                -- Optional, falls nicht in ENV
+        "api_key": "sk-...",               -- Optional, falls nicht in ENV
     },
     storage = my_vector_store.storage_table,  -- Optional: Vektor-DB (ChromaDB default)
     metadata_columns = ['date', 'creator', 'version'],  -- Optional: Metadaten-Spalten
@@ -26,7 +24,10 @@ USING
     id_column = 'id';                      -- Semikolon am Ende!
 ```
 
-**Syntax-Regel:** Komma zwischen Parametern, **kein Komma** vor dem Semikolon!
+**Syntax-Hinweise:**
+- ✅ **Trailing commas** in JSON-Objekten sind **erlaubt** (und empfohlen für bessere Lesbarkeit)
+- ✅ Komma zwischen USING-Parametern
+- ✅ Semikolon am Ende des Statements
 
 ---
 
@@ -39,37 +40,35 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_database_schema
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     };
 ```
 
-✅ **Korrekt:** Kein Komma nach `embedding_model` (ist letzter Parameter)
+✅ **Korrekt:** Trailing comma in JSON-Objekt ist erlaubt
 
 ---
 
-### Beispiel 1b: Mit Embedding + Reranking (EMPFOHLEN)
+### Beispiel 1b: Mit Embedding + Reranking (EMPFOHLEN ⭐)
 
 ```sql
 CREATE KNOWLEDGE_BASE soleflipper.kb_database_schema
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
 ```
 
-✅ **Korrekt:** Komma nach `embedding_model`, **kein Komma** nach `reranking_model` (ist letzter Parameter)
+✅ **VERIFIED WORKING** - Diese Syntax wurde erfolgreich getestet!
 
-❌ **Falsch:**
-```sql
-    reranking_model = {
-        ...
-    },  <-- Dieses Komma verursacht Fehler!
-```
+**Syntax-Details:**
+- Trailing commas nach letztem Property in JSON-Objekten: **erlaubt** ✅
+- Komma zwischen embedding_model und reranking_model: **erforderlich** ✅
+- Semikolon am Ende: **erforderlich** ✅
 
 **Hinweis:** Content wird direkt im CREATE-Statement übergeben (siehe Python-Script).
 

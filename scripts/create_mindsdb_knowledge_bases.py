@@ -185,28 +185,32 @@ class MindsDBClient:
         content_escaped = content.replace("'", "''")
 
         # Build embedding model config
-        embedding_config = {
-            "provider": "openai",
-            "model_name": embedding_model
-        }
+        # Note: MindsDB accepts (and prefers) trailing commas in JSON objects
+        embedding_parts = [
+            '"provider": "openai"',
+            f'"model_name": "{embedding_model}"'
+        ]
         if api_key:
-            embedding_config["api_key"] = api_key
+            embedding_parts.append(f'"api_key": "{api_key}"')
 
-        # Build reranking model config (optional)
-        reranking_config = {
-            "provider": "openai",
-            "model_name": reranking_model
-        }
+        reranking_parts = [
+            '"provider": "openai"',
+            f'"model_name": "{reranking_model}"'
+        ]
         if api_key:
-            reranking_config["api_key"] = api_key
+            reranking_parts.append(f'"api_key": "{api_key}"')
 
-        # Create knowledge base using SQL with full syntax
-        # Note: No trailing comma after last parameter
+        # Create knowledge base using SQL with verified working syntax
+        # Trailing commas after each property in JSON objects are allowed
         query = f"""
         CREATE KNOWLEDGE_BASE {project_name}.{kb_name}
         USING
-            embedding_model = {json.dumps(embedding_config)},
-            reranking_model = {json.dumps(reranking_config)}
+            embedding_model = {{
+                {',\n                '.join(embedding_parts)},
+            }},
+            reranking_model = {{
+                {',\n                '.join(reranking_parts)},
+            }}
         """
 
         try:

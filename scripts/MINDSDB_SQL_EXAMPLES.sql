@@ -3,8 +3,9 @@
 -- SoleFlipper Project
 -- ============================================================================
 
--- WICHTIG: Kein Komma nach dem letzten Parameter!
--- SQL-Regel: Komma zwischen Parametern, KEIN Komma vor dem Semikolon
+-- ✅ VERIFIED WORKING SYNTAX
+-- Trailing commas in JSON objects are allowed and recommended
+-- Commas between USING parameters are required
 
 -- ============================================================================
 -- 1. Projekt erstellen
@@ -22,13 +23,13 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_database_schema
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
--- WICHTIG: Kein Komma nach reranking_model! ^^^^
+-- ✅ Trailing commas in JSON objects sind erlaubt und empfohlen!
 
 -- ----------------------------------------------------------------------------
 -- KB 2: External Integrations & APIs
@@ -37,11 +38,11 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_integrations
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
 
 -- ----------------------------------------------------------------------------
@@ -51,11 +52,11 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_architecture_design
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
 
 -- ----------------------------------------------------------------------------
@@ -65,11 +66,11 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_code_quality_dev
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
 
 -- ----------------------------------------------------------------------------
@@ -79,11 +80,11 @@ CREATE KNOWLEDGE_BASE soleflipper.kb_operations_history
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
+        "model_name": "gpt-4o",
     };
 
 -- ============================================================================
@@ -152,46 +153,37 @@ DROP KNOWLEDGE_BASE soleflipper.kb_database_schema;
 DROP DATABASE soleflipper;
 
 -- ============================================================================
--- Häufige Fehler und Lösungen
+-- Syntax-Hinweise (VERIFIED ✅)
 -- ============================================================================
 
--- ❌ FALSCH - Komma nach letztem Parameter:
-/*
-CREATE KNOWLEDGE_BASE soleflipper.kb_test
-USING
-    embedding_model = {...},
-    reranking_model = {...},  <-- Dieses Komma verursacht Fehler!
-
-Fehler: "Syntax error, unexpected end of query"
-*/
-
--- ✅ RICHTIG - Kein Komma nach letztem Parameter:
+-- ✅ RICHTIG - Trailing commas in JSON sind erlaubt:
 CREATE KNOWLEDGE_BASE soleflipper.kb_test
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",  -- Trailing comma OK!
     },
     reranking_model = {
         "provider": "openai",
-        "model_name": "gpt-4o"
-    };  -- <-- Kein Komma, direkt Semikolon
+        "model_name": "gpt-4o",  -- Trailing comma OK!
+    };  -- <-- Semikolon am Ende
 
--- ❌ FALSCH - Fehlendes Semikolon am Ende:
+-- ❌ Häufiger Fehler - Fehlendes Semikolon:
 /*
 CREATE KNOWLEDGE_BASE soleflipper.kb_test
 USING
     embedding_model = {...}
+-- Fehlt das Semikolon!
 
-Fehler: Query nicht abgeschlossen
+Fehler: Query nicht vollständig
 */
 
--- ✅ RICHTIG - Semikolon am Ende:
+-- ✅ RICHTIG - Mit Semikolon:
 CREATE KNOWLEDGE_BASE soleflipper.kb_test
 USING
     embedding_model = {
         "provider": "openai",
-        "model_name": "text-embedding-3-small"
+        "model_name": "text-embedding-3-small",
     };  -- <-- Semikolon erforderlich
 
 -- ============================================================================
