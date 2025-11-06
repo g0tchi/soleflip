@@ -194,6 +194,19 @@ class QuickFlipDetectionService:
         # Get brand name
         brand_name = product.brand.name if product.brand else "Unknown"
 
+        # Get StockX listing ID from inventory items if available
+        stockx_listing_id = await self._get_stockx_listing_id(market_price.product_id)
+
+        # Calculate days since last sale from transaction history
+        days_since_last_sale = await self._calculate_days_since_last_sale(
+            market_price.product_id
+        )
+
+        # Calculate StockX demand score based on sales velocity
+        stockx_demand_score = await self._calculate_demand_score(
+            market_price.product_id, days_since_last_sale
+        )
+
         return QuickFlipOpportunity(
             product_id=market_price.product_id,
             product_name=product.name,
@@ -205,12 +218,12 @@ class QuickFlipDetectionService:
             buy_url=market_price.product_url,
             buy_stock_qty=market_price.stock_qty,
             sell_price=sell_price,
-            stockx_listing_id=None,  # TODO: Add StockX listing ID when available
+            stockx_listing_id=stockx_listing_id,
             gross_profit=gross_profit,
             profit_margin=profit_margin,
             roi=roi,
-            days_since_last_sale=None,  # TODO: Calculate from transaction history
-            stockx_demand_score=None,  # TODO: Calculate demand score
+            days_since_last_sale=days_since_last_sale,
+            stockx_demand_score=stockx_demand_score,
         )
 
     async def get_opportunity_by_product(self, product_id: UUID) -> List[QuickFlipOpportunity]:
@@ -294,3 +307,133 @@ class QuickFlipDetectionService:
         )
 
         return True
+
+    async def _get_stockx_listing_id(self, product_id: UUID) -> Optional[str]:
+        """
+        Get StockX listing ID for a product from inventory items.
+
+        Checks inventory items associated with this product for a StockX listing ID
+        in their external_ids field.
+        """
+        try:
+            from shared.database.models import InventoryItem
+
+            stmt = (
+                select(InventoryItem.external_ids)
+                .where(InventoryItem.product_id == product_id)
+                .where(InventoryItem.external_ids.is_not(None))
+                .limit(1)
+            )
+            result = await self.db_session.execute(stmt)
+            external_ids = result.scalar_one_or_none()
+
+            if external_ids and isinstance(external_ids, dict):
+                listing_id = external_ids.get("stockx_listing_id")
+                if listing_id:
+                    return str(listing_id)
+
+            return None
+
+        except Exception as e:
+            self.logger.debug(f"Error fetching StockX listing ID: {e}")
+            return None
+
+    async def _calculate_days_since_last_sale(self, product_id: UUID) -> Optional[int]:
+        """
+        Calculate days since the last sale of this product.
+
+        Queries the Order (transactions.orders) table for the most recent sale
+        and calculates the number of days since then.
+        """
+        try:
+            from shared.database.models import Order
+            from datetime import datetime, timezone
+
+            stmt = (
+                select(Order.created_at)
+                .where(Order.product_id == product_id)
+                .where(Order.status.in_(["completed", "delivered", "shipped"]))
+                .order_by(Order.created_at.desc())
+                .limit(1)
+            )
+            result = await self.db_session.execute(stmt)
+            last_sale_date = result.scalar_one_or_none()
+
+            if last_sale_date:
+                now = datetime.now(timezone.utc)
+                # Ensure last_sale_date is timezone-aware
+                if last_sale_date.tzinfo is None:
+                    last_sale_date = last_sale_date.replace(tzinfo=timezone.utc)
+
+                days_since = (now - last_sale_date).days
+                return days_since
+
+            # No sales found - product never sold
+            return None
+
+        except Exception as e:
+            self.logger.debug(f"Error calculating days since last sale: {e}")
+            return None
+
+    async def _calculate_demand_score(
+        self, product_id: UUID, days_since_last_sale: Optional[int]
+    ) -> Optional[float]:
+        """
+        Calculate a demand score for the product based on sales velocity.
+
+        Score calculation (0-100):
+        - 90-100: Sold within last 7 days (very high demand)
+        - 70-89: Sold within last 30 days (high demand)
+        - 50-69: Sold within last 90 days (moderate demand)
+        - 30-49: Sold within last 180 days (low demand)
+        - 10-29: Sold more than 180 days ago (very low demand)
+        - 0-9: Never sold or no data (unknown demand)
+
+        Additional factors:
+        - Sales frequency: Number of sales in last 90 days boosts score
+        """
+        try:
+            from shared.database.models import Order
+            from datetime import datetime, timedelta, timezone
+
+            # Base score from days_since_last_sale
+            if days_since_last_sale is None:
+                base_score = 5.0  # Unknown demand
+            elif days_since_last_sale <= 7:
+                base_score = 95.0  # Very high demand
+            elif days_since_last_sale <= 30:
+                base_score = 80.0  # High demand
+            elif days_since_last_sale <= 90:
+                base_score = 60.0  # Moderate demand
+            elif days_since_last_sale <= 180:
+                base_score = 40.0  # Low demand
+            else:
+                base_score = 20.0  # Very low demand
+
+            # Calculate sales frequency in last 90 days to boost score
+            ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
+            stmt = (
+                select(func.count(Order.id))
+                .where(Order.product_id == product_id)
+                .where(Order.status.in_(["completed", "delivered", "shipped"]))
+                .where(Order.created_at >= ninety_days_ago)
+            )
+            result = await self.db_session.execute(stmt)
+            sales_count = result.scalar_one_or_none() or 0
+
+            # Boost score based on sales frequency (up to +15 points)
+            frequency_boost = min(sales_count * 3, 15.0)  # +3 points per sale, max +15
+
+            final_score = min(base_score + frequency_boost, 100.0)
+
+            self.logger.debug(
+                f"Demand score calculated for product {product_id}: "
+                f"base={base_score}, sales_count={sales_count}, "
+                f"boost={frequency_boost}, final={final_score}"
+            )
+
+            return round(final_score, 1)
+
+        except Exception as e:
+            self.logger.debug(f"Error calculating demand score: {e}")
+            return None

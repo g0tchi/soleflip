@@ -474,14 +474,13 @@ class InventoryService:
                 continue
 
             try:
-                # Skip duplicate detection for now to avoid Boolean errors
-                # TODO: Fix boolean clause issues in duplicate detection
-                # has_duplicates, duplicate_matches = await self.detect_duplicate_listings(listing)
-                #
-                # if has_duplicates:
-                #     duplicate_handled = self._handle_duplicates(listing_id, duplicate_matches, stats)
-                #     if duplicate_handled:
-                #         continue
+                # Check for duplicate listings (Boolean clause issues now fixed)
+                has_duplicates, duplicate_matches = await self.detect_duplicate_listings(listing)
+
+                if has_duplicates:
+                    duplicate_handled = self._handle_duplicates(listing_id, duplicate_matches, stats)
+                    if duplicate_handled:
+                        continue
 
                 # Extract listing data
                 product_info = listing.get("product", {})
@@ -1354,6 +1353,30 @@ class InventoryService:
             # Normalize product name for comparison
             normalized_name = product_name.lower().strip()
 
+            # Build size condition - handle null/empty sizes
+            size_is_null_or_unknown = size is None or size == "" or size == "Unknown Size"
+            if size_is_null_or_unknown:
+                size_condition = or_(
+                    Size.value.is_(None),
+                    Size.value == "",
+                    Size.value == "Unknown Size",
+                )
+            else:
+                size_condition = or_(
+                    Size.value == size,
+                    Size.value.is_(None),  # Also match null sizes as potential duplicates
+                )
+
+            # Build brand condition - handle empty brand names
+            if brand_name and brand_name.strip():
+                brand_condition = or_(
+                    Brand.name.ilike(f"%{brand_name}%"),
+                    Brand.name.is_(None),  # Match items with no brand
+                )
+            else:
+                # If no brand specified, match all
+                brand_condition = True  # SQLAlchemy converts True to a valid clause
+
             stmt = (
                 select(InventoryItem)
                 .join(Product)
@@ -1362,14 +1385,8 @@ class InventoryService:
                 .where(
                     and_(
                         func.lower(Product.name).like(f"%{normalized_name}%"),
-                        or_(
-                            and_(Size.value.is_not(None), Size.value == size),
-                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
-                        ),
-                        or_(
-                            and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
-                            brand_name == "",  # Handle cases where brand is not specified
-                        ),
+                        size_condition,
+                        brand_condition,
                     )
                 )
             )
@@ -1384,6 +1401,20 @@ class InventoryService:
         try:
             from shared.database.models import InventoryItem, Size
 
+            # Build size condition - handle null/empty sizes
+            size_is_null_or_unknown = size is None or size == "" or size == "Unknown Size"
+            if size_is_null_or_unknown:
+                size_condition = or_(
+                    Size.value.is_(None),
+                    Size.value == "",
+                    Size.value == "Unknown Size",
+                )
+            else:
+                size_condition = or_(
+                    Size.value == size,
+                    Size.value.is_(None),  # Also match null sizes as potential duplicates
+                )
+
             stmt = (
                 select(InventoryItem)
                 .join(Size, isouter=True)
@@ -1391,10 +1422,7 @@ class InventoryService:
                     and_(
                         InventoryItem.external_ids.is_not(None),
                         InventoryItem.external_ids["stockx_product_id"].astext == product_id,
-                        or_(
-                            and_(Size.value.is_not(None), Size.value == size),
-                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
-                        ),
+                        size_condition,
                     )
                 )
             )
@@ -1411,24 +1439,37 @@ class InventoryService:
         try:
             from shared.database.models import InventoryItem, Product, Brand, Size
 
+            # Build size condition - handle null/empty sizes
+            size_is_null_or_unknown = size is None or size == "" or size == "Unknown Size"
+            if size_is_null_or_unknown:
+                size_condition = or_(
+                    Size.value.is_(None),
+                    Size.value == "",
+                    Size.value == "Unknown Size",
+                )
+            else:
+                size_condition = or_(
+                    Size.value == size,
+                    Size.value.is_(None),  # Also match null sizes as potential duplicates
+                )
+
+            # Build brand condition - handle empty brand names
+            if brand_name and brand_name.strip():
+                brand_condition = or_(
+                    Brand.name.ilike(f"%{brand_name}%"),
+                    Brand.name.is_(None),  # Match items with no brand
+                )
+            else:
+                # If no brand specified, match all
+                brand_condition = True  # SQLAlchemy converts True to a valid clause
+
             # Get all inventory items with the same size and similar brand
             stmt = (
                 select(InventoryItem, Product, Brand)
                 .join(Product)
                 .join(Brand, isouter=True)
                 .join(Size, isouter=True)
-                .where(
-                    and_(
-                        or_(
-                            and_(Size.value.is_not(None), Size.value == size),
-                            and_(Size.value.is_(None), size in [None, "", "Unknown Size"]),
-                        ),
-                        or_(
-                            and_(Brand.name.is_not(None), Brand.name.ilike(f"%{brand_name}%")),
-                            brand_name == "",
-                        ),
-                    )
-                )
+                .where(and_(size_condition, brand_condition))
             )
             result = await self.db_session.execute(stmt)
             items_with_details = result.all()

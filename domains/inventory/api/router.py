@@ -546,126 +546,38 @@ async def get_alias_listings(
     response_model=SuccessResponse,
     status_code=201,
     summary="Sync Inventory from StockX Listings",
-    description="Import current StockX listings as inventory items",
+    description="Import current StockX listings as inventory items using the fully implemented inventory service",
 )
 async def sync_inventory_from_stockx(
     background_tasks: BackgroundTasks = None,
     inventory_service: InventoryService = Depends(get_inventory_service),
 ):
-    """Sync inventory items from current StockX listings"""
+    """
+    Sync inventory items from current StockX listings.
+
+    This endpoint uses the fully implemented sync_all_stockx_listings_to_inventory()
+    method from InventoryService, which handles:
+    - Duplicate detection
+    - Product and brand creation
+    - Size management
+    - Complete inventory item creation with all required fields
+    """
     logger.info("Syncing inventory from StockX listings")
 
     try:
-        from domains.integration.services.stockx_service import StockXService
-        from shared.database.connection import db_manager
+        # Use the fully implemented inventory service method
+        stats = await inventory_service.sync_all_stockx_listings_to_inventory()
 
-        async with db_manager.get_session() as stockx_session:
-            stockx_service = StockXService(stockx_session)
-
-            # Get all current StockX listings
-            try:
-                listings = await stockx_service.get_all_listings(limit=100)
-                logger.info(f"Retrieved {len(listings)} StockX listings for sync")
-
-                synced_count = 0
-                products_created = 0
-                market_data_imported = 0
-
-                for listing in listings:
-                    try:
-                        # Extract product data from listing
-                        product_data = listing.get("product", {})
-                        variant_data = listing.get("variant", {})
-
-                        product_name = product_data.get("productName", "Unknown Product")
-                        stockx_product_id = product_data.get("productId")
-
-                        # Check if product exists in our database
-                        existing_product = None
-                        # TODO: Query database for existing product by name or stockx_id
-
-                        if not existing_product and stockx_product_id:
-                            # Product doesn't exist - create it with StockX data
-                            logger.info(f"Creating new product from StockX: {product_name}")
-
-                            # Get detailed product info and market data from StockX
-                            try:
-                                product_details = await stockx_service.get_product_details(
-                                    stockx_product_id
-                                )
-                                market_data = await stockx_service.get_market_data_from_stockx(
-                                    stockx_product_id
-                                )
-
-                                # Create new product with StockX data
-                                new_product_data = {
-                                    "name": product_name,
-                                    "sku": product_data.get(
-                                        "styleId", f"STOCKX-{stockx_product_id[:8]}"
-                                    ),
-                                    "brand_name": "Unknown",  # Extract from product_details if available
-                                    "category_name": "Imported from StockX",
-                                    "description": f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
-                                    "stockx_product_id": stockx_product_id,
-                                    "market_data": market_data,
-                                    "product_details": product_details,
-                                }
-
-                                # TODO: Actually create product in database
-                                # For now, just log the creation
-                                logger.info(f"Would create product: {new_product_data}")
-                                products_created += 1
-
-                                if market_data:
-                                    market_data_imported += 1
-
-                            except Exception as product_error:
-                                logger.warning(
-                                    f"Failed to fetch product details for {stockx_product_id}: {product_error}"
-                                )
-
-                        # Create inventory item (mock for now)
-                        {
-                            "product_name": product_name,
-                            "size": variant_data.get("variantValue", "Unknown"),
-                            "current_price": float(listing.get("amount", 0)),
-                            "purchase_price": float(
-                                listing.get("amount", 0)
-                            ),  # Use ask price as purchase price estimate
-                            "status": "listed",  # These are already listed on StockX
-                            "stockx_listing_id": listing.get("listingId"),
-                            "stockx_product_id": stockx_product_id,
-                            "condition": "new",
-                            "listing_status": listing.get("status", "UNKNOWN"),
-                            "currency": listing.get("currencyCode", "EUR"),
-                        }
-
-                        # Create inventory item in database
-
-                        # TODO: Actually create inventory item in database
-                        synced_count += 1
-
-                    except Exception as listing_error:
-                        logger.warning(
-                            f"Failed to sync listing {listing.get('listingId', 'unknown')}: {listing_error}"
-                        )
-                        continue
-
-                return ResponseBuilder.success(
-                    message=f"Inventory sync completed. Synced {synced_count} items, created {products_created} products, imported {market_data_imported} market data entries",
-                    data={
-                        "synced_count": synced_count,
-                        "products_created": products_created,
-                        "market_data_imported": market_data_imported,
-                        "total_listings": len(listings),
-                    },
-                )
-
-            except Exception as stockx_error:
-                logger.warning("StockX API call failed", error=str(stockx_error))
-                return ResponseBuilder.error(
-                    message="Failed to sync inventory from StockX", error=str(stockx_error)
-                )
+        return ResponseBuilder.success(
+            message=f"Inventory sync completed. Created {stats['created']} items, updated {stats['updated']}, matched {stats['matched']}, skipped {stats['skipped']}",
+            data={
+                "created": stats["created"],
+                "updated": stats["updated"],
+                "matched": stats["matched"],
+                "skipped": stats["skipped"],
+                "total_processed": stats["created"] + stats["updated"] + stats["matched"] + stats["skipped"],
+            },
+        )
 
     except Exception as e:
         error_context = ErrorContext("sync", "inventory from StockX")

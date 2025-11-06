@@ -183,16 +183,122 @@ class OrderImportService:
         """
         Try to find a matching inventory item for the order.
 
-        In the future, this could match based on:
-        - Product ID + variant ID
-        - SKU
-        - Size and product details
+        Matches based on (in order of priority):
+        1. StockX listing ID (exact match)
+        2. Product ID + Size (high confidence)
+        3. SKU + Size (medium confidence)
+        4. Product name + Size + Brand (lower confidence)
 
-        For now, returns None and we'll need to create placeholder items.
+        Returns the inventory item ID if found, None otherwise.
         """
-        # TODO: Implement inventory matching logic
-        # This would require product catalog to be populated first
-        return None
+        try:
+            # Extract order data
+            product_data = order_data.get("product", {})
+            variant_data = order_data.get("variant", {})
+
+            stockx_product_id = product_data.get("productId")
+            product_name = product_data.get("productName", "")
+            style_code = product_data.get("styleId")
+            size_value = variant_data.get("variantValue")
+            brand_name = order_data.get("brand", "")  # If available in order data
+
+            # Strategy 1: Try to find by StockX listing ID (if order has it)
+            stockx_listing_id = order_data.get("listingId")
+            if stockx_listing_id:
+                stmt = select(InventoryItem).where(
+                    and_(
+                        InventoryItem.external_ids.is_not(None),
+                        InventoryItem.external_ids["stockx_listing_id"].astext
+                        == stockx_listing_id,
+                    )
+                )
+                result = await self.db_session.execute(stmt)
+                item = result.scalar_one_or_none()
+                if item:
+                    logger.info(
+                        f"Found inventory match by StockX listing ID: {stockx_listing_id}"
+                    )
+                    return item.id
+
+            # Strategy 2: Match by StockX product ID + size
+            if stockx_product_id and size_value:
+                stmt = (
+                    select(InventoryItem)
+                    .join(Size, isouter=True)
+                    .where(
+                        and_(
+                            InventoryItem.external_ids.is_not(None),
+                            InventoryItem.external_ids["stockx_product_id"].astext
+                            == stockx_product_id,
+                            or_(Size.value == size_value, Size.value.is_(None)),
+                        )
+                    )
+                )
+                result = await self.db_session.execute(stmt)
+                item = result.scalar_one_or_none()
+                if item:
+                    logger.info(
+                        f"Found inventory match by StockX product ID + size: {stockx_product_id}"
+                    )
+                    return item.id
+
+            # Strategy 3: Match by SKU (style code) + size
+            if style_code and size_value:
+                stmt = (
+                    select(InventoryItem)
+                    .join(Product)
+                    .join(Size, isouter=True)
+                    .where(
+                        and_(
+                            Product.sku == style_code,
+                            or_(Size.value == size_value, Size.value.is_(None)),
+                        )
+                    )
+                )
+                result = await self.db_session.execute(stmt)
+                item = result.scalar_one_or_none()
+                if item:
+                    logger.info(f"Found inventory match by SKU + size: {style_code}")
+                    return item.id
+
+            # Strategy 4: Fuzzy match by product name + size + brand (least confident)
+            if product_name and size_value:
+                normalized_name = product_name.lower().strip()
+                stmt = (
+                    select(InventoryItem)
+                    .join(Product)
+                    .join(Brand, isouter=True)
+                    .join(Size, isouter=True)
+                    .where(
+                        and_(
+                            func.lower(Product.name).like(f"%{normalized_name}%"),
+                            or_(Size.value == size_value, Size.value.is_(None)),
+                            or_(
+                                Brand.name.ilike(f"%{brand_name}%") if brand_name else True,
+                                Brand.name.is_(None),
+                            ),
+                        )
+                    )
+                )
+                result = await self.db_session.execute(stmt)
+                item = result.scalar_one_or_none()
+                if item:
+                    logger.info(
+                        f"Found inventory match by product name + size: {product_name}"
+                    )
+                    return item.id
+
+            # No match found
+            logger.debug(
+                f"No inventory match found for order {order_data.get('orderNumber', 'unknown')}"
+            )
+            return None
+
+        except Exception as e:
+            logger.error(
+                f"Error finding matching inventory item: {str(e)}", exc_info=True
+            )
+            return None
 
     async def _get_or_create_placeholder_inventory_item(self, order_data: Dict[str, Any]) -> UUID:
         """
