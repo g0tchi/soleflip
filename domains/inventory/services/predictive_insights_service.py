@@ -27,8 +27,8 @@ from domains.analytics.services.forecast_engine import (
     ForecastModel,
 )
 from domains.integration.services.stockx_service import StockXService
-from domains.inventory.models import InventoryItem
 from domains.pricing.services.smart_pricing_service import SmartPricingService
+from shared.database.models import InventoryItem
 
 
 class InsightType(Enum):

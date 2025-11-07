@@ -351,7 +351,7 @@ class InventoryItem(Base, TimestampMixin):
         UUID(as_uuid=True), ForeignKey(get_schema_ref("product.id", "catalog")), nullable=False
     )
     size_id = Column(
-        UUID(as_uuid=True), ForeignKey(get_schema_ref("sizes.id", "core")), nullable=False
+        UUID(as_uuid=True), ForeignKey(get_schema_ref("sizes.id", "catalog")), nullable=False
     )
     supplier_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=True
