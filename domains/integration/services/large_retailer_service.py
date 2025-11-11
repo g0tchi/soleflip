@@ -13,15 +13,15 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import ImportBatch
-from shared.events import publish_event, ImportBatchCreatedEvent
+from shared.events import ImportBatchCreatedEvent, publish_event
 from shared.processing.async_pipeline import ProcessingStage, get_async_pipeline
-from shared.processing.streaming_processor import StreamingConfig, get_streaming_processor
 from shared.processing.stages import (
     RetailerParsingStage,
-    RetailerValidationStage,
-    RetailerTransformationStage,
     RetailerPersistenceStage,
+    RetailerTransformationStage,
+    RetailerValidationStage,
 )
+from shared.processing.streaming_processor import StreamingConfig, get_streaming_processor
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)

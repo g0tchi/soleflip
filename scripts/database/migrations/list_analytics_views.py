@@ -2,7 +2,9 @@
 List all analytics views that depend on transactions.transactions table
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

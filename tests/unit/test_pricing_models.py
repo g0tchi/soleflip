@@ -8,12 +8,12 @@ from decimal import Decimal
 from uuid import uuid4
 
 from domains.pricing.models import (
-    PriceRule,
     BrandMultiplier,
-    MarketPrice,
-    SalesForecast,
     ForecastAccuracy,
+    MarketPrice,
+    PriceRule,
     PricingKPI,
+    SalesForecast,
 )
 
 

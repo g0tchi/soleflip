@@ -10,6 +10,7 @@ from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -19,7 +20,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
@@ -30,7 +30,7 @@ from sqlalchemy.sql import func
 load_dotenv()
 
 # Import the schema helper
-from shared.database.utils import IS_POSTGRES, get_schema_ref
+from shared.database.utils import IS_POSTGRES, get_schema_ref  # noqa: E402
 
 Base = declarative_base()
 
@@ -51,7 +51,7 @@ except Exception as e:
 # -------------------------
 
 # --- Dialect-specific Type Compilation ---
-from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.ext.compiler import compiles  # noqa: E402
 
 
 @compiles(JSONB, "sqlite")
@@ -1068,4 +1068,4 @@ class MarketplaceData(Base, TimestampMixin):
 
 # Import pricing models to register them with SQLAlchemy
 # This ensures the relationships defined above are properly linked
-from domains.pricing.models import *  # noqa: F401,F403
+from domains.pricing.models import *  # noqa: F401,F403,E402

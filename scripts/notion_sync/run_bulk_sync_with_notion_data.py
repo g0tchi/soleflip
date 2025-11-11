@@ -13,8 +13,9 @@ Usage from Claude Code:
 """
 
 import asyncio
-from sync_notion_to_postgres import NotionPostgresSyncService
+
 import structlog
+from sync_notion_to_postgres import NotionPostgresSyncService
 
 logger = structlog.get_logger(__name__)
 

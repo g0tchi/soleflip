@@ -1,0 +1,10 @@
+{
+  "testCommand": "PYTHONPATH=. pytest tests/unit/ -v --tb=short -x",
+  "lintCommand": "python3 -m black --check . && python3 -m isort --check-only .",
+  "requireCoverage": false,
+  "minCoverage": 80,
+  "autoFix": true,
+  "maxAttempts": 50,
+  "stopOnMorning": true,
+  "morningHour": 7
+}

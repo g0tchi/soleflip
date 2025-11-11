@@ -3,7 +3,9 @@ Check transactions schema tables: orders and transactions
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

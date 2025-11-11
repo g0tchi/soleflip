@@ -18,8 +18,9 @@ Output:
 
 import asyncio
 import csv
-import httpx
 from typing import Dict, Optional
+
+import httpx
 import structlog
 
 logger = structlog.get_logger(__name__)

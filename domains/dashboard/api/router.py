@@ -203,8 +203,8 @@ async def get_dashboard_metrics(
                 inventory_data = row
 
         # Get system metrics (simplified - no separate DB calls)
-        from shared.monitoring.metrics import get_metrics_registry
         from shared.monitoring.health import get_health_manager
+        from shared.monitoring.metrics import get_metrics_registry
 
         metrics_registry = get_metrics_registry()
         system_metrics = metrics_registry.get_metrics_summary()

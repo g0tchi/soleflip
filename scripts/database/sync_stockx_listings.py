@@ -6,6 +6,7 @@ Fetches live StockX listings and stores them in products.listings table
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, List
@@ -13,7 +14,6 @@ from typing import Dict, List
 import aiohttp
 import asyncpg
 from dotenv import load_dotenv
-import os
 
 # Load environment variables
 load_dotenv()

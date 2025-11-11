@@ -5,11 +5,13 @@ Handles downloading, parsing, and importing product data from Awin affiliate fee
 
 import csv
 import gzip
-import httpx
 import os
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
+import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from shared.database.connection import db_manager
 
 
@@ -320,7 +322,7 @@ class AwinFeedImportService:
 
         try:
             await self.session.commit()
-        except:
+        except Exception:
             await self.session.rollback()
 
         print(f"[OK] Imported {imported_count} products")

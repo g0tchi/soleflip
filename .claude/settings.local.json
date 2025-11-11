@@ -12,9 +12,17 @@
       "Bash(curl:*)",
       "Bash(git add:*)",
       "Bash(python3:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(PYTHONPATH=/home/g0tchi/projects/soleflip .venv/bin/pytest:*)",
+      "Bash(git commit:*)",
+      "Bash(pytest:*)",
+      "Bash(.venv/bin/python -m pytest:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "mindsdb"
+  ]
 }

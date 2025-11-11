@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from domains.pricing.models import DemandPattern, ForecastAccuracy, PricingKPI, SalesForecast
-from shared.database.models import Product, Order, InventoryItem
+from shared.database.models import InventoryItem, Order, Product
 
 
 class ForecastRepository:

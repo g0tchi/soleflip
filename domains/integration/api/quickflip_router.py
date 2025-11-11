@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.api.dependencies import get_db_session
-from domains.integration.services.quickflip_detection_service import QuickFlipDetectionService
 from domains.integration.services.market_price_import_service import MarketPriceImportService
+from domains.integration.services.quickflip_detection_service import QuickFlipDetectionService
+from shared.api.dependencies import get_db_session
 
 router = APIRouter()
 

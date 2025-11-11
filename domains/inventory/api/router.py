@@ -8,6 +8,7 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.inventory.services.inventory_service import InventoryService
 from shared.api.dependencies import (
@@ -17,15 +18,14 @@ from shared.api.dependencies import (
     get_inventory_service,
     validate_inventory_item_id,
 )
-from shared.database.connection import get_db_session
-from shared.streaming.response import stream_inventory_export
-from sqlalchemy.ext.asyncio import AsyncSession
 from shared.api.responses import (
     InventoryItemResponse,
     PaginatedResponse,
     ResponseBuilder,
     SuccessResponse,
 )
+from shared.database.connection import get_db_session
+from shared.streaming.response import stream_inventory_export
 
 logger = structlog.get_logger(__name__)
 
@@ -276,9 +276,10 @@ async def get_stockx_listings(
     )
 
     try:
+        from datetime import datetime, timedelta
+
         from domains.integration.services.stockx_service import StockXService
         from shared.database.connection import db_manager
-        from datetime import datetime, timedelta
 
         # Simple in-memory cache
         cache_key = f"stockx_listings_{status}_{limit}"
@@ -522,7 +523,9 @@ async def get_alias_listings(
         # Apply filters
         filtered_listings = mock_listings
         if status:
-            filtered_listings = [l for l in filtered_listings if l["status"] == status]
+            filtered_listings = [
+                listing for listing in filtered_listings if listing["status"] == status
+            ]
         if limit:
             filtered_listings = filtered_listings[:limit]
 

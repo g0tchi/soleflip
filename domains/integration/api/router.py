@@ -2,12 +2,12 @@
 API Router for Integration-related endpoints (Awin, StockX matching, etc.)
 """
 
-from typing import Any, Dict, Optional
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 

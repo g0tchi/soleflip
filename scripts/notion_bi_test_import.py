@@ -10,14 +10,14 @@ import asyncio
 import sys
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 # Add project root to path
 sys.path.append(".")
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 # Notion test data from our analysis
 NOTION_TEST_DATA = [

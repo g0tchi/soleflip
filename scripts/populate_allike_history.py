@@ -5,7 +5,9 @@ Based on research and Instagram closure announcement
 
 import asyncio
 from datetime import date
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 # Allike Store complete information

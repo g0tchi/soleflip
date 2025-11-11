@@ -6,9 +6,9 @@ Handles product-related events and cross-domain communication.
 import structlog
 
 from shared.events import (
+    ImportBatchCompletedEvent,
     ProductCreatedEvent,
     ProductUpdatedEvent,
-    ImportBatchCompletedEvent,
     subscribe_to_event,
 )
 

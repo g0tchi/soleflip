@@ -3,12 +3,12 @@ Dead Stock Identification System
 Intelligente Erkennung und Behandlung von schwer verkäuflichem Inventar
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-from dataclasses import dataclass
-from enum import Enum
 
 import structlog
 from sqlalchemy import and_, select

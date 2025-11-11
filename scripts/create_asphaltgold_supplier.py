@@ -5,7 +5,9 @@ Create asphaltgold supplier and populate its history
 import asyncio
 import uuid
 from datetime import date
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 # asphaltgold Store Information

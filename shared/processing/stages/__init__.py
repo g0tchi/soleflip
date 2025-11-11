@@ -4,9 +4,9 @@ Processing Stages for Data Import Pipelines
 
 from .retailer_stages import (
     RetailerParsingStage,
-    RetailerValidationStage,
-    RetailerTransformationStage,
     RetailerPersistenceStage,
+    RetailerTransformationStage,
+    RetailerValidationStage,
 )
 
 __all__ = [

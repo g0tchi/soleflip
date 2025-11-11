@@ -2,9 +2,9 @@ import re
 from typing import List, Optional
 
 import structlog
+from slugify import slugify
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from slugify import slugify
 
 from shared.database.models import Brand, BrandPattern
 

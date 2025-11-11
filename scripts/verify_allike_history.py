@@ -4,7 +4,9 @@ Shows complete supplier data and timeline
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 

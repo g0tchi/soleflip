@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Union
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import (
     InventoryItem,
@@ -18,8 +19,6 @@ from shared.database.models import (
 )
 
 logger = structlog.get_logger(__name__)
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TransactionProcessor:

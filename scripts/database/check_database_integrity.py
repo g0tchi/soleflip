@@ -121,7 +121,7 @@ async def check_database_integrity():
         try:
             count = await conn.fetchval(f"SELECT COUNT(*) FROM {table_name}")
             print(f"  OK {table_name}: {count} Datensaetze - {description}")
-        except:
+        except Exception:
             print(f"  MISSING {table_name}: Nicht verfuegbar - {description}")
 
     await conn.close()

@@ -27,7 +27,7 @@ except ImportError:
     logging.warning("sklearn not available. ML models will be disabled.")
 
 try:
-    from statsmodels.tsa.arima.model import ARIMA
+    from statsmodels.tsa.arima.model import ARIMA  # noqa: F401
 
     STATSMODELS_AVAILABLE = True
 except ImportError:

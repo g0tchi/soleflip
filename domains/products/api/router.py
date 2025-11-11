@@ -11,8 +11,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domains.integration.services.stockx_service import StockXService
 from domains.integration.services.stockx_catalog_service import StockXCatalogService
+from domains.integration.services.stockx_service import StockXService
 from domains.inventory.services.inventory_service import InventoryService
 from shared.database.connection import get_db_session
 

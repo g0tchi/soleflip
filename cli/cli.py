@@ -1122,6 +1122,7 @@ class RetroAdminCLI:
                 # Single update - use individual query
                 product_id, update_data = group_updates[0]
                 from sqlalchemy import update
+
                 from shared.database.models import Product
 
                 await session.execute(

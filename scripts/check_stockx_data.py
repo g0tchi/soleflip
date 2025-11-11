@@ -3,7 +3,9 @@ Check StockX product data availability for Awin matching
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 

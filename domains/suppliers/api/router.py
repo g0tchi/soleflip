@@ -14,8 +14,7 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.suppliers.services.supplier_service import SupplierService
-
-from shared.api.dependencies import get_db_session, ResponseFormatter
+from shared.api.dependencies import ResponseFormatter, get_db_session
 from shared.security.api_security import AuditLogger, get_client_ip
 
 # Initialize loggers and utilities

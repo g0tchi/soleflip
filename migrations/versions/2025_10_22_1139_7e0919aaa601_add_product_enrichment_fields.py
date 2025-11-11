@@ -15,10 +15,9 @@ Add StockX enrichment fields to catalog.product table:
 - last_enriched_at: Last enrichment timestamp
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision = '7e0919aaa601'

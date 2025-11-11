@@ -5,7 +5,9 @@ Based on web research
 
 import asyncio
 from datetime import date
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 # afew Store Information

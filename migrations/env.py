@@ -19,7 +19,7 @@ load_dotenv()
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from shared.database.models import Base
+from shared.database.models import Base  # noqa: E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

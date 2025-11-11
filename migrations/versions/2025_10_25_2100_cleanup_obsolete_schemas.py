@@ -35,7 +35,6 @@ Description:
 """
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = 'cleanup_obsolete_schemas'
 down_revision = 'add_gibson_features'

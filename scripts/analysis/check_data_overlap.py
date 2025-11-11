@@ -1,8 +1,10 @@
 """Check for duplicate data between transactions.orders and transactions.transactions"""
 
 import asyncio
-from shared.database.connection import DatabaseManager
+
 from sqlalchemy import text
+
+from shared.database.connection import DatabaseManager
 
 
 async def check_overlap():

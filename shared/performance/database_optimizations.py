@@ -7,9 +7,9 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import structlog
-from sqlalchemy import text, select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql import Select
 
 from shared.database.connection import get_db_session

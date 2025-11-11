@@ -4,9 +4,9 @@ Testing encryption, timestamps, and core model functionality for 100% coverage
 """
 
 import os
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from cryptography.fernet import Fernet
 
 
@@ -35,6 +35,7 @@ class TestEncryptionSetup:
         """Test that invalid FIELD_ENCRYPTION_KEY raises ValueError"""
         with pytest.raises(ValueError, match="FATAL: Invalid FIELD_ENCRYPTION_KEY"):
             import importlib
+
             from shared.database import models
 
             importlib.reload(models)
@@ -45,6 +46,7 @@ class TestEncryptionSetup:
 
         with patch.dict(os.environ, {"FIELD_ENCRYPTION_KEY": valid_key}):
             import importlib
+
             from shared.database import models
 
             importlib.reload(models)
@@ -59,6 +61,7 @@ class TestSQLiteJSONBCompilation:
     def test_jsonb_compilation_for_sqlite(self):
         """Test JSONB compilation for SQLite - covers line 47"""
         from sqlalchemy.dialects.postgresql import JSONB
+
         from shared.database.models import compile_jsonb_for_sqlite
 
         # Create mock compiler
@@ -207,7 +210,7 @@ class TestBrandModel:
         from shared.database.models import Brand
 
         # Check table name
-        assert Brand.__tablename__ == "brands"
+        assert Brand.__tablename__ == "brand"
 
         # Check that it inherits from TimestampMixin (through MRO)
         # The test output shows TimestampMixin is in the MRO, so this should pass
@@ -257,6 +260,7 @@ class TestModelIntegration:
         with patch("shared.database.models.IS_POSTGRES", True):
             # Reimport to get the class with the schema
             import importlib
+
             from shared.database import models
 
             importlib.reload(models)

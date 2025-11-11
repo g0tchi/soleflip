@@ -3,7 +3,9 @@ Quick cleanup script to remove duplicate supplier_history entries
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 

@@ -1,7 +1,8 @@
 """Domain-specific models for suppliers."""
 
-from pydantic import BaseModel
 from typing import Dict
+
+from pydantic import BaseModel
 
 
 class SupplierPerformanceSummary(BaseModel):

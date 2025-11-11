@@ -14,18 +14,19 @@ from typing import List, Set
 import httpx
 
 from shared.config.settings import get_settings
+
 from ..schemas.budibase_models import (
+    AutomationTrigger,
     BudibaseApp,
     BudibaseAutomation,
     BudibaseComponent,
     BudibaseConnector,
     BudibaseDataSource,
+    BudibaseEnvironment,
     BudibaseScreen,
     BudibaseValidationResult,
-    AutomationTrigger,
     ComponentType,
     DataSourceType,
-    BudibaseEnvironment,
 )
 
 logger = logging.getLogger(__name__)

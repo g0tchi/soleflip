@@ -4,6 +4,7 @@ Provides reusable test fixtures for database, API client, and test data
 Integrates with the new fixture infrastructure in tests.fixtures
 """
 
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, AsyncGenerator, Dict
@@ -12,7 +13,7 @@ from uuid import uuid4
 import pytest
 import structlog
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -21,7 +22,7 @@ from shared.database.connection import db_manager
 from shared.database.models import Base
 
 # Import comprehensive fixtures from new fixture infrastructure
-from tests.fixtures import *
+from tests.fixtures import *  # noqa: F403
 
 # Configure logging for tests to ensure compatibility with pytest's capture
 structlog.configure(
@@ -33,8 +34,6 @@ structlog.configure(
     logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
 )
-
-import os
 
 # Test database configuration
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -108,9 +107,6 @@ async def legacy_db_session() -> AsyncGenerator[AsyncSession, None]:
                 await transaction.rollback()
 
     await engine.dispose()
-
-
-from httpx import ASGITransport
 
 
 # Note: async_client and client fixtures are now provided by tests.fixtures.api_fixtures

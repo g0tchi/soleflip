@@ -8,16 +8,16 @@ Respects rate limits (1 request/second) and provides detailed progress tracking.
 import asyncio
 import os
 from datetime import datetime
-from typing import List, Dict, Any
-from dotenv import load_dotenv
+from typing import Any, Dict, List
 
 import structlog
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from domains.integration.services.stockx_service import StockXService
 from domains.integration.services.stockx_catalog_service import StockXCatalogService
+from domains.integration.services.stockx_service import StockXService
 
 load_dotenv()
 

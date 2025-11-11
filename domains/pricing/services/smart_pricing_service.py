@@ -7,17 +7,18 @@ import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+
 import structlog
-from sqlalchemy import select, and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.integration.services.stockx_service import StockXService
 from domains.inventory.services.inventory_service import InventoryService
-from shared.database.models import InventoryItem, Product
 from shared.caching.dashboard_cache import get_dashboard_cache
+from shared.database.models import InventoryItem, Product
 
 from ..models import MarketPrice
-from ..services.pricing_engine import PricingEngine, PricingContext, PricingStrategy
+from ..services.pricing_engine import PricingContext, PricingEngine, PricingStrategy
 
 logger = structlog.get_logger(__name__)
 

@@ -5,10 +5,11 @@ from typing import Any, Dict, List, Optional
 import httpx
 import structlog
 from sqlalchemy import select
-from shared.utils.helpers import RetryHelper
-from shared.exceptions.domain_exceptions import AuthenticationException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import SystemConfig
+from shared.exceptions.domain_exceptions import AuthenticationException
+from shared.utils.helpers import RetryHelper
 
 logger = structlog.get_logger(__name__)
 
@@ -24,9 +25,6 @@ class StockXCredentials:
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.api_key = api_key
-
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class StockXService:

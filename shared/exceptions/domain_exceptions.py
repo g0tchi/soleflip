@@ -161,6 +161,7 @@ class ConfigurationException(ServiceIntegrationException):
 
 
 # Common exception mappings for quick migration
+# Note: Order matters! More specific keywords should come before generic ones
 COMMON_EXCEPTION_MAPPINGS = {
     # Database related
     "connection": DatabaseConnectionException,
@@ -173,15 +174,15 @@ COMMON_EXCEPTION_MAPPINGS = {
     "429": RateLimitException,
     "rate limit": RateLimitException,
     "unauthorized": AuthenticationException,
-    # Data processing
+    # Business logic (check these before generic validation)
+    "inventory": InsufficientInventoryException,
+    "price": InvalidPriceException,
+    "order": OrderProcessingException,
+    # Data processing (more generic, check after business logic)
     "validation": ValidationException,
     "parse": ParseException,
     "transform": TransformationException,
     "format": FileFormatException,
-    # Business logic
-    "inventory": InsufficientInventoryException,
-    "price": InvalidPriceException,
-    "order": OrderProcessingException,
 }
 
 

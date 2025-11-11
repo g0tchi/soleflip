@@ -3,10 +3,11 @@
 Test BI system by updating existing inventory with purchase dates
 """
 
-import requests
 import json
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
+
+import requests
 
 API_BASE = "http://localhost:8000"
 

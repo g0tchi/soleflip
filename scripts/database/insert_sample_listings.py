@@ -6,11 +6,12 @@ Using the 39 listings data we successfully retrieved earlier
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
+
 import asyncpg
 from dotenv import load_dotenv
-import os
 
 # Load environment variables
 load_dotenv()

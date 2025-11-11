@@ -1,16 +1,16 @@
 """Metabase schemas module"""
 
 from .metabase_models import (
-    MetabaseDatabase,
-    MetabaseCollection,
-    MetabaseCard,
-    MetabaseQuestion,
-    MetabaseDashboard,
-    DashboardParameter,
     DashboardCard,
-    VisualizationType,
+    DashboardParameter,
     MaterializedViewStatus,
+    MetabaseCard,
+    MetabaseCollection,
+    MetabaseDashboard,
+    MetabaseDatabase,
+    MetabaseQuestion,
     RefreshJobStatus,
+    VisualizationType,
 )
 
 __all__ = [

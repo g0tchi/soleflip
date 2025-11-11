@@ -4,16 +4,16 @@ Concrete implementations of processing stages for large-scale retailer imports.
 """
 
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
 
 from shared.database.connection import get_db_session
-from shared.database.models import Product, Brand, Category, InventoryItem
-from shared.events import publish_event, ProductCreatedEvent
-from shared.processing.async_pipeline import ProcessingContext, ChunkResult
+from shared.database.models import Brand, Category, InventoryItem, Product
+from shared.events import ProductCreatedEvent, publish_event
+from shared.processing.async_pipeline import ChunkResult, ProcessingContext
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)

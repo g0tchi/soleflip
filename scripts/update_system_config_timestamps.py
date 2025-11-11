@@ -2,7 +2,9 @@
 
 import asyncio
 from datetime import datetime
-from sqlalchemy import text, select
+
+from sqlalchemy import select, text
+
 from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
 

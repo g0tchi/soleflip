@@ -5,10 +5,11 @@ High-performance streaming for large datasets and file downloads
 
 import json
 from typing import Any, AsyncGenerator, Dict, List, Optional
+
 import structlog
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -105,6 +106,7 @@ class FileStreamingResponse:
         """Stream file content in chunks"""
 
         import os
+
         import aiofiles
 
         try:

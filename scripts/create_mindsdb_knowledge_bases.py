@@ -17,12 +17,12 @@ Configuration:
 """
 
 import os
-import requests
-from pathlib import Path
-from typing import Dict, Optional
 import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional
 
+import requests
 
 # ============================================================================
 # CONFIGURATION - UPDATE THESE VALUES
@@ -54,7 +54,7 @@ class MindsDBClient:
     """Client for interacting with MindsDB API"""
 
     def __init__(self, base_url: str, username: str, password: str):
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
         self.session = requests.Session()
@@ -76,16 +76,14 @@ class MindsDBClient:
                 response = self.session.post(
                     endpoint,
                     json={"username": self.username, "password": self.password},
-                    timeout=10
+                    timeout=10,
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    if 'token' in data:
-                        self.token = data['token']
-                        self.session.headers.update({
-                            'Authorization': f'Bearer {self.token}'
-                        })
+                    if "token" in data:
+                        self.token = data["token"]
+                        self.session.headers.update({"Authorization": f"Bearer {self.token}"})
                         print("✅ Successfully authenticated!")
                         return True
                     print("✅ Login successful (session-based)")
@@ -93,18 +91,14 @@ class MindsDBClient:
 
                 # Try with email
                 response = self.session.post(
-                    endpoint,
-                    json={"email": self.username, "password": self.password},
-                    timeout=10
+                    endpoint, json={"email": self.username, "password": self.password}, timeout=10
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    if 'token' in data:
-                        self.token = data['token']
-                        self.session.headers.update({
-                            'Authorization': f'Bearer {self.token}'
-                        })
+                    if "token" in data:
+                        self.token = data["token"]
+                        self.session.headers.update({"Authorization": f"Bearer {self.token}"})
                         print("✅ Successfully authenticated!")
                         return True
                     print("✅ Login successful (session-based)")
@@ -131,9 +125,7 @@ class MindsDBClient:
         """Execute SQL query via MindsDB API"""
         try:
             response = self.session.post(
-                f"{self.base_url}/api/sql/query",
-                json={"query": query},
-                timeout=30
+                f"{self.base_url}/api/sql/query", json={"query": query}, timeout=30
             )
             response.raise_for_status()
             return response.json()
@@ -147,8 +139,8 @@ class MindsDBClient:
 
         # Check if project exists
         result = self.execute_sql("SHOW DATABASES")
-        if result and 'data' in result:
-            projects = [row[0] for row in result.get('data', [])]
+        if result and "data" in result:
+            projects = [row[0] for row in result.get("data", [])]
             if project_name in projects:
                 print(f"ℹ️  Project '{project_name}' already exists")
                 return True
@@ -172,7 +164,7 @@ class MindsDBClient:
         metadata: Dict[str, any] = None,
         embedding_model: str = EMBEDDING_MODEL,
         reranking_model: str = RERANKING_MODEL,
-        api_key: str = OPENAI_API_KEY
+        api_key: str = OPENAI_API_KEY,
     ) -> bool:
         """Create a knowledge base with the given content and metadata"""
         print(f"📚 Creating knowledge base '{kb_name}'...")
@@ -180,35 +172,28 @@ class MindsDBClient:
         if metadata is None:
             metadata = {}
 
-        # Escape single quotes in content
-        content_escaped = content.replace("'", "''")
-
         # Build embedding model config
         # Note: MindsDB accepts (and prefers) trailing commas in JSON objects
-        embedding_parts = [
-            '"provider": "openai"',
-            f'"model_name": "{embedding_model}"'
-        ]
+        embedding_parts = ['"provider": "openai"', f'"model_name": "{embedding_model}"']
         if api_key:
             embedding_parts.append(f'"api_key": "{api_key}"')
 
-        reranking_parts = [
-            '"provider": "openai"',
-            f'"model_name": "{reranking_model}"'
-        ]
+        reranking_parts = ['"provider": "openai"', f'"model_name": "{reranking_model}"']
         if api_key:
             reranking_parts.append(f'"api_key": "{api_key}"')
 
         # Create knowledge base using SQL with verified working syntax
         # Trailing commas after each property in JSON objects are allowed
+        embedding_config = ",\n                ".join(embedding_parts)
+        reranking_config = ",\n                ".join(reranking_parts)
         query = f"""
         CREATE KNOWLEDGE_BASE {project_name}.{kb_name}
         USING
             embedding_model = {{
-                {',\n                '.join(embedding_parts)},
+                {embedding_config},
             }},
             reranking_model = {{
-                {',\n                '.join(reranking_parts)},
+                {reranking_config},
             }}
         """
 
@@ -234,11 +219,11 @@ def read_file_content(file_path: Path) -> Optional[str]:
     """Read file content, handling different file types"""
     try:
         # Skip binary files
-        if file_path.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.csv', '.gz']:
+        if file_path.suffix.lower() in [".png", ".jpg", ".jpeg", ".gif", ".pdf", ".csv", ".gz"]:
             print(f"⏭️  Skipping binary file: {file_path.name}")
             return None
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         print(f"⚠️  Could not read {file_path}: {e}")
@@ -249,7 +234,7 @@ def collect_folder_content(folder_path: Path) -> Dict[str, str]:
     """Collect all markdown files from a folder"""
     content_map = {}
 
-    for file_path in folder_path.rglob('*.md'):
+    for file_path in folder_path.rglob("*.md"):
         content = read_file_content(file_path)
         if content:
             # Use relative path as key
@@ -289,8 +274,8 @@ KB_DEFINITIONS = {
         "use_cases": [
             "How is the database structured?",
             "What migrations were performed?",
-            "Multi-platform order system architecture"
-        ]
+            "Multi-platform order system architecture",
+        ],
     },
     "integrations": {
         "name": "kb_integrations",
@@ -304,8 +289,8 @@ KB_DEFINITIONS = {
         "use_cases": [
             "How does StockX integration work?",
             "What Metabase dashboards exist?",
-            "How to import Awin feeds?"
-        ]
+            "How to import Awin feeds?",
+        ],
     },
     "architecture_design": {
         "name": "kb_architecture_design",
@@ -319,8 +304,8 @@ KB_DEFINITIONS = {
         "use_cases": [
             "How does the pricing engine work?",
             "What is the DDD structure?",
-            "ROI calculation implementation"
-        ]
+            "ROI calculation implementation",
+        ],
     },
     "code_quality_dev": {
         "name": "kb_code_quality_dev",
@@ -336,8 +321,8 @@ KB_DEFINITIONS = {
         "use_cases": [
             "What linting standards apply?",
             "How to run tests?",
-            "What are the make commands?"
-        ]
+            "What are the make commands?",
+        ],
     },
     "operations_history": {
         "name": "kb_operations_history",
@@ -352,9 +337,9 @@ KB_DEFINITIONS = {
         "use_cases": [
             "How does Notion sync work?",
             "What happened in the refactoring sprint?",
-            "Historical architectural decisions"
-        ]
-    }
+            "Historical architectural decisions",
+        ],
+    },
 }
 
 
@@ -407,7 +392,9 @@ def collect_kb_content(kb_def: Dict) -> Dict[str, str]:
 
                 content = read_file_content(file_path)
                 if content:
-                    rel_path = file_path.relative_to(CONTEXT_DIR if CONTEXT_DIR in file_path.parents else SCRIPT_DIR)
+                    rel_path = file_path.relative_to(
+                        CONTEXT_DIR if CONTEXT_DIR in file_path.parents else SCRIPT_DIR
+                    )
                     content_map[str(rel_path)] = content
 
     return content_map
@@ -481,7 +468,7 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
 
         if not content_map:
             print(f"⚠️  No files found for {kb_def['name']}")
-            results["failed"].append(kb_def['name'])
+            results["failed"].append(kb_def["name"])
             continue
 
         print(f"📄 Found {len(content_map)} files")
@@ -507,24 +494,21 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
             "description": kb_def["description"],
             "file_count": len(content_map),
             "size_kb": size_kb,
-            "version": VERSION
+            "version": VERSION,
         }
 
         success = client.create_knowledge_base(
             project_name=project_name,
-            kb_name=kb_def['name'],
+            kb_name=kb_def["name"],
             content=combined_content,
-            metadata=metadata
+            metadata=metadata,
         )
 
         if success:
-            results["success"].append(kb_def['name'])
-            stats[kb_def['name']] = {
-                "files": len(content_map),
-                "size_kb": size_kb
-            }
+            results["success"].append(kb_def["name"])
+            stats[kb_def["name"]] = {"files": len(content_map), "size_kb": size_kb}
         else:
-            results["failed"].append(kb_def['name'])
+            results["failed"].append(kb_def["name"])
 
     # Summary
     print(f"\n{'='*60}")
@@ -535,19 +519,19 @@ def create_knowledge_bases(client: MindsDBClient, project_name: str):
     total_files = 0
     total_size = 0
 
-    for kb in results['success']:
+    for kb in results["success"]:
         if kb in stats:
-            files = stats[kb]['files']
-            size_kb = stats[kb]['size_kb']
+            files = stats[kb]["files"]
+            size_kb = stats[kb]["size_kb"]
             total_files += files
             total_size += size_kb
             print(f"   - {kb}: {files} files, {size_kb:.1f} KB")
         else:
             print(f"   - {kb}")
 
-    if results['failed']:
+    if results["failed"]:
         print(f"\n❌ Failed to create: {len(results['failed'])} knowledge bases")
-        for kb in results['failed']:
+        for kb in results["failed"]:
             print(f"   - {kb}")
 
     print("\n📊 Total Statistics:")

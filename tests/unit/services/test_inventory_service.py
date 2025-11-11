@@ -146,14 +146,20 @@ async def test_get_inventory_overview(inventory_service):
     Tests the get_inventory_overview method.
     """
     # Arrange
-    inventory_service.inventory_repo.get_all = AsyncMock(
-        return_value=[
-            InventoryItem(status="in_stock", purchase_price=100),
-            InventoryItem(status="in_stock", purchase_price=200),
-            InventoryItem(status="sold", purchase_price=150),
-            InventoryItem(status="listed_stockx", purchase_price=250),
-        ]
+    from decimal import Decimal
+
+    from domains.inventory.repositories.inventory_repository import InventoryStats
+
+    # Mock get_inventory_stats to return the expected stats
+    mock_stats = InventoryStats(
+        total_items=4,
+        in_stock=2,
+        sold=1,
+        listed=1,
+        total_value=Decimal("300"),
+        avg_purchase_price=Decimal("175"),
     )
+    inventory_service.inventory_repo.get_inventory_stats = AsyncMock(return_value=mock_stats)
 
     # Act
     stats = await inventory_service.get_inventory_overview()

@@ -12,16 +12,15 @@ from uuid import UUID
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import (
     InventoryItem,
-    Platform,
     Order,
+    Platform,
 )
 
 logger = structlog.get_logger(__name__)
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class OrderProcessor:

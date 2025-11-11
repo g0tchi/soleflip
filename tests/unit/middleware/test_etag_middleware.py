@@ -3,8 +3,9 @@ Unit tests for ETag Middleware
 Testing HTTP caching, conditional requests, and ETag generation for 100% coverage
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from fastapi import FastAPI, Request, Response
 
 from shared.middleware.etag import ETagMiddleware, setup_etag_middleware

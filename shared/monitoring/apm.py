@@ -9,8 +9,8 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional
 from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
 
 import psutil
 import structlog

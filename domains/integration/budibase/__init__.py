@@ -15,16 +15,16 @@ Features:
 Version: v2.2.1 Compatible
 """
 
+from .schemas.budibase_models import (
+    BudibaseApp,
+    BudibaseAutomation,
+    BudibaseConnector,
+    BudibaseDataSource,
+    BudibaseScreen,
+)
 from .services.config_generator import BudibaseConfigGenerator
 from .services.deployment_service import BudibaseDeploymentService
 from .services.sync_service import BudibaseSyncService
-from .schemas.budibase_models import (
-    BudibaseApp,
-    BudibaseDataSource,
-    BudibaseConnector,
-    BudibaseScreen,
-    BudibaseAutomation,
-)
 
 __version__ = "2.2.1"
 __author__ = "SoleFlipper Development Team"

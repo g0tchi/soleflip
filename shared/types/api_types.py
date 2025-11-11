@@ -2,6 +2,8 @@
 API-specific type definitions
 """
 
+# ruff: noqa: F405  # Allow star imports from domain_types
+
 from datetime import datetime
 from typing import Any, Dict, Generic, List, Optional, TypeVar
 
@@ -9,7 +11,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 
 from .base_types import EntityId, JSONDict
-from .domain_types import *
+from .domain_types import *  # noqa: F403
 
 T = TypeVar("T")
 

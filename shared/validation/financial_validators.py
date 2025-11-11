@@ -3,12 +3,12 @@ Financial Input Validators
 Comprehensive validation for financial data in APIs
 """
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Union
 from uuid import UUID
-import re
 
-from fastapi import Query, Path, HTTPException, status
+from fastapi import HTTPException, Path, Query, status
 from pydantic import BaseModel, Field, validator
 
 

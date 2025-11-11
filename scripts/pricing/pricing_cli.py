@@ -22,13 +22,17 @@ logger = logging.getLogger(__name__)
 # Add project root to path
 sys.path.insert(0, ".")
 
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.orm import selectinload  # noqa: E402
 
-from domains.pricing.repositories.pricing_repository import PricingRepository
-from domains.pricing.services.pricing_engine import PricingContext, PricingEngine, PricingStrategy
-from shared.database.connection import get_db_session
-from shared.database.models import InventoryItem, Product
+from domains.pricing.repositories.pricing_repository import PricingRepository  # noqa: E402
+from domains.pricing.services.pricing_engine import (  # noqa: E402
+    PricingContext,
+    PricingEngine,
+    PricingStrategy,
+)
+from shared.database.connection import get_db_session  # noqa: E402
+from shared.database.models import InventoryItem, Product  # noqa: E402
 
 
 class PricingCLI:

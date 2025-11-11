@@ -10,8 +10,8 @@ import json
 import logging
 from pathlib import Path
 
-from ..services.config_generator import BudibaseConfigGenerator
 from ..schemas.budibase_models import BudibaseEnvironment
+from ..services.config_generator import BudibaseConfigGenerator
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

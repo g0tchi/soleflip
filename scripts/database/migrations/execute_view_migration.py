@@ -2,7 +2,9 @@
 Execute analytics view migration SQL
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

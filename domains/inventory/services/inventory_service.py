@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, or_, select, func
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.models import (
@@ -111,6 +111,7 @@ class InventoryService:
         try:
             # Find inventory item by StockX listing ID
             from sqlalchemy import select
+
             from shared.database.models import InventoryItem
 
             stmt = select(InventoryItem).where(
@@ -141,6 +142,7 @@ class InventoryService:
         try:
             # Find inventory item by StockX listing ID
             from sqlalchemy import select
+
             from shared.database.models import InventoryItem
 
             stmt = select(InventoryItem).where(
@@ -169,8 +171,9 @@ class InventoryService:
     async def get_stockx_presale_markings(self) -> dict:
         """Get all StockX presale markings as a dict"""
         try:
-            from shared.database.models import StockXPresaleMarking
             from sqlalchemy import select
+
+            from shared.database.models import StockXPresaleMarking
 
             stmt = select(StockXPresaleMarking).where(StockXPresaleMarking.is_presale.is_(True))
             result = await self.db_session.execute(stmt)
@@ -318,8 +321,9 @@ class InventoryService:
 
     async def _create_simple_inventory_item(self, listing, default_category, default_brand):
         """Create simple inventory item from StockX listing with proper SKU strategy"""
-        from shared.database.models import InventoryItem, Size
         from datetime import datetime, timezone
+
+        from shared.database.models import InventoryItem, Size
 
         listing_id = listing.get("listingId")
         product_info = listing.get("product", {})
@@ -1082,6 +1086,7 @@ class InventoryService:
     async def _get_top_brands(self) -> List[Dict[str, Any]]:
         """Get top brands by inventory count"""
         from sqlalchemy import text
+
         from shared.database.connection import get_db_session
 
         # Use isolated session to prevent transaction cascade failures
@@ -1128,6 +1133,7 @@ class InventoryService:
     async def _get_status_breakdown(self) -> Dict[str, int]:
         """Get breakdown of items by status"""
         from sqlalchemy import text
+
         from shared.database.connection import get_db_session
 
         # Use isolated session to prevent transaction cascade failures
@@ -1160,6 +1166,7 @@ class InventoryService:
     async def _get_recent_activity(self) -> List[Dict[str, Any]]:
         """Get recent inventory activity"""
         from sqlalchemy import text
+
         from shared.database.connection import get_db_session
 
         # Use isolated session to prevent transaction cascade failures
@@ -1349,7 +1356,7 @@ class InventoryService:
     ) -> List[Any]:
         """Find items with similar product name and exact size match"""
         try:
-            from shared.database.models import InventoryItem, Product, Brand, Size
+            from shared.database.models import Brand, InventoryItem, Product, Size
 
             # Normalize product name for comparison
             normalized_name = product_name.lower().strip()
@@ -1409,7 +1416,7 @@ class InventoryService:
     ) -> List[Tuple[Any, float]]:
         """Perform fuzzy text matching on product names"""
         try:
-            from shared.database.models import InventoryItem, Product, Brand, Size
+            from shared.database.models import Brand, InventoryItem, Product, Size
 
             # Get all inventory items with the same size and similar brand
             stmt = (
@@ -1584,10 +1591,10 @@ class InventoryService:
         }
 
         try:
-            from shared.database.models import InventoryItem, Product
-
             # Get all inventory items with related data
             from sqlalchemy.orm import selectinload
+
+            from shared.database.models import InventoryItem, Product
 
             stmt = select(InventoryItem).options(
                 # Include related objects for comparison

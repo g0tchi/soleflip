@@ -17,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.api.dependencies import get_db_session
 from shared.api.responses import SuccessResponse
+
+from ..schemas.budibase_models import BudibaseApp, BudibaseEnvironment
 from ..services.config_generator import BudibaseConfigGenerator
 from ..services.deployment_service import BudibaseDeploymentService
 from ..services.sync_service import BudibaseSyncService
-from ..schemas.budibase_models import BudibaseApp, BudibaseEnvironment
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

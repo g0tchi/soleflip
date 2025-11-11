@@ -3,7 +3,9 @@ Check for field duplication between products.inventory and transactions.orders
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

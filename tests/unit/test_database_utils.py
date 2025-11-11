@@ -6,8 +6,7 @@ Testing schema reference generation for PostgreSQL vs SQLite environments
 import os
 from unittest.mock import patch
 
-
-from shared.database.utils import get_schema_ref, IS_TESTING, IS_POSTGRES
+from shared.database.utils import IS_POSTGRES, IS_TESTING, get_schema_ref
 
 
 class TestDatabaseUtils:

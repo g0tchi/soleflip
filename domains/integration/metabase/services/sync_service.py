@@ -9,9 +9,9 @@ import logging
 from datetime import datetime
 from typing import Dict, List
 
-from .view_manager import MetabaseViewManager
 from ..config.materialized_views import RefreshStrategy
 from ..schemas.metabase_models import RefreshJobStatus
+from .view_manager import MetabaseViewManager
 
 logger = logging.getLogger(__name__)
 

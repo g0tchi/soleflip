@@ -13,13 +13,13 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from domains.orders.services.order_import_service import OrderImportService
 from shared.database.connection import get_db_session
 from shared.database.models import SystemConfig
 
 from ..repositories.import_repository import ImportRepository
 from ..services.import_processor import ImportProcessor, ImportStatus, SourceType
 from ..services.stockx_service import StockXService
-from domains.orders.services.order_import_service import OrderImportService
 
 logger = structlog.get_logger(__name__)
 
