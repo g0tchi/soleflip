@@ -16,7 +16,8 @@
       "Bash(PYTHONPATH=/home/g0tchi/projects/soleflip .venv/bin/pytest:*)",
       "Bash(git commit:*)",
       "Bash(pytest:*)",
-      "Bash(.venv/bin/python -m pytest:*)"
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

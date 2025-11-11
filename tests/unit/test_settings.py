@@ -190,7 +190,7 @@ class TestAPIConfig:
         config = APIConfig()
 
         assert config.title == "SoleFlipper API"
-        assert config.version == "2.2.1"
+        assert config.version == "0.9.0"
         assert config.host == "127.0.0.1"
         assert config.port == 8000
         assert config.workers == 1

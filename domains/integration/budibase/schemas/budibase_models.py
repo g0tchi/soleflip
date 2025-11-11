@@ -151,7 +151,7 @@ class BudibaseApp(BaseModel):
 
     name: str = Field(..., description="Application name")
     description: str = Field(..., description="Application description")
-    version: str = Field(default="2.2.1", description="Application version")
+    version: str = Field(default="0.9.0", description="Application version")
     environment: BudibaseEnvironment = Field(default=BudibaseEnvironment.DEVELOPMENT)
 
     # Core components
@@ -177,7 +177,7 @@ class BudibaseApp(BaseModel):
             "example": {
                 "name": "SoleFlipper Business App",
                 "description": "Professional sneaker resale management system",
-                "version": "2.2.1",
+                "version": "0.9.0",
                 "environment": "development",
                 "theme": "midnight",
                 "navigation": {"title": "SoleFlipper", "hideTitle": False},

@@ -12,7 +12,7 @@ Features:
 - Schema mapping and compatibility checking
 - Enterprise-grade configuration management
 
-Version: v2.2.1 Compatible
+Version: v0.9.0 Compatible
 """
 
 from .schemas.budibase_models import (
@@ -26,7 +26,7 @@ from .services.config_generator import BudibaseConfigGenerator
 from .services.deployment_service import BudibaseDeploymentService
 from .services.sync_service import BudibaseSyncService
 
-__version__ = "2.2.1"
+__version__ = "0.9.0"
 __author__ = "SoleFlipper Development Team"
 
 __all__ = [

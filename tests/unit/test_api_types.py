@@ -312,13 +312,13 @@ class TestHealthCheckResponse:
         response = HealthCheckResponse(
             status="healthy",
             timestamp=timestamp,
-            version="2.2.0",
+            version="0.9.0",
             environment="production",
             components=components,
         )
 
         assert response.status == "healthy"
         assert response.components == components
-        assert response.version == "2.2.0"
+        assert response.version == "0.9.0"
         assert response.environment == "production"
         assert response.timestamp == timestamp

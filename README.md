@@ -1,11 +1,14 @@
-# SoleFlipper 
+# SoleFlipper
 
-[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](https://github.com/yourusername/soleflip)
+[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/g0tchi/soleflip)
+[![Status](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/g0tchi/soleflip)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![PostgreSQL](https://img.shields.io/badge/postgresql-15+-blue.svg)](https://postgresql.org)
 
 > **Professional Sneaker Resale Management System with Advanced Brand Intelligence**
+
+> ⚠️ **Beta Version**: This project is in active development. The API has not been extensively tested in production environments. Features and interfaces may change.
 
 SoleFlipper is a comprehensive sneaker resale management platform featuring advanced analytics, brand intelligence, and automated data processing capabilities. Built for serious resellers and businesses managing high-volume sneaker transactions.
 

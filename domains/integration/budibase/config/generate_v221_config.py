@@ -1,8 +1,8 @@
 """
-Generate v2.2.1 Compatible Budibase Configuration
+Generate v0.9.0 Compatible Budibase Configuration
 =================================================
 
-Script to generate realistic, working Budibase configuration for SoleFlipper v2.2.1
+Script to generate realistic, working Budibase configuration for SoleFlipper v0.9.0
 """
 
 import asyncio
@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 async def generate_production_config():
     """Generate production-ready Budibase configuration"""
 
-    logger.info("🚀 Starting v2.2.1 Budibase Config Generation")
+    logger.info("🚀 Starting v0.9.0 Budibase Config Generation")
 
     # Initialize generator
     generator = BudibaseConfigGenerator()
 
     # Generate configuration
     config = await generator.generate_app_config(
-        app_name="SoleFlipper Business App v2.2.1",
+        app_name="SoleFlipper Business App v0.9.0",
         environment=BudibaseEnvironment.DEVELOPMENT,
         validate_endpoints=True,
     )

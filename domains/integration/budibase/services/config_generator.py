@@ -2,7 +2,7 @@
 Budibase Configuration Generator
 ===============================
 
-Automatically generates v2.2.1 compatible Budibase configurations from SoleFlipper API schemas.
+Automatically generates v0.9.0 compatible Budibase configurations from SoleFlipper API schemas.
 Validates API compatibility and creates realistic, working configurations.
 """
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class BudibaseConfigGenerator:
     """
     Generates Budibase configurations from SoleFlipper API schemas.
-    Ensures v2.2.1 compatibility and realistic feature mapping.
+    Ensures v0.9.0 compatibility and realistic feature mapping.
     """
 
     def __init__(self):
@@ -51,7 +51,7 @@ class BudibaseConfigGenerator:
         validate_endpoints: bool = True,
     ) -> BudibaseApp:
         """
-        Generate complete Budibase app configuration for v2.2.1.
+        Generate complete Budibase app configuration for v0.9.0.
 
         Args:
             app_name: Application name
@@ -76,8 +76,8 @@ class BudibaseConfigGenerator:
         # Create application configuration
         app_config = BudibaseApp(
             name=app_name,
-            description="Professional sneaker resale management system - v2.2.1 Compatible",
-            version="2.2.1",
+            description="Professional sneaker resale management system - v0.9.0 Compatible",
+            version="0.9.0",
             environment=environment,
             data_sources=data_sources,
             connectors=connectors,
@@ -95,7 +95,7 @@ class BudibaseConfigGenerator:
                 {"name": "Viewer", "permissions": ["read"]},
             ],
             created_at=datetime.utcnow(),
-            created_by="SoleFlipper-ConfigGenerator-v2.2.1",
+            created_by="SoleFlipper-ConfigGenerator-v0.9.0",
         )
 
         logger.info(
@@ -104,7 +104,7 @@ class BudibaseConfigGenerator:
         return app_config
 
     async def _validate_api_endpoints(self) -> BudibaseValidationResult:
-        """Validate SoleFlipper API endpoints for v2.2.1 compatibility"""
+        """Validate SoleFlipper API endpoints for v0.9.0 compatibility"""
         logger.info("Validating SoleFlipper API endpoints...")
 
         # Test critical endpoints
@@ -140,7 +140,7 @@ class BudibaseConfigGenerator:
         )
 
     async def _generate_data_sources(self) -> List[BudibaseDataSource]:
-        """Generate validated data sources for v2.2.1"""
+        """Generate validated data sources for v0.9.0"""
         data_sources = []
 
         # 1. SoleFlipper Backend API (validated endpoints only)
@@ -224,7 +224,7 @@ class BudibaseConfigGenerator:
         if self.validated_endpoints:
             soleflip_connector = BudibaseConnector(
                 name="SoleFlipper API Connector",
-                description="Validated v2.2.1 API endpoints only",
+                description="Validated v0.9.0 API endpoints only",
                 base_url=self.api_base_url,
                 authentication={"type": "none"},
                 headers={"Content-Type": "application/json"},
@@ -257,7 +257,7 @@ class BudibaseConfigGenerator:
                     BudibaseComponent(
                         type=ComponentType.TEXT,
                         props={
-                            "text": "SoleFlipper Dashboard v2.2.1",
+                            "text": "SoleFlipper Dashboard v0.9.0",
                             "size": "L",
                             "weight": "bold",
                         },
@@ -427,7 +427,7 @@ class BudibaseConfigGenerator:
         deprecated_features = []
         for ds in config.data_sources:
             if "selling" in str(ds.config):
-                deprecated_features.append("Selling domain references (removed in v2.2.1)")
+                deprecated_features.append("Selling domain references (removed in v0.9.0)")
 
         is_valid = len(errors) == 0
 
@@ -444,11 +444,11 @@ class BudibaseConfigGenerator:
         """Export configuration to JSON file"""
         config_dict = config.dict()
         config_dict["_metadata"] = {
-            "generated_by": "SoleFlipper-ConfigGenerator-v2.2.1",
+            "generated_by": "SoleFlipper-ConfigGenerator-v0.9.0",
             "generated_at": datetime.utcnow().isoformat(),
             "validated_endpoints": list(self.validated_endpoints),
             "broken_endpoints": list(self.broken_endpoints),
-            "version": "2.2.1",
+            "version": "0.9.0",
         }
 
         with open(file_path, "w", encoding="utf-8") as f:
