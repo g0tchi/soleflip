@@ -1,0 +1,15 @@
+# Memori MCP Server Dependencies - Simplified Version
+# Core dependencies only
+
+# HTTP Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Database support
+asyncpg>=0.29.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=24.1.0

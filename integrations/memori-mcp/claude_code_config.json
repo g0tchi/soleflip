@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "memori": {
+      "command": "/home/g0tchi/projects/soleflip/integrations/memori-mcp/.venv/bin/python",
+      "args": ["/home/g0tchi/projects/soleflip/integrations/memori-mcp/server.py"],
+      "env": {
+        "MEMORI_DATABASE_URL": "postgresql://soleflip:SoleFlip2025SecureDB!@localhost:5432/memori",
+        "MEMORI_NAMESPACE": "soleflip",
+        "MEMORI_LOGGING_LEVEL": "INFO"
+      }
+    }
+  }
+}
