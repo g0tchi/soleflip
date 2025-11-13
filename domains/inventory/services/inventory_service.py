@@ -1795,3 +1795,239 @@ class InventoryService:
                 platform=platform.slug,
                 error=str(e),
             )
+
+    async def enrich_inventory_items_batch(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        batch_size: int = 50,
+        enrich_types: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Batch enrich inventory items with missing metadata
+
+        Args:
+            filters: Optional filters (e.g., {"missing_brand": True, "missing_size": True})
+            batch_size: Number of items to process in one batch
+            enrich_types: List of enrichment types to apply (e.g., ["brand", "size"])
+
+        Returns:
+            Statistics about the enrichment operation
+        """
+        from domains.products.services.brand_service import BrandExtractorService
+
+        self.logger.info(
+            "Starting batch enrichment",
+            filters=filters,
+            batch_size=batch_size,
+            enrich_types=enrich_types,
+        )
+
+        stats = {
+            "processed": 0,
+            "brands_enriched": 0,
+            "sizes_enriched": 0,
+            "skipped": 0,
+            "errors": 0,
+        }
+
+        try:
+            # Import Size model
+            from shared.database.models import Size
+
+            # Build query with filters
+            query = (
+                select(InventoryItem)
+                .join(Product, InventoryItem.product_id == Product.id)
+                .join(Brand, Product.brand_id == Brand.id, isouter=True)
+                .join(Size, InventoryItem.size_id == Size.id, isouter=True)
+            )
+
+            # Apply filters
+            conditions = []
+            if filters:
+                if filters.get("missing_brand"):
+                    conditions.append(Brand.name == "Unknown Brand")
+                if filters.get("missing_size"):
+                    conditions.append(or_(Size.value.is_(None), Size.value == ""))
+                if filters.get("status"):
+                    conditions.append(InventoryItem.status == filters["status"])
+
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            # Limit batch size
+            query = query.limit(batch_size)
+
+            result = await self.db_session.execute(query)
+            items = result.scalars().all()
+
+            self.logger.info(f"Found {len(items)} items to enrich")
+
+            if not items:
+                return stats
+
+            # Initialize brand extractor
+            brand_extractor = BrandExtractorService(self.db_session)
+
+            # Get StockX listings for size data
+            stockx_listings = {}
+            if not enrich_types or "size" in enrich_types:
+                try:
+                    stockx_service = self.stockx_service
+                    if not stockx_service:
+                        from domains.integration.services.stockx_service import StockXService
+
+                        stockx_service = StockXService(self.db_session)
+
+                    all_listings = await stockx_service.get_all_listings()
+                    # Index by listing_id for fast lookup
+                    for listing in all_listings:
+                        listing_id = listing.get("listingId")
+                        if listing_id:
+                            stockx_listings[listing_id] = listing
+
+                    self.logger.info(
+                        f"Loaded {len(stockx_listings)} StockX listings for size matching"
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to load StockX listings: {e}")
+
+            # Process each item
+            for item in items:
+                try:
+                    stats["processed"] += 1
+                    enriched = False
+
+                    # Load relationships
+                    await self.db_session.refresh(item, ["product"])
+                    product = item.product
+
+                    # Enrich brand
+                    # TODO: Known issue - SQLAlchemy "SQL expression element or literal value expected" error
+                    # occurs intermittently during brand enrichment. Requires further investigation.
+                    if not enrich_types or "brand" in enrich_types:
+                        # Get the "Unknown Brand" ID for comparison
+                        unknown_brand_result = await self.db_session.execute(
+                            select(Brand.id).where(Brand.name == "Unknown Brand")
+                        )
+                        unknown_brand_id = unknown_brand_result.scalar_one_or_none()
+
+                        # Check if product currently has "Unknown Brand"
+                        if unknown_brand_id and product.brand_id == unknown_brand_id:
+                            # Extract brand from product name
+                            brand_name = await brand_extractor.extract_brand_from_name(product.name)
+
+                            if brand_name and brand_name != "Unknown Brand":
+                                # Find or create brand
+                                brand_result = await self.db_session.execute(
+                                    select(Brand).where(Brand.name == brand_name)
+                                )
+                                brand = brand_result.scalar_one_or_none()
+
+                                if not brand:
+                                    # Create new brand
+                                    from shared.utils.slugify import slugify
+
+                                    brand = Brand(name=brand_name, slug=slugify(brand_name))
+                                    self.db_session.add(brand)
+                                    await self.db_session.flush()
+
+                                # Clear any cached brand relationship before updating
+                                if "brand" in product.__dict__:
+                                    delattr(product, "brand")
+
+                                # Update product brand_id
+                                product.brand_id = brand.id
+                                stats["brands_enriched"] += 1
+                                enriched = True
+
+                                self.logger.debug(
+                                    "Enriched brand",
+                                    item_id=str(item.id),
+                                    product_name=product.name,
+                                    brand=brand_name,
+                                )
+
+                    # Enrich size
+                    if not enrich_types or "size" in enrich_types:
+                        # Check if item has size by querying directly
+                        current_size = None
+                        if item.size_id:
+                            current_size_result = await self.db_session.execute(
+                                select(Size).where(Size.id == item.size_id)
+                            )
+                            current_size = current_size_result.scalar_one_or_none()
+
+                        if not current_size or not current_size.value:
+                            # Try to get size from StockX listing
+                            stockx_listing_id = None
+                            if item.external_ids:
+                                stockx_listing_id = item.external_ids.get("stockx_listing_id")
+
+                            if stockx_listing_id and stockx_listing_id in stockx_listings:
+                                listing = stockx_listings[stockx_listing_id]
+                                variant = listing.get("variant", {})
+                                size_value = variant.get("variantValue") or listing.get("size")
+
+                                if size_value:
+                                    # Find or create Size record
+                                    size_result = await self.db_session.execute(
+                                        select(Size).where(
+                                            and_(
+                                                Size.value == str(size_value),
+                                                Size.category_id == product.category_id,
+                                            )
+                                        )
+                                    )
+                                    size = size_result.scalar_one_or_none()
+
+                                    if not size:
+                                        # Create new size
+                                        size = Size(
+                                            value=str(size_value),
+                                            category_id=product.category_id,
+                                            region="US",  # Default to US region
+                                        )
+                                        self.db_session.add(size)
+                                        await self.db_session.flush()
+
+                                    # Update item size_id directly (avoid relationship confusion)
+                                    item.size_id = size.id
+                                    stats["sizes_enriched"] += 1
+                                    enriched = True
+
+                                    self.logger.debug(
+                                        "Enriched size",
+                                        item_id=str(item.id),
+                                        size=size_value,
+                                    )
+
+                    if not enriched:
+                        stats["skipped"] += 1
+
+                except Exception as e:
+                    stats["errors"] += 1
+                    self.logger.error(
+                        "Failed to enrich item",
+                        item_id=str(item.id) if item else None,
+                        error=str(e),
+                    )
+
+            # Commit all changes
+            await self.db_session.commit()
+
+            self.logger.info(
+                "Batch enrichment completed",
+                stats=stats,
+            )
+
+            return stats
+
+        except Exception as e:
+            await self.db_session.rollback()
+            self.logger.error(
+                "Batch enrichment failed",
+                error=str(e),
+                exc_info=True,
+            )
+            raise

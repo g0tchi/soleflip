@@ -77,7 +77,7 @@ class InventoryItemResponse(BaseModel):
     product_name: str
     brand_name: Optional[str]
     category_name: str
-    size: str
+    size: Optional[str]
     quantity: int
     purchase_price: Optional[float]
     purchase_date: Optional[datetime]

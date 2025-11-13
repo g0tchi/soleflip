@@ -675,6 +675,72 @@ async def sync_inventory_from_stockx(
         raise error_context.create_error_response(e)
 
 
+@router.post(
+    "/items/enrich-batch",
+    response_model=SuccessResponse,
+    status_code=200,
+    summary="Batch Enrich Inventory Items",
+    description="Enrich inventory items with missing metadata (brand names, sizes) from StockX data",
+)
+async def enrich_inventory_items_batch(
+    background_tasks: BackgroundTasks = None,
+    filters: Optional[dict] = None,
+    batch_size: Optional[int] = 50,
+    enrich_types: Optional[list] = None,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """
+    Batch enrich inventory items with missing metadata
+
+    Enrichment types:
+    - "brand": Extract and update brand names from product names
+    - "size": Update sizes from StockX listings
+
+    Filters:
+    - missing_brand: Only items with "Unknown Brand"
+    - missing_size: Only items without size
+    - status: Filter by inventory status (e.g., "listed_stockx")
+    """
+    logger.info(
+        "Received request to enrich inventory items",
+        filters=filters,
+        batch_size=batch_size,
+        enrich_types=enrich_types,
+    )
+
+    # Use default enrich types if not specified
+    if not enrich_types:
+        enrich_types = ["brand", "size"]
+
+    # Use default filters if not specified
+    if not filters:
+        filters = {"missing_brand": True, "missing_size": True}
+
+    try:
+        # Run enrichment
+        import time
+        start_time = time.time()
+
+        stats = await inventory_service.enrich_inventory_items_batch(
+            filters=filters,
+            batch_size=batch_size,
+            enrich_types=enrich_types,
+        )
+
+        duration_seconds = time.time() - start_time
+        stats["duration_seconds"] = round(duration_seconds, 2)
+
+        return ResponseBuilder.success(
+            message=f"Enrichment completed. Processed {stats['processed']} items, enriched {stats['brands_enriched']} brands and {stats['sizes_enriched']} sizes",
+            data=stats,
+        )
+
+    except Exception as e:
+        logger.error("Batch enrichment failed", error=str(e), exc_info=True)
+        error_context = ErrorContext("enrich", "inventory items")
+        raise error_context.create_error_response(e)
+
+
 def extract_brand_from_product_name(product_name: str) -> str:
     """Extract brand name from StockX product name using common patterns"""
     if not product_name:
