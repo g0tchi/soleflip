@@ -1,8 +1,7 @@
 version: '3.8'
 
-# Soleflip Development Stack for Synology NAS with Portainer
-# Optimized Stack: PostgreSQL 17, n8n, Metabase, Redis, Adminer
-# Resource-efficient configuration for NAS deployment
+# Soleflip Stack for Portainer (using pre-built images)
+# Optimized Stack: PostgreSQL 17, n8n, Metabase, Redis, Adminer, Memori
 
 services:
   # PostgreSQL 17 - Shared database for all services
@@ -39,12 +38,9 @@ services:
           memory: 512M
           cpus: '0.5'
 
-  # Soleflip API - FastAPI Application
+  # Soleflip API - FastAPI Application (using pre-built image)
   soleflip-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: soleflip-soleflip-api:latest
     container_name: soleflip-api
     restart: unless-stopped
     environment:
@@ -239,18 +235,13 @@ services:
           memory: 64M
           cpus: '0.1'
 
-  # Memori Memory API - AI Memory Engine (OPTIONAL)
-  # Enable with: docker-compose --profile memori up -d
+  # Memori Memory API - AI Memory Engine (using pre-built image)
   memori-mcp:
-    build:
-      context: ./integrations/memori-mcp
-      dockerfile: Dockerfile
+    image: soleflip-memori-mcp:latest
     container_name: soleflip-memori-api
     restart: unless-stopped
-    profiles:
-      - memori  # Optional service, enable with --profile memori
     ports:
-      - "8090:8080"  # Expose HTTP API
+      - "8090:8080"
     environment:
       # Database Configuration
       MEMORI_DATABASE_URL: postgresql://soleflip:${POSTGRES_PASSWORD:-changeme_secure_password}@postgres:5432/memori

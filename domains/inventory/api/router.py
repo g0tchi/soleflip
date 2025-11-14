@@ -719,6 +719,7 @@ async def enrich_inventory_items_batch(
     try:
         # Run enrichment
         import time
+
         start_time = time.time()
 
         stats = await inventory_service.enrich_inventory_items_batch(
