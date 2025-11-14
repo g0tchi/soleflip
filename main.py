@@ -21,6 +21,7 @@ from pydantic import BaseModel
 # Domain routers
 # Business Intelligence router removed - async/greenlet issues
 from domains.analytics.api.router import router as analytics_router
+from domains.arbitrage.api.router import router as arbitrage_router
 from domains.auth.api.router import router as auth_router
 from domains.dashboard.api.router import router as dashboard_router
 from domains.integration.api.quickflip_router import router as quickflip_router
@@ -298,6 +299,7 @@ app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboar
 # app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])  # REMOVED: Security risk
 app.include_router(pricing_router, prefix="/api/v1/pricing", tags=["Pricing"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(arbitrage_router, prefix="/api/v1", tags=["Arbitrage"])
 # Business Intelligence router removed - async/greenlet issues, use /api/v1/dashboard/metrics instead
 # Monitoring endpoints
 app.include_router(prometheus_router, tags=["Monitoring"])
