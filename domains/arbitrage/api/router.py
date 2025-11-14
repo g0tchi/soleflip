@@ -5,13 +5,16 @@ REST API endpoints for arbitrage opportunity analysis.
 """
 
 import logging
+from datetime import time
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from domains.arbitrage.models.alert import RiskLevelFilter
 from domains.arbitrage.services import (
+    AlertService,
     DemandScoreCalculator,
     EnhancedOpportunity,
     EnhancedOpportunityService,
@@ -22,9 +25,16 @@ from domains.arbitrage.services import (
 from domains.integration.services.quickflip_detection_service import (
     QuickFlipDetectionService,
 )
+from shared.auth.dependencies import get_current_user
+from shared.auth.models import User
 from shared.database.connection import get_async_session
 
 from .schemas import (
+    AlertCreate,
+    AlertResponse,
+    AlertStatsResponse,
+    AlertToggleRequest,
+    AlertUpdate,
     BatchAssessRequest,
     BatchAssessResponse,
     DemandScoreResponse,
@@ -388,6 +398,432 @@ async def get_opportunity_summary(
         )
 
 
+# =====================================================
+# ALERT MANAGEMENT ENDPOINTS
+# =====================================================
+
+
+@router.post(
+    "/alerts",
+    response_model=AlertResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create arbitrage alert",
+    description="Create a new arbitrage opportunity alert with custom filters",
+)
+async def create_alert(
+    alert_data: AlertCreate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> AlertResponse:
+    """
+    Create a new arbitrage alert.
+
+    **Request Body:**
+    - **alert_name**: Name for the alert
+    - **n8n_webhook_url**: Webhook URL for notifications
+    - **Filter criteria**: min_profit_margin, min_gross_profit, etc.
+    - **Schedule settings**: alert_frequency_minutes, active_hours, etc.
+
+    **Returns:**
+    Created alert configuration
+    """
+    try:
+        alert_service = AlertService(session)
+
+        # Parse time strings to time objects if provided
+        active_hours_start = None
+        active_hours_end = None
+        if alert_data.active_hours_start:
+            hour, minute = map(int, alert_data.active_hours_start.split(":"))
+            active_hours_start = time(hour, minute)
+        if alert_data.active_hours_end:
+            hour, minute = map(int, alert_data.active_hours_end.split(":"))
+            active_hours_end = time(hour, minute)
+
+        # Convert RiskLevelEnum to RiskLevelFilter
+        max_risk_filter = RiskLevelFilter(alert_data.max_risk_level.value)
+
+        alert = await alert_service.create_alert(
+            user_id=current_user.id,
+            alert_name=alert_data.alert_name,
+            description=alert_data.description,
+            n8n_webhook_url=alert_data.n8n_webhook_url,
+            min_profit_margin=alert_data.min_profit_margin,
+            min_gross_profit=alert_data.min_gross_profit,
+            max_buy_price=alert_data.max_buy_price,
+            min_feasibility_score=alert_data.min_feasibility_score,
+            max_risk_level=max_risk_filter,
+            source_filter=alert_data.source_filter,
+            additional_filters=alert_data.additional_filters,
+            notification_config=alert_data.notification_config,
+            include_demand_breakdown=alert_data.include_demand_breakdown,
+            include_risk_details=alert_data.include_risk_details,
+            max_opportunities_per_alert=alert_data.max_opportunities_per_alert,
+            alert_frequency_minutes=alert_data.alert_frequency_minutes,
+            active_hours_start=active_hours_start,
+            active_hours_end=active_hours_end,
+            active_days=alert_data.active_days,
+            timezone=alert_data.timezone,
+            active=alert_data.active,
+        )
+
+        return _map_alert_to_response(alert)
+
+    except Exception as e:
+        logger.error(f"Error creating alert: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create alert: {str(e)}",
+        )
+
+
+@router.get(
+    "/alerts",
+    response_model=List[AlertResponse],
+    summary="List user's alerts",
+    description="Get all alerts for the current user",
+)
+async def list_alerts(
+    active_only: bool = Query(default=False, description="Only return active alerts"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> List[AlertResponse]:
+    """
+    List all alerts for the current user.
+
+    **Query Parameters:**
+    - **active_only**: Only return active alerts (default: false)
+
+    **Returns:**
+    List of user's alerts
+    """
+    try:
+        alert_service = AlertService(session)
+        alerts = await alert_service.get_user_alerts(current_user.id, active_only)
+        return [_map_alert_to_response(alert) for alert in alerts]
+
+    except Exception as e:
+        logger.error(f"Error listing alerts: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list alerts: {str(e)}",
+        )
+
+
+@router.get(
+    "/alerts/{alert_id}",
+    response_model=AlertResponse,
+    summary="Get alert details",
+    description="Get details of a specific alert",
+)
+async def get_alert(
+    alert_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> AlertResponse:
+    """
+    Get details of a specific alert.
+
+    **Path Parameters:**
+    - **alert_id**: UUID of the alert
+
+    **Returns:**
+    Alert configuration
+    """
+    try:
+        alert_service = AlertService(session)
+        alert = await alert_service.get_alert(alert_id)
+
+        if not alert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Alert {alert_id} not found",
+            )
+
+        # Ensure user owns this alert
+        if alert.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+        return _map_alert_to_response(alert)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting alert: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get alert: {str(e)}",
+        )
+
+
+@router.put(
+    "/alerts/{alert_id}",
+    response_model=AlertResponse,
+    summary="Update alert",
+    description="Update alert configuration",
+)
+async def update_alert(
+    alert_id: UUID,
+    alert_data: AlertUpdate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> AlertResponse:
+    """
+    Update an existing alert.
+
+    **Path Parameters:**
+    - **alert_id**: UUID of the alert
+
+    **Request Body:**
+    Only include fields you want to update (all fields optional)
+
+    **Returns:**
+    Updated alert configuration
+    """
+    try:
+        alert_service = AlertService(session)
+        alert = await alert_service.get_alert(alert_id)
+
+        if not alert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Alert {alert_id} not found",
+            )
+
+        # Ensure user owns this alert
+        if alert.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+        # Build update dictionary (only non-None values)
+        update_dict = {}
+        for field, value in alert_data.model_dump(exclude_unset=True).items():
+            if value is not None:
+                # Convert time strings to time objects
+                if field == "active_hours_start" and isinstance(value, str):
+                    hour, minute = map(int, value.split(":"))
+                    value = time(hour, minute)
+                elif field == "active_hours_end" and isinstance(value, str):
+                    hour, minute = map(int, value.split(":"))
+                    value = time(hour, minute)
+                # Convert RiskLevelEnum to RiskLevelFilter
+                elif field == "max_risk_level" and isinstance(value, RiskLevelEnum):
+                    value = RiskLevelFilter(value.value)
+
+                update_dict[field] = value
+
+        updated_alert = await alert_service.update_alert(alert_id, update_dict)
+        return _map_alert_to_response(updated_alert)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating alert: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update alert: {str(e)}",
+        )
+
+
+@router.delete(
+    "/alerts/{alert_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete alert",
+    description="Delete an alert",
+)
+async def delete_alert(
+    alert_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Delete an alert.
+
+    **Path Parameters:**
+    - **alert_id**: UUID of the alert
+
+    **Returns:**
+    No content (204) on success
+    """
+    try:
+        alert_service = AlertService(session)
+        alert = await alert_service.get_alert(alert_id)
+
+        if not alert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Alert {alert_id} not found",
+            )
+
+        # Ensure user owns this alert
+        if alert.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+        await alert_service.delete_alert(alert_id)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting alert: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete alert: {str(e)}",
+        )
+
+
+@router.post(
+    "/alerts/{alert_id}/toggle",
+    response_model=AlertResponse,
+    summary="Enable/disable alert",
+    description="Enable or disable an alert",
+)
+async def toggle_alert(
+    alert_id: UUID,
+    toggle_data: AlertToggleRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> AlertResponse:
+    """
+    Enable or disable an alert.
+
+    **Path Parameters:**
+    - **alert_id**: UUID of the alert
+
+    **Request Body:**
+    - **active**: true to enable, false to disable
+
+    **Returns:**
+    Updated alert configuration
+    """
+    try:
+        alert_service = AlertService(session)
+        alert = await alert_service.get_alert(alert_id)
+
+        if not alert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Alert {alert_id} not found",
+            )
+
+        # Ensure user owns this alert
+        if alert.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+        updated_alert = await alert_service.toggle_alert(alert_id, toggle_data.active)
+        return _map_alert_to_response(updated_alert)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling alert: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to toggle alert: {str(e)}",
+        )
+
+
+@router.get(
+    "/alerts/{alert_id}/stats",
+    response_model=AlertStatsResponse,
+    summary="Get alert statistics",
+    description="Get performance statistics for an alert",
+)
+async def get_alert_stats(
+    alert_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> AlertStatsResponse:
+    """
+    Get statistics for an alert.
+
+    **Path Parameters:**
+    - **alert_id**: UUID of the alert
+
+    **Returns:**
+    Alert performance statistics
+    """
+    try:
+        alert_service = AlertService(session)
+        alert = await alert_service.get_alert(alert_id)
+
+        if not alert:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Alert {alert_id} not found",
+            )
+
+        # Ensure user owns this alert
+        if alert.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+        stats = await alert_service.get_alert_statistics(alert_id)
+        return AlertStatsResponse(**stats)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting alert stats: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get alert stats: {str(e)}",
+        )
+
+
+# =====================================================
+# HELPER FUNCTIONS
+# =====================================================
+
+
+def _map_alert_to_response(alert) -> AlertResponse:
+    """Map ArbitrageAlert model to API response"""
+    return AlertResponse(
+        id=alert.id,
+        user_id=alert.user_id,
+        alert_name=alert.alert_name,
+        description=alert.description,
+        active=alert.active,
+        n8n_webhook_url=alert.n8n_webhook_url,
+        min_profit_margin=float(alert.min_profit_margin),
+        min_gross_profit=float(alert.min_gross_profit),
+        max_buy_price=float(alert.max_buy_price) if alert.max_buy_price else None,
+        min_feasibility_score=alert.min_feasibility_score,
+        max_risk_level=RiskLevelEnum(alert.max_risk_level.value),
+        source_filter=alert.source_filter,
+        additional_filters=alert.additional_filters,
+        notification_config=alert.notification_config,
+        include_demand_breakdown=alert.include_demand_breakdown,
+        include_risk_details=alert.include_risk_details,
+        max_opportunities_per_alert=alert.max_opportunities_per_alert,
+        alert_frequency_minutes=alert.alert_frequency_minutes,
+        active_hours_start=alert.active_hours_start.isoformat() if alert.active_hours_start else None,
+        active_hours_end=alert.active_hours_end.isoformat() if alert.active_hours_end else None,
+        active_days=alert.active_days,
+        timezone=alert.timezone,
+        last_triggered_at=alert.last_triggered_at,
+        last_scanned_at=alert.last_scanned_at,
+        total_alerts_sent=alert.total_alerts_sent,
+        total_opportunities_sent=alert.total_opportunities_sent,
+        last_error=alert.last_error,
+        last_error_at=alert.last_error_at,
+        created_at=alert.created_at,
+        updated_at=alert.updated_at,
+    )
+
+
+# =====================================================
+# HEALTH CHECK
+# =====================================================
+
+
 @router.get(
     "/health",
     summary="Health check",
@@ -405,6 +841,7 @@ async def health_check(session: AsyncSession = Depends(get_async_session)) -> di
         _ = EnhancedOpportunityService(session)
         _ = DemandScoreCalculator(session)
         _ = RiskScorer(session)
+        _ = AlertService(session)
 
         return {
             "status": "healthy",
@@ -413,6 +850,7 @@ async def health_check(session: AsyncSession = Depends(get_async_session)) -> di
                 "demand_score_calculator",
                 "risk_scorer",
                 "enhanced_opportunity_service",
+                "alert_service",
             ],
         }
     except Exception as e:

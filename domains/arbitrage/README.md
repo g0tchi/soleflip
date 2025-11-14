@@ -342,6 +342,197 @@ Response: { "status": "healthy", "service": "arbitrage", ... }
 
 ---
 
+## Alert System
+
+### Overview
+
+The Alert System enables users to receive automated notifications when arbitrage opportunities matching their criteria are detected. Alerts are processed by a background scanner every 60 seconds and notifications are sent via n8n webhooks.
+
+### Features
+
+- **Custom Filter Criteria**: Profit margin, gross profit, feasibility score, risk level
+- **Flexible Scheduling**: Configure frequency, active hours, and active days
+- **Multi-Channel Notifications**: Discord, Email, Telegram (via n8n)
+- **Statistics Tracking**: Monitor alert performance and success rates
+- **User Isolation**: Each user manages their own alerts
+
+### Alert Endpoints
+
+#### 1. Create Alert
+```http
+POST /api/v1/arbitrage/alerts
+
+Request Body:
+{
+  "alert_name": "High Profit Opportunities",
+  "n8n_webhook_url": "https://your-n8n-instance.com/webhook/soleflip-alert",
+  "min_profit_margin": 20.0,
+  "min_gross_profit": 50.0,
+  "min_feasibility_score": 70,
+  "max_risk_level": "MEDIUM",
+  "notification_config": {
+    "discord": true,
+    "email": true
+  },
+  "alert_frequency_minutes": 15,
+  "active": true
+}
+
+Response: AlertResponse (201 Created)
+```
+
+#### 2. List Alerts
+```http
+GET /api/v1/arbitrage/alerts?active_only=false
+
+Response: List[AlertResponse]
+```
+
+#### 3. Get Alert Details
+```http
+GET /api/v1/arbitrage/alerts/{alert_id}
+
+Response: AlertResponse
+```
+
+#### 4. Update Alert
+```http
+PUT /api/v1/arbitrage/alerts/{alert_id}
+
+Request Body: (all fields optional)
+{
+  "active": true,
+  "min_profit_margin": 25.0,
+  "alert_frequency_minutes": 30
+}
+
+Response: AlertResponse
+```
+
+#### 5. Delete Alert
+```http
+DELETE /api/v1/arbitrage/alerts/{alert_id}
+
+Response: 204 No Content
+```
+
+#### 6. Toggle Alert
+```http
+POST /api/v1/arbitrage/alerts/{alert_id}/toggle
+
+Request Body:
+{
+  "active": true
+}
+
+Response: AlertResponse
+```
+
+#### 7. Get Alert Statistics
+```http
+GET /api/v1/arbitrage/alerts/{alert_id}/stats
+
+Response:
+{
+  "alert_id": "uuid",
+  "alert_name": "High Profit Opportunities",
+  "active": true,
+  "total_alerts_sent": 45,
+  "total_opportunities_sent": 230,
+  "avg_opportunities_per_alert": 5.1,
+  "last_triggered_at": "2025-11-14T12:00:00Z",
+  "last_scanned_at": "2025-11-14T12:15:00Z"
+}
+```
+
+### n8n Integration
+
+#### Setup
+
+1. Import the workflow from `domains/arbitrage/docs/n8n-workflow-example.json`
+2. Configure credentials for Discord/Email/Telegram
+3. Activate the workflow and copy the webhook URL
+4. Use the webhook URL when creating alerts
+
+**Detailed Guide:** See `domains/arbitrage/docs/n8n-setup-guide.md`
+
+#### Notification Payload
+
+The n8n webhook receives:
+
+```json
+{
+  "alert": {
+    "id": "uuid",
+    "name": "Alert Name",
+    "user_id": "uuid"
+  },
+  "notification_config": {
+    "discord": true,
+    "email": false
+  },
+  "opportunities": [
+    {
+      "product_name": "Nike Air Max 90",
+      "buy_price": 120.00,
+      "sell_price": 180.00,
+      "gross_profit": 60.00,
+      "profit_margin": 50.0,
+      "feasibility_score": 85,
+      "risk_level": "LOW",
+      ...
+    }
+  ],
+  "summary": {
+    "total_opportunities": 5,
+    "avg_profit_margin": 45.2,
+    "avg_feasibility": 82.5,
+    "total_potential_profit": 450.50
+  },
+  "timestamp": "2025-11-14T12:00:00Z"
+}
+```
+
+### Background Scanner
+
+The alert scanner runs as a background task in the FastAPI lifespan:
+
+- **Scan Interval**: 60 seconds
+- **Processing**: Checks alerts ready to trigger based on frequency and schedule
+- **Logging**: Detailed logs for monitoring and debugging
+
+**Implementation:** `domains/arbitrage/jobs/alert_scanner.py`
+
+### Schedule Configuration
+
+Alerts support flexible scheduling:
+
+```python
+{
+  "alert_frequency_minutes": 15,         # Check every 15 minutes
+  "active_hours_start": "09:00",         # Only between 9 AM
+  "active_hours_end": "22:00",           # and 10 PM
+  "active_days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+  "timezone": "Europe/Berlin"
+}
+```
+
+### Database Model
+
+**Table:** `arbitrage.arbitrage_alerts`
+
+**Key Fields:**
+- Filter criteria (profit, feasibility, risk)
+- n8n webhook URL
+- Notification preferences
+- Schedule settings (frequency, hours, days)
+- Statistics (alerts sent, opportunities sent)
+- Error tracking
+
+**Migration:** `migrations/versions/2025_11_14_1200_create_arbitrage_alerts_table.py`
+
+---
+
 ## Contributing
 
 When adding new risk factors or demand components:

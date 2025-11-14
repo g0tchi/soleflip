@@ -127,6 +127,12 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_start_system_metrics_collection())
     asyncio.create_task(start_alert_monitoring(check_interval_seconds=60))
 
+    # Start arbitrage alert scanner
+    from domains.arbitrage.jobs import start_alert_scanner
+
+    asyncio.create_task(start_alert_scanner())
+    logger.info("Arbitrage alert scanner started")
+
     # Initialize event-driven domain communication
     # Initialize all event handlers
     get_integration_event_handler()

@@ -1,0 +1,250 @@
+{
+  "name": "SoleFlip Arbitrage Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soleflip-arbitrage-alert",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.notification_config.discord}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Discord Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "={{$json.message}}",
+        "additionalFields": {
+          "embeds": [
+            {
+              "title": "🔔 New Arbitrage Opportunities: {{$json.alert.name}}",
+              "description": "Found {{$json.summary.total_opportunities}} profitable opportunities!",
+              "color": 3447003,
+              "fields": [
+                {
+                  "name": "💰 Total Potential Profit",
+                  "value": "€{{$json.summary.total_potential_profit}}",
+                  "inline": true
+                },
+                {
+                  "name": "📊 Avg Feasibility",
+                  "value": "{{$json.summary.avg_feasibility}}/100",
+                  "inline": true
+                },
+                {
+                  "name": "📈 Avg Profit Margin",
+                  "value": "{{$json.summary.avg_profit_margin}}%",
+                  "inline": true
+                }
+              ],
+              "timestamp": "={{$json.timestamp}}"
+            }
+          ]
+        }
+      },
+      "name": "Send to Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        650,
+        200
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "YOUR_DISCORD_CREDENTIAL_ID",
+          "name": "Discord Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.notification_config.email}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Email Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@soleflip.com",
+        "toEmail": "={{$json.user_email}}",
+        "subject": "🔔 New Arbitrage Opportunities: {{$json.alert.name}}",
+        "emailFormat": "html",
+        "text": "=<h2>New Arbitrage Opportunities Detected!</h2>\n<p><strong>Alert:</strong> {{$json.alert.name}}</p>\n<p><strong>Opportunities Found:</strong> {{$json.summary.total_opportunities}}</p>\n<p><strong>Total Potential Profit:</strong> €{{$json.summary.total_potential_profit}}</p>\n<p><strong>Avg Feasibility Score:</strong> {{$json.summary.avg_feasibility}}/100</p>\n<p><strong>Avg Profit Margin:</strong> {{$json.summary.avg_profit_margin}}%</p>\n\n<h3>Top Opportunities:</h3>\n<table border=\"1\" cellpadding=\"5\">\n  <tr>\n    <th>Product</th>\n    <th>Buy Price</th>\n    <th>Sell Price</th>\n    <th>Profit</th>\n    <th>Margin</th>\n    <th>Risk</th>\n  </tr>\n  {{#each opportunities}}\n  <tr>\n    <td>{{this.product_name}}</td>\n    <td>€{{this.buy_price}}</td>\n    <td>€{{this.sell_price}}</td>\n    <td>€{{this.gross_profit}}</td>\n    <td>{{this.profit_margin}}%</td>\n    <td>{{this.risk_level}}</td>\n  </tr>\n  {{/each}}\n</table>\n\n<p><em>Timestamp: {{$json.timestamp}}</em></p>",
+        "options": {}
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        650,
+        400
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.notification_config.telegram}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Telegram Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$json.telegram_chat_id}}",
+        "text": "=🔔 *New Arbitrage Opportunities!*\n\n*Alert:* {{$json.alert.name}}\n*Opportunities:* {{$json.summary.total_opportunities}}\n*Total Profit:* €{{$json.summary.total_potential_profit}}\n*Avg Feasibility:* {{$json.summary.avg_feasibility}}/100\n*Avg Margin:* {{$json.summary.avg_profit_margin}}%\n\n*Top Opportunities:*\n{{#each opportunities}}\n📦 {{this.product_name}}\n   💰 Buy: €{{this.buy_price}} → Sell: €{{this.sell_price}}\n   📈 Profit: €{{this.gross_profit}} ({{this.profit_margin}}%)\n   ⚠️ Risk: {{this.risk_level}}\n\n{{/each}}\n_{{$json.timestamp}}_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        650,
+        600
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format opportunities for better display\nconst opportunities = $input.item.json.opportunities || [];\nconst formattedOpportunities = opportunities.map(opp => ({\n  product_name: opp.product_name,\n  brand: opp.brand,\n  buy_price: parseFloat(opp.buy_price).toFixed(2),\n  sell_price: parseFloat(opp.sell_price).toFixed(2),\n  gross_profit: parseFloat(opp.gross_profit).toFixed(2),\n  profit_margin: parseFloat(opp.profit_margin).toFixed(2),\n  roi: parseFloat(opp.roi).toFixed(2),\n  risk_level: opp.risk_level,\n  feasibility_score: opp.feasibility_score,\n  estimated_days_to_sell: opp.estimated_days_to_sell,\n  buy_url: opp.buy_url\n}));\n\n// Format summary\nconst summary = {\n  total_opportunities: $input.item.json.summary.total_opportunities,\n  total_potential_profit: parseFloat($input.item.json.summary.total_potential_profit).toFixed(2),\n  avg_feasibility: parseFloat($input.item.json.summary.avg_feasibility).toFixed(1),\n  avg_profit_margin: parseFloat($input.item.json.summary.avg_profit_margin).toFixed(2)\n};\n\nreturn {\n  json: {\n    alert: $input.item.json.alert,\n    notification_config: $input.item.json.notification_config,\n    opportunities: formattedOpportunities,\n    summary: summary,\n    timestamp: $input.item.json.timestamp,\n    // Add user-specific fields (you can customize this based on your user database)\n    user_email: 'user@example.com',  // Fetch from user database\n    telegram_chat_id: 'YOUR_CHAT_ID'  // Fetch from user database\n  }\n};"
+      },
+      "name": "Format Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        350,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data": {
+      "main": [
+        [
+          {
+            "node": "Discord Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}
