@@ -8,7 +8,7 @@ import json
 import pickle
 import time
 from functools import wraps
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Callable, Dict, Optional
 from uuid import UUID
 
 import structlog

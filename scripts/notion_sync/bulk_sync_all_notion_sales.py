@@ -19,11 +19,11 @@ Usage:
     python bulk_sync_all_notion_sales.py --skip-existing
 """
 
-import asyncio
 import argparse
-from typing import List, Dict
-import structlog
+import asyncio
+from typing import Dict, List
 
+import structlog
 from sync_notion_to_postgres import NotionPostgresSyncService
 
 logger = structlog.get_logger(__name__)

@@ -5,10 +5,11 @@ Script to import Nike accounts from accounts.csv
 import asyncio
 import os
 
+from sqlalchemy import select
+
+from domains.suppliers.services.account_import_service import AccountImportService
 from shared.database.connection import db_manager
 from shared.database.models import Supplier
-from domains.suppliers.services.account_import_service import AccountImportService
-from sqlalchemy import select
 
 
 async def import_nike_accounts():

@@ -21,15 +21,15 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, ".")
 
 
-from domains.analytics.repositories.forecast_repository import ForecastRepository
-from domains.analytics.services.forecast_engine import (
+from domains.analytics.repositories.forecast_repository import ForecastRepository  # noqa: E402
+from domains.analytics.services.forecast_engine import (  # noqa: E402
     ForecastConfig,
     ForecastEngine,
     ForecastHorizon,
     ForecastLevel,
     ForecastModel,
 )
-from shared.database.connection import get_db_session
+from shared.database.connection import get_db_session  # noqa: E402
 
 
 class ForecastCLI:

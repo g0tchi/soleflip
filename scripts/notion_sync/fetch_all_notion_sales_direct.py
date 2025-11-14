@@ -5,7 +5,7 @@ Uses database query with filters instead of search (more reliable)
 Claude Code will populate this with actual Notion API calls via MCP
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 # Will be populated by Claude Code
 ALL_STOCKX_SALES = []

@@ -2,7 +2,9 @@
 Test all migrated analytics views
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 ALL_MIGRATED_VIEWS = [

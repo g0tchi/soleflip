@@ -12,8 +12,9 @@ import structlog
 from sqlalchemy import text
 
 from shared.database.connection import db_manager
+
 from .apm import collect_system_metrics, get_apm_collector
-from .health import HealthStatus, HealthCheckResult
+from .health import HealthCheckResult, HealthStatus
 
 logger = structlog.get_logger(__name__)
 
@@ -495,8 +496,9 @@ class AdvancedHealthChecker:
         start_time = time.time()
 
         try:
-            import psutil
             import gc
+
+            import psutil
 
             # Force garbage collection
             gc.collect()

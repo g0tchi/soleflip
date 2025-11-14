@@ -3,14 +3,14 @@ API Security Middleware and Utilities
 Enhanced security measures for selling APIs
 """
 
-import time
 import hashlib
-from typing import Dict, Optional, Set, Callable, Any
-from datetime import datetime, timedelta
+import time
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, Optional, Set
 
-from fastapi import Request, Response, HTTPException, status
 import structlog
+from fastapi import HTTPException, Request, Response, status
 
 logger = structlog.get_logger(__name__)
 

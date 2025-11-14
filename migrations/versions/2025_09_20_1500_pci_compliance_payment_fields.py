@@ -5,8 +5,8 @@ Revises: 2025_09_19_1300_create_supplier_accounts
 Create Date: 2025-09-20 15:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'pci_compliance_payment_fields'

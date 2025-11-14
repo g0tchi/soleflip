@@ -17,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.api.dependencies import get_db_session
 from shared.api.responses import SuccessResponse
+
+from ..schemas.budibase_models import BudibaseApp, BudibaseEnvironment
 from ..services.config_generator import BudibaseConfigGenerator
 from ..services.deployment_service import BudibaseDeploymentService
 from ..services.sync_service import BudibaseSyncService
-from ..schemas.budibase_models import BudibaseApp, BudibaseEnvironment
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -53,7 +54,7 @@ class SyncRequest(BaseModel):
     "/config/generate",
     response_model=Dict,
     summary="Generate Budibase Configuration",
-    description="Generate v2.2.1 compatible Budibase configuration with validated endpoints",
+    description="Generate v0.9.0 compatible Budibase configuration with validated endpoints",
 )
 async def generate_budibase_config(
     app_name: str = Query("SoleFlipper Business App", description="Application name"),
@@ -64,7 +65,7 @@ async def generate_budibase_config(
     session: AsyncSession = Depends(get_db_session),
 ):
     """
-    Generate a new Budibase configuration with v2.2.1 compatibility.
+    Generate a new Budibase configuration with v0.9.0 compatibility.
 
     Features:
     - Validates all API endpoints before inclusion
@@ -92,7 +93,7 @@ async def generate_budibase_config(
             "validation": validation_result.dict(),
             "metadata": {
                 "generated_at": datetime.utcnow().isoformat(),
-                "generator_version": "2.2.1",
+                "generator_version": "0.9.0",
                 "validated_endpoints": len(generator.validated_endpoints),
                 "broken_endpoints": len(generator.broken_endpoints),
             },
@@ -114,13 +115,13 @@ async def generate_budibase_config(
     "/config/validate",
     response_model=Dict,
     summary="Validate Budibase Configuration",
-    description="Validate an existing Budibase configuration against v2.2.1 API",
+    description="Validate an existing Budibase configuration against v0.9.0 API",
 )
 async def validate_budibase_config(
     config: BudibaseApp, session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Validate a Budibase configuration for v2.2.1 compatibility.
+    Validate a Budibase configuration for v0.9.0 compatibility.
 
     Checks:
     - API endpoint availability
@@ -380,7 +381,7 @@ async def budibase_health_check():
 
         health_status = {
             "status": "healthy",
-            "module_version": "2.2.1",
+            "module_version": "0.9.0",
             "api_base": generator.api_base_url,
             "timestamp": datetime.utcnow().isoformat(),
         }

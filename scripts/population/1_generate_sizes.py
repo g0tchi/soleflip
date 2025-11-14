@@ -18,11 +18,12 @@ Example: US 9 = UK 8 = EU 42.5 (all have standardized_value = 42.5)
 """
 
 import asyncio
-import asyncpg
 import os
 from datetime import datetime
-from typing import List, Tuple
 from decimal import Decimal
+from typing import List, Tuple
+
+import asyncpg
 
 # Database connection from environment
 DATABASE_URL = os.getenv(

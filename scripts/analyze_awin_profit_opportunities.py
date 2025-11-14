@@ -4,7 +4,9 @@ Find the best retail products for potential resale
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 

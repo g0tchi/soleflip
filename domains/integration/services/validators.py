@@ -10,7 +10,9 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from domains.products.services.brand_service import BrandExtractorService
 from shared.utils import ValidationUtils
 
 # PERFORMANCE OPTIMIZATION: Pre-compiled regex patterns
@@ -27,11 +29,6 @@ class ValidationResult:
     errors: List[str]
     warnings: List[str]
     normalized_data: List[Dict[str, Any]]
-
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from domains.products.services.brand_service import BrandExtractorService
 
 
 class BaseValidator:

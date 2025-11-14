@@ -4,12 +4,13 @@ Tests performance and validates monitoring systems under load
 """
 
 import asyncio
-import aiohttp
 import time
-from datetime import datetime
-from typing import List, Dict, Any
 from dataclasses import dataclass, field
+from datetime import datetime
 from statistics import mean, median, stdev
+from typing import Any, Dict, List
+
+import aiohttp
 import structlog
 
 logger = structlog.get_logger(__name__)

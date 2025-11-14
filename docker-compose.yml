@@ -239,6 +239,59 @@ services:
           memory: 64M
           cpus: '0.1'
 
+  # Memori Memory API - AI Memory Engine (OPTIONAL)
+  # Enable with: docker-compose --profile memori up -d
+  memori-mcp:
+    build:
+      context: ./integrations/memori-mcp
+      dockerfile: Dockerfile
+    container_name: soleflip-memori-api
+    restart: unless-stopped
+    profiles:
+      - memori  # Optional service, enable with --profile memori
+    ports:
+      - "8090:8080"  # Expose HTTP API
+    environment:
+      # Database Configuration
+      MEMORI_DATABASE_URL: postgresql://soleflip:${POSTGRES_PASSWORD:-changeme_secure_password}@postgres:5432/memori
+
+      # Memory Configuration
+      MEMORI_NAMESPACE: ${MEMORI_NAMESPACE:-soleflip}
+      MEMORI_CONSCIOUS_INGEST: ${MEMORI_CONSCIOUS_INGEST:-true}
+      MEMORI_AUTO_INGEST: ${MEMORI_AUTO_INGEST:-true}
+
+      # Optional: OpenAI API Key for embeddings
+      MEMORI_OPENAI_API_KEY: ${MEMORI_OPENAI_API_KEY:-}
+
+      # Logging
+      MEMORI_LOGGING_LEVEL: ${MEMORI_LOGGING_LEVEL:-INFO}
+      MEMORI_VERBOSE: ${MEMORI_VERBOSE:-false}
+
+      # Performance
+      MEMORI_MAX_MEMORIES_PER_QUERY: ${MEMORI_MAX_MEMORIES_PER_QUERY:-5}
+      MEMORI_CONTEXT_LIMIT: ${MEMORI_CONTEXT_LIMIT:-3}
+    volumes:
+      - memori_data:/app/data
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
 networks:
   soleflip-network:
     driver: bridge
@@ -260,3 +313,6 @@ volumes:
   soleflip_logs:
     driver: local
     name: soleflip-api-logs
+  memori_data:
+    driver: local
+    name: soleflip-memori-data

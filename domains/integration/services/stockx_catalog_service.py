@@ -5,14 +5,14 @@ Provides methods to search and enrich products from StockX catalog API.
 Fetches detailed product information, market data, and variant details.
 """
 
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
-from uuid import UUID
 from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from domains.integration.services.stockx_service import StockXService
 

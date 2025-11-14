@@ -12,9 +12,9 @@ import asyncio
 import sys
 from datetime import datetime
 
-from services.view_manager import MetabaseViewManager
 from services.dashboard_service import MetabaseDashboardService
 from services.sync_service import MetabaseSyncService
+from services.view_manager import MetabaseViewManager
 
 
 async def main():

@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.repositories import BaseRepository
 from shared.database.models import ImportBatch
+from shared.repositories import BaseRepository
 
 
 class ImportRepository(BaseRepository[ImportBatch]):

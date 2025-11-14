@@ -1,0 +1,309 @@
+version: '3.8'
+
+# Soleflip Stack for Portainer (using pre-built images)
+# Optimized Stack: PostgreSQL 17, n8n, Metabase, Redis, Adminer, Memori
+
+services:
+  # PostgreSQL 17 - Shared database for all services
+  postgres:
+    image: postgres:17-alpine
+    container_name: soleflip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soleflip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      POSTGRES_DB: soleflip
+      # Performance tuning for NAS
+      POSTGRES_MAX_CONNECTIONS: 100
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - soleflip-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soleflip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Soleflip API - FastAPI Application (using pre-built image)
+  soleflip-api:
+    image: soleflip-soleflip-api:latest
+    container_name: soleflip-api
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://soleflip:${POSTGRES_PASSWORD}@postgres:5432/soleflip
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+
+      # Security
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+
+      # Environment
+      ENVIRONMENT: production
+
+      # Optional integrations
+      STOCKX_CLIENT_ID: ${STOCKX_CLIENT_ID:-}
+      STOCKX_CLIENT_SECRET: ${STOCKX_CLIENT_SECRET:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - soleflip_logs:/app/logs
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # n8n - Workflow Automation
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: soleflip-n8n
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: soleflip
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      DB_POSTGRESDB_SCHEMA: public
+
+      # n8n Configuration
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+
+      # Execution settings
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
+      EXECUTIONS_TIMEOUT: 3600
+      EXECUTIONS_TIMEOUT_MAX: 7200
+
+      # Performance tuning
+      N8N_METRICS: true
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_HEALTH_CHECK_ACTIVE: true
+
+      # Security
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-generate_with_openssl_rand_hex_32}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Metabase - Business Intelligence
+  metabase:
+    image: metabase/metabase:latest
+    container_name: soleflip-metabase
+    restart: unless-stopped
+    environment:
+      # Metabase Application Database (PostgreSQL)
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: soleflip
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      MB_DB_HOST: postgres
+
+      # Java Options optimized for NAS (reduced memory footprint)
+      JAVA_OPTS: "-Xmx1g -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
+
+      # Performance settings
+      MB_JETTY_MAX_THREADS: 50
+      MB_JETTY_MIN_THREADS: 8
+      MB_JETTY_MAX_QUEUED: 50
+
+      # Timezone
+      MB_TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+    ports:
+      - "6400:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Redis - Caching & Queue Management (for n8n)
+  redis:
+    image: redis:7-alpine
+    container_name: soleflip-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    networks:
+      - soleflip-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "AUTH", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # Adminer - Lightweight Database Management UI
+  adminer:
+    image: adminer:latest
+    container_name: soleflip-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: nette
+      ADMINER_PLUGINS: tables-filter tinymce
+    ports:
+      - "8220:8080"
+    networks:
+      - soleflip-network
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # Memori Memory API - AI Memory Engine (using pre-built image)
+  memori-mcp:
+    image: soleflip-memori-mcp:latest
+    container_name: soleflip-memori-api
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    environment:
+      # Database Configuration
+      MEMORI_DATABASE_URL: postgresql://soleflip:${POSTGRES_PASSWORD:-changeme_secure_password}@postgres:5432/memori
+
+      # Memory Configuration
+      MEMORI_NAMESPACE: ${MEMORI_NAMESPACE:-soleflip}
+      MEMORI_CONSCIOUS_INGEST: ${MEMORI_CONSCIOUS_INGEST:-true}
+      MEMORI_AUTO_INGEST: ${MEMORI_AUTO_INGEST:-true}
+
+      # Optional: OpenAI API Key for embeddings
+      MEMORI_OPENAI_API_KEY: ${MEMORI_OPENAI_API_KEY:-}
+
+      # Logging
+      MEMORI_LOGGING_LEVEL: ${MEMORI_LOGGING_LEVEL:-INFO}
+      MEMORI_VERBOSE: ${MEMORI_VERBOSE:-false}
+
+      # Performance
+      MEMORI_MAX_MEMORIES_PER_QUERY: ${MEMORI_MAX_MEMORIES_PER_QUERY:-5}
+      MEMORI_CONTEXT_LIMIT: ${MEMORI_CONTEXT_LIMIT:-3}
+    volumes:
+      - memori_data:/app/data
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+networks:
+  soleflip-network:
+    driver: bridge
+    name: soleflip-network
+
+volumes:
+  postgres_data:
+    driver: local
+    name: soleflip-postgres-data
+  n8n_data:
+    driver: local
+    name: soleflip-n8n-data
+  metabase_data:
+    driver: local
+    name: soleflip-metabase-data
+  redis_data:
+    driver: local
+    name: soleflip-redis-data
+  soleflip_logs:
+    driver: local
+    name: soleflip-api-logs
+  memori_data:
+    driver: local
+    name: soleflip-memori-data

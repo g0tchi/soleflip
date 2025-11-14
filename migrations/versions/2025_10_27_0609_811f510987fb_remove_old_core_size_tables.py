@@ -7,7 +7,6 @@ Create Date: 2025-10-27 06:09:09.279132
 """
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = '811f510987fb'
 down_revision = 'cleanup_obsolete_schemas'

@@ -6,10 +6,10 @@ Handles inventory-related events and cross-domain communication.
 import structlog
 
 from shared.events import (
+    ImportBatchCompletedEvent,
     InventoryUpdatedEvent,
     LowStockAlertEvent,
     ProductCreatedEvent,
-    ImportBatchCompletedEvent,
     publish_event,
     subscribe_to_event,
 )

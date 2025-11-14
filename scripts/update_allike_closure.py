@@ -6,7 +6,9 @@ Date: October 10, 2025
 
 import asyncio
 from datetime import datetime
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 CLOSURE_NOTE = """

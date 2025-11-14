@@ -7,13 +7,13 @@ REST API for managing Metabase materialized views and dashboards.
 
 from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
-from ..services.view_manager import MetabaseViewManager
+from ..config.materialized_views import RefreshStrategy
+from ..schemas.metabase_models import MaterializedViewStatus, MetabaseDashboard, RefreshJobStatus
 from ..services.dashboard_service import MetabaseDashboardService
 from ..services.sync_service import MetabaseSyncService
-from ..schemas.metabase_models import MaterializedViewStatus, RefreshJobStatus, MetabaseDashboard
-from ..config.materialized_views import RefreshStrategy
+from ..services.view_manager import MetabaseViewManager
 
 router = APIRouter(prefix="/metabase", tags=["Metabase Integration"])
 

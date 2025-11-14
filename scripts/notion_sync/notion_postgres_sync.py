@@ -8,10 +8,11 @@ import asyncio
 import re
 from datetime import datetime
 from typing import Dict, List, Optional
+
+import sqlalchemy as sa
 import structlog
 
-from shared.database.connection import get_db_session, db_manager
-import sqlalchemy as sa
+from shared.database.connection import db_manager, get_db_session
 
 logger = structlog.get_logger(__name__)
 

@@ -5,7 +5,8 @@ Safe transaction handling for complex operations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Any, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)

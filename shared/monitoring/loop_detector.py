@@ -16,8 +16,9 @@ Usage:
         perform_operation()
 """
 
-import structlog
 from typing import List, Optional
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 

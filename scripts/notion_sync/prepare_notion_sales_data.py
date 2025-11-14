@@ -5,7 +5,7 @@ Collects sales from search results and prepares them for sync
 This script will be populated by Claude Code with sales data from Notion search results.
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 # Raw search results from Notion (highlights contain the data)
 SEARCH_RESULTS = [
@@ -63,7 +63,7 @@ def parse_highlight_to_properties(highlight: str, url: str) -> Dict:
             clean_value = value.replace("€", "").replace(",", ".").strip()
             try:
                 properties[field] = float(clean_value)
-            except:
+            except (ValueError, AttributeError):
                 properties[field] = 0.0
 
         elif field in ["ROI", "Sale VAT"]:
@@ -71,14 +71,14 @@ def parse_highlight_to_properties(highlight: str, url: str) -> Dict:
             clean_value = value.replace("%", "").replace(",", ".").strip()
             try:
                 properties[field] = float(clean_value)
-            except:
+            except (ValueError, AttributeError):
                 properties[field] = 0.0
 
         elif field in ["Size", "Shelf Life", "Quantity"]:
             try:
                 # Try as number first
                 properties[field] = value
-            except:
+            except (ValueError, AttributeError):
                 properties[field] = value
 
         elif field in ["Buy Date", "Sale Date", "Delivery Date"]:

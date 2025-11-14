@@ -11,10 +11,10 @@ Usage:
     python fetch_and_sync_notion_sales.py
 """
 
-import asyncio
 import argparse
-import structlog
+import asyncio
 
+import structlog
 from sync_notion_to_postgres import NotionPostgresSyncService
 
 logger = structlog.get_logger(__name__)

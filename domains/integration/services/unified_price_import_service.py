@@ -6,7 +6,7 @@ This service replaces source-specific imports with a unified approach
 """
 
 import json
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog

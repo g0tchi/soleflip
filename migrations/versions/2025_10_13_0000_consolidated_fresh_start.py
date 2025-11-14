@@ -31,10 +31,10 @@ ARCHITECT IMPROVEMENTS INCLUDED:
 ✅ Partitioning-ready structure
 ✅ Complete seed data
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 from sqlalchemy import Text
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'consolidated_v1'

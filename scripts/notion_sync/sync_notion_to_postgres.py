@@ -21,16 +21,17 @@ Usage:
     python sync_notion_to_postgres.py --sale-id "68237673-68137432"
 """
 
-import asyncio
 import argparse
-from decimal import Decimal
+import asyncio
 from datetime import datetime
-from typing import Optional, Dict, List
+from decimal import Decimal, InvalidOperation
+from typing import Dict, List, Optional
+
 import structlog
+from sqlalchemy import select
 
 from shared.database.connection import DatabaseManager
-from shared.database.models import Supplier, InventoryItem, Order, Brand, Category, Product, Size
-from sqlalchemy import select
+from shared.database.models import Brand, Category, InventoryItem, Order, Product, Size, Supplier
 
 logger = structlog.get_logger(__name__)
 
@@ -270,7 +271,7 @@ class NotionPostgresSyncService:
             try:
                 if size_value != "Unknown":
                     standardized = Decimal(str(size_value))
-            except:
+            except (ValueError, InvalidOperation):
                 pass
 
             size = Size(

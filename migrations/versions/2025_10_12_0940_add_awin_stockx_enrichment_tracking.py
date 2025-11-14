@@ -6,9 +6,8 @@ Create Date: 2025-10-12 09:40:00.000000
 
 Adds enrichment job tracking and StockX matching data for Awin products
 """
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'a7b8c9d0e1f2'

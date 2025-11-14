@@ -4,7 +4,9 @@ Shows recently synced sales with all new fields
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

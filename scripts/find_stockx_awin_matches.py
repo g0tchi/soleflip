@@ -4,7 +4,9 @@ Checks if we already have matching data in the database
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import db_manager
 
 

@@ -12,9 +12,33 @@
       "Bash(curl:*)",
       "Bash(git add:*)",
       "Bash(python3:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(PYTHONPATH=/home/g0tchi/projects/soleflip .venv/bin/pytest:*)",
+      "Bash(git commit:*)",
+      "Bash(pytest:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(tee:*)",
+      "Bash(git push:*)",
+      "Bash(uvicorn main:app:*)",
+      "Bash(PYTHONPATH=/home/g0tchi/projects/soleflip python3:*)",
+      "Bash(pkill:*)",
+      "Bash(.venv/bin/alembic current:*)",
+      "Bash(PYTHONPATH=/home/g0tchi/projects/soleflip .venv/bin/python3:*)",
+      "mcp__context7__get-library-docs",
+      "Bash(tree:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(./test_mcp.sh:*)",
+      "Bash(cat:*)",
+      "Bash(test:*)",
+      "mcp__memori__store_memory",
+      "mcp__memori__search_memory"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "mindsdb",
+    "memori"
+  ]
 }

@@ -4,7 +4,9 @@ Check products.products table structure and enrichment_data field
 
 import asyncio
 import json
+
 from sqlalchemy import text
+
 from shared.database.connection import get_db_session
 
 

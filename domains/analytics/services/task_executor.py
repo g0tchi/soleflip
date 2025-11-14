@@ -15,8 +15,9 @@ Usage:
     results = await executor.execute_tasks(tasks, context={"product_id": uuid})
 """
 
+from typing import Any, Awaitable, Callable, Dict, List, Optional
+
 import structlog
-from typing import List, Dict, Any, Optional, Callable, Awaitable
 from pydantic import BaseModel, Field
 
 from shared.monitoring.loop_detector import SafetyLimiter

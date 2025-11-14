@@ -18,9 +18,9 @@ Exports:
 """
 
 from shared.monitoring import (
-    apm,
     advanced_health,
     alerting,
+    apm,
     batch_monitor,
     batch_monitor_router,
     health,

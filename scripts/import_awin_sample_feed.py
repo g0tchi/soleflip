@@ -3,6 +3,7 @@ Import Awin sample feed and test matching
 """
 
 import asyncio
+
 from domains.integration.services.awin_feed_service import AwinFeedImportService
 from shared.database.connection import db_manager
 

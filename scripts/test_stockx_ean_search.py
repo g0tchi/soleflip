@@ -4,7 +4,9 @@ Take a sample EAN from Awin and search StockX
 """
 
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import get_db_session
 
 

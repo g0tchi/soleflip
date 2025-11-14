@@ -1,8 +1,9 @@
 """Core analytics functions for suppliers."""
 
 from typing import Dict, List, Optional
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from shared.database.models import Supplier, SupplierAccount
 

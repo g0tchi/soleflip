@@ -3,19 +3,23 @@ Unit tests for API types
 Testing Pydantic models and utility methods for 100% coverage
 """
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 from pydantic import ValidationError
-from shared.types.api_types import (
-    PaginationInfo,
-    PaginatedResponse,
-    ValidationErrorResponse,
+
+from shared.api.responses import (
     BulkOperationResponse,
     SyncOperationResponse,
-    HealthCheckResponse,
+)
+from shared.types.api_types import (
     BaseResponse,
-    SuccessResponse,
     ErrorResponse,
+    HealthCheckResponse,
+    PaginatedResponse,
+    PaginationInfo,
+    SuccessResponse,
+    ValidationErrorResponse,
 )
 
 
@@ -108,54 +112,45 @@ class TestPaginatedResponse:
     def test_paginated_response_basic(self):
         """Test basic paginated response"""
         pagination = PaginationInfo.create(skip=0, limit=10, total=25)
-        data = [{"id": 1}, {"id": 2}]
+        items = [{"id": 1}, {"id": 2}]
 
-        response = PaginatedResponse[dict](data=data, pagination=pagination, success=True)
+        response = PaginatedResponse[dict](items=items, pagination=pagination)
 
-        assert response.data == data
+        assert response.items == items
         assert response.pagination == pagination
-        assert response.success is True
-        assert response.message is None
         assert response.request_id is None
 
     def test_paginated_response_with_optional_fields(self):
         """Test paginated response with optional fields"""
         pagination = PaginationInfo.create(skip=10, limit=5, total=50)
-        data = ["item1", "item2"]
+        items = ["item1", "item2"]
 
         response = PaginatedResponse[str](
-            data=data,
+            items=items,
             pagination=pagination,
-            success=False,
-            message="Partial results",
             request_id="req-123",
         )
 
-        assert response.data == data
-        assert response.success is False
-        assert response.message == "Partial results"
+        assert response.items == items
         assert response.request_id == "req-123"
 
 
 class TestBaseResponse:
     """Test BaseResponse model"""
 
-    def test_base_response_success(self):
-        """Test basic successful response"""
-        response = BaseResponse(success=True, message="Operation completed")
+    def test_base_response_basic(self):
+        """Test basic base response"""
+        response = BaseResponse()
 
-        assert response.success is True
-        assert response.message == "Operation completed"
         assert response.request_id is None
         assert response.timestamp is not None
 
     def test_base_response_with_request_id(self):
         """Test base response with request ID"""
-        response = BaseResponse(success=False, message="Operation failed", request_id="req-123")
+        response = BaseResponse(request_id="req-123")
 
-        assert response.success is False
-        assert response.message == "Operation failed"
         assert response.request_id == "req-123"
+        assert response.timestamp is not None
 
 
 class TestSuccessResponse:
@@ -183,25 +178,27 @@ class TestErrorResponse:
     def test_error_response_basic(self):
         """Test basic error response"""
         response = ErrorResponse(
-            success=False, message="Something went wrong", error_code="ERR_001"
+            success=False, error={"message": "Something went wrong", "code": "ERR_001"}
         )
 
         assert response.success is False
-        assert response.message == "Something went wrong"
-        assert response.error_code == "ERR_001"
-        assert response.details == {}
+        assert response.error["message"] == "Something went wrong"
+        assert response.error["code"] == "ERR_001"
 
     def test_error_response_with_details(self):
         """Test error response with details"""
-        details = {"field": "email", "value": "invalid"}
         response = ErrorResponse(
             success=False,
-            message="Validation error",
-            error_code="VALIDATION_FAILED",
-            details=details,
+            error={
+                "message": "Validation error",
+                "code": "VALIDATION_FAILED",
+                "details": {"field": "email", "value": "invalid"},
+            },
         )
 
-        assert response.details == details
+        assert response.error["message"] == "Validation error"
+        assert response.error["code"] == "VALIDATION_FAILED"
+        assert response.error["details"]["field"] == "email"
 
 
 class TestValidationErrorResponse:
@@ -209,20 +206,19 @@ class TestValidationErrorResponse:
 
     def test_validation_error_response(self):
         """Test validation error response"""
-        errors = [
-            {"field": "name", "message": "Required field"},
-            {"field": "email", "message": "Invalid format"},
-        ]
-
         response = ValidationErrorResponse(
-            success=False, message="Validation failed", errors=errors
+            success=False,
+            error={"message": "Validation failed", "code": "VALIDATION_ERROR"},
+            field_errors={"name": ["Required field"], "email": ["Invalid format"]},
         )
 
         assert response.success is False
-        assert response.message == "Validation failed"
-        assert len(response.errors) == 2
-        assert response.errors[0]["field"] == "name"
-        assert response.errors[1]["field"] == "email"
+        assert response.error["message"] == "Validation failed"
+        assert len(response.field_errors) == 2
+        assert "name" in response.field_errors
+        assert "email" in response.field_errors
+        assert response.field_errors["name"][0] == "Required field"
+        assert response.field_errors["email"][0] == "Invalid format"
 
 
 class TestBulkOperationResponse:
@@ -236,6 +232,8 @@ class TestBulkOperationResponse:
             total_items=100,
             successful_items=95,
             failed_items=5,
+            errors=[],
+            processing_time_seconds=0.0,
         )
 
         assert response.success is True
@@ -272,23 +270,32 @@ class TestSyncOperationResponse:
 
     def test_sync_operation_response(self):
         """Test sync operation response"""
-        stats = {"synced": 100, "created": 20, "updated": 80}
+        last_sync = datetime.now(timezone.utc)
         next_sync = datetime.now(timezone.utc)
 
         response = SyncOperationResponse(
             success=True,
             operation="stockx_sync",
             service_name="StockX API",
-            sync_stats=stats,
-            next_sync_time=next_sync,
+            items_synced=100,
+            items_created=20,
+            items_updated=80,
+            items_skipped=0,
+            sync_duration_seconds=5.5,
+            last_sync_timestamp=last_sync,
+            next_sync_timestamp=next_sync,
         )
 
         assert response.success is True
         assert response.operation == "stockx_sync"
         assert response.service_name == "StockX API"
-        assert response.sync_stats == stats
-        assert response.next_sync_time == next_sync
-        assert response.processing_time_seconds == 0.0
+        assert response.items_synced == 100
+        assert response.items_created == 20
+        assert response.items_updated == 80
+        assert response.items_skipped == 0
+        assert response.sync_duration_seconds == 5.5
+        assert response.last_sync_timestamp == last_sync
+        assert response.next_sync_timestamp == next_sync
 
 
 class TestHealthCheckResponse:
@@ -296,14 +303,22 @@ class TestHealthCheckResponse:
 
     def test_health_check_response(self):
         """Test health check response"""
-        checks = {
+        components = {
             "database": {"status": "healthy", "latency_ms": 5},
             "redis": {"status": "healthy", "latency_ms": 2},
         }
+        timestamp = datetime.now(timezone.utc)
 
-        response = HealthCheckResponse(status="healthy", checks=checks, version="2.2.0")
+        response = HealthCheckResponse(
+            status="healthy",
+            timestamp=timestamp,
+            version="0.9.0",
+            environment="production",
+            components=components,
+        )
 
         assert response.status == "healthy"
-        assert response.checks == checks
-        assert response.version == "2.2.0"
-        assert response.timestamp is not None
+        assert response.components == components
+        assert response.version == "0.9.0"
+        assert response.environment == "production"
+        assert response.timestamp == timestamp

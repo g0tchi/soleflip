@@ -11,7 +11,7 @@ from typing import Dict, Optional
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database.models import Product, Brand, Category, SourcePrice
+from shared.database.models import Brand, Category, Product, SourcePrice
 from shared.repositories.base_repository import BaseRepository
 
 logger = structlog.get_logger(__name__)

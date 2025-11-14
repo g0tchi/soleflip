@@ -4,9 +4,9 @@ Provides publish-subscribe pattern for loose coupling between domains.
 """
 
 import asyncio
+import weakref
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 from uuid import UUID
-import weakref
 
 import structlog
 

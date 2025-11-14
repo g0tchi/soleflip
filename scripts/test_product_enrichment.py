@@ -11,14 +11,14 @@ Tests the StockX Catalog enrichment functionality by:
 
 import asyncio
 import os
+
 import structlog
 from dotenv import load_dotenv
-
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from domains.integration.services.stockx_service import StockXService
 from domains.integration.services.stockx_catalog_service import StockXCatalogService
+from domains.integration.services.stockx_service import StockXService
 
 load_dotenv()
 

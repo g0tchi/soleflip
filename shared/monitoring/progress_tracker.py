@@ -17,12 +17,13 @@ Usage:
         process_data()
 """
 
-import structlog
-from functools import wraps
-from contextlib import contextmanager
-from typing import Optional, Callable, Any, TypeVar, cast
 import asyncio
 import time
+from contextlib import contextmanager
+from functools import wraps
+from typing import Any, Callable, Optional, TypeVar, cast
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 

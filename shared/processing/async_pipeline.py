@@ -16,11 +16,11 @@ import structlog
 from shared.database.connection import get_db_session
 from shared.database.models import ImportBatch
 from shared.events import (
-    publish_event,
-    ImportBatchCreatedEvent,
-    ImportBatchProgressEvent,
     ImportBatchCompletedEvent,
+    ImportBatchCreatedEvent,
     ImportBatchFailedEvent,
+    ImportBatchProgressEvent,
+    publish_event,
 )
 from shared.exceptions.domain_exceptions import BatchProcessingException
 

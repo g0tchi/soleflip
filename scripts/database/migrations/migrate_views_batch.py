@@ -2,7 +2,9 @@
 Batch migrate analytics views from transactions.transactions to transactions.orders
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 # Low complexity views to migrate

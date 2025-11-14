@@ -2,7 +2,9 @@
 Migrate remaining analytics views (Medium + High complexity)
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 REMAINING_VIEWS = {

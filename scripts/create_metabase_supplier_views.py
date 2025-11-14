@@ -4,9 +4,10 @@ Includes multiple view types for different chart types in Metabase
 """
 
 import asyncio
-from sqlalchemy import text
-from shared.database.connection import db_manager
 
+from sqlalchemy import text
+
+from shared.database.connection import db_manager
 
 VIEWS = {
     "supplier_timeline_view": """

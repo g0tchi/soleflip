@@ -6,26 +6,25 @@ Manages all supplier-related operations, from creation to analytics.
 import csv
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Any
-from uuid import UUID
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import structlog
-from sqlalchemy import select, and_, desc, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.exc import IntegrityError
-
-from shared.database.models import (
-    Supplier,
-    SupplierAccount,
-    AccountPurchaseHistory,
-)
-from shared.repositories.base_repository import BaseRepository
-from shared.database.transaction_manager import TransactionMixin, transactional
-from shared.security.api_security import InputSanitizer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import the core analytics functions
 from domains.suppliers.core import analytics
+from shared.database.models import (
+    AccountPurchaseHistory,
+    Supplier,
+    SupplierAccount,
+)
+from shared.database.transaction_manager import TransactionMixin, transactional
+from shared.repositories.base_repository import BaseRepository
+from shared.security.api_security import InputSanitizer
 
 logger = structlog.get_logger(__name__)
 

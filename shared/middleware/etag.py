@@ -6,6 +6,7 @@ Implements HTTP ETags for efficient caching and bandwidth reduction
 import hashlib
 import time
 from typing import Optional
+
 import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

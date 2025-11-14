@@ -6,10 +6,10 @@ Handles cross-domain events related to import processing.
 import structlog
 
 from shared.events import (
-    ImportBatchCreatedEvent,
-    ImportBatchProgressEvent,
     ImportBatchCompletedEvent,
+    ImportBatchCreatedEvent,
     ImportBatchFailedEvent,
+    ImportBatchProgressEvent,
     subscribe_to_event,
 )
 

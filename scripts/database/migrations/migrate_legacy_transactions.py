@@ -3,7 +3,9 @@ Migrate data from transactions.transactions to transactions.orders
 This unifies all transaction data into a single multi-platform table
 """
 import asyncio
+
 from sqlalchemy import text
+
 from shared.database.connection import DatabaseManager
 
 

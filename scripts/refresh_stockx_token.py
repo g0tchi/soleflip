@@ -4,9 +4,11 @@ This script manually refreshes the StockX access token using the refresh token s
 """
 
 import asyncio
+
 import httpx
 import structlog
 from sqlalchemy import select
+
 from shared.database.connection import db_manager
 from shared.database.models import SystemConfig
 
@@ -99,7 +101,7 @@ async def refresh_stockx_token():
                                 print(f"Error: {error_data['error']}")
                             if "error_description" in error_data:
                                 print(f"Description: {error_data['error_description']}")
-                        except:
+                        except Exception:
                             pass
 
                 except httpx.TimeoutException:

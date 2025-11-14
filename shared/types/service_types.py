@@ -21,7 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import NotRequired, TypedDict
 
 from .base_types import EntityId
-from .domain_types import *
+from .domain_types import *  # noqa: F403
+
+# ruff: noqa: F405  # Allow star imports from domain_types
+
 
 T = TypeVar("T")
 K = TypeVar("K")

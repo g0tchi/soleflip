@@ -74,10 +74,10 @@ def example_safety_limiter():
 
 
 # Example 2: Progress Tracking
-from shared.monitoring.progress_tracker import (
-    track_progress,
-    track_operation,
+from shared.monitoring.progress_tracker import (  # noqa: E402
     ProgressTracker,
+    track_operation,
+    track_progress,
 )
 
 
@@ -124,7 +124,7 @@ def example_progress_tracker():
 
 
 # Example 3: Task Execution
-from domains.analytics.services.task_executor import (
+from domains.analytics.services.task_executor import (  # noqa: E402
     AnalyticsTask,
     TaskExecutor,
     execute_analytics_workflow,

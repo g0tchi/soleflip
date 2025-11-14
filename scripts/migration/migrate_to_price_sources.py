@@ -10,9 +10,9 @@ Options:
     --batch-size: Number of records per batch (default: 1000)
 """
 
-import asyncio
 import argparse
-from typing import Dict, Any
+import asyncio
+from typing import Any, Dict
 
 import structlog
 from sqlalchemy import text

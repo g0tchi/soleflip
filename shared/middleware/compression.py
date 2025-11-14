@@ -6,6 +6,7 @@ Implements Gzip and Brotli compression with intelligent content-type detection
 import gzip
 import time
 from typing import Any, Dict, List, Optional
+
 import structlog
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

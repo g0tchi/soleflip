@@ -11,8 +11,8 @@ Implements Gibson's superior size system for sneaker sizes:
 - core.size_validation_log: Audit trail for StockX validation
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.

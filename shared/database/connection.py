@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 # Load environment variables from .env file
 load_dotenv()
 
-from .models import Base
+from .models import Base  # noqa: E402
 
 logger = structlog.get_logger(__name__)
 
@@ -27,6 +27,7 @@ class DatabaseManager:
     def __init__(self):
         # SECURITY: Require explicit DATABASE_URL configuration
         import os
+
         from shared.config.settings import get_settings
 
         settings = get_settings()

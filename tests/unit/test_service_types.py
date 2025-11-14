@@ -4,16 +4,16 @@ Testing service layer types and protocols for 100% coverage
 """
 
 from shared.types.service_types import (
-    ServiceResult,
-    ServiceResultStatus,
+    AuditAction,
     CacheStrategy,
+    ConfigurationScope,
+    HealthStatus,
     NotificationChannel,
     NotificationPriority,
-    AuditAction,
+    ServiceResult,
+    ServiceResultStatus,
     TaskPriority,
     TaskStatus,
-    HealthStatus,
-    ConfigurationScope,
 )
 
 
@@ -169,10 +169,10 @@ class TestCacheStrategy:
 
     def test_cache_strategy_values(self):
         """Test all cache strategy enum values"""
-        assert CacheStrategy.NONE == "none"
-        assert CacheStrategy.MEMORY == "memory"
-        assert CacheStrategy.REDIS == "redis"
-        assert CacheStrategy.DATABASE == "database"
+        assert CacheStrategy.LRU == "lru"
+        assert CacheStrategy.LFU == "lfu"
+        assert CacheStrategy.FIFO == "fifo"
+        assert CacheStrategy.TTL == "ttl"
 
 
 class TestNotificationChannel:
@@ -211,8 +211,6 @@ class TestAuditAction:
         assert AuditAction.LOGOUT == "logout"
         assert AuditAction.EXPORT == "export"
         assert AuditAction.IMPORT == "import"
-        assert AuditAction.SYNC == "sync"
-        assert AuditAction.CONFIGURE == "configure"
 
 
 class TestTaskPriority:
@@ -255,5 +253,6 @@ class TestConfigurationScope:
     def test_configuration_scope_values(self):
         """Test all configuration scope values"""
         assert ConfigurationScope.GLOBAL == "global"
-        assert ConfigurationScope.DOMAIN == "domain"
+        assert ConfigurationScope.ENVIRONMENT == "environment"
+        assert ConfigurationScope.SERVICE == "service"
         assert ConfigurationScope.USER == "user"

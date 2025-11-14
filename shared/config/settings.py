@@ -113,9 +113,9 @@ class APIConfig(BaseSettings):
     """API configuration"""
 
     title: str = Field(default="SoleFlipper API", env="API_TITLE")
-    version: str = Field(default="2.2.1", env="API_VERSION")
+    version: str = Field(default="0.9.0", env="API_VERSION")
     description: str = Field(
-        default="Professional sneaker resale management system", env="API_DESCRIPTION"
+        default="Professional sneaker resale management system (Beta)", env="API_DESCRIPTION"
     )
     openapi_url: str = Field(default="/openapi.json", env="API_OPENAPI_URL")
     docs_url: str = Field(default="/docs", env="API_DOCS_URL")

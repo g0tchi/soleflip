@@ -16,16 +16,16 @@ Version: v2.2.3 Compatible
 Architecture: Multi-Platform Orders (StockX, eBay, GOAT, etc.)
 """
 
-from .services.view_manager import MetabaseViewManager
+from .schemas.metabase_models import (
+    MetabaseCard,
+    MetabaseCollection,
+    MetabaseDashboard,
+    MetabaseDatabase,
+    MetabaseQuestion,
+)
 from .services.dashboard_service import MetabaseDashboardService
 from .services.sync_service import MetabaseSyncService
-from .schemas.metabase_models import (
-    MetabaseDashboard,
-    MetabaseQuestion,
-    MetabaseCard,
-    MetabaseDatabase,
-    MetabaseCollection,
-)
+from .services.view_manager import MetabaseViewManager
 
 __version__ = "2.2.3"
 __author__ = "SoleFlipper Development Team"

@@ -14,23 +14,25 @@ Features:
 """
 
 import asyncio
-import httpx
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
+
+import httpx
+import structlog
+from sqlalchemy import select
+
 from shared.database.connection import DatabaseManager
 from shared.database.models import (
-    Supplier,
-    InventoryItem,
-    StockXOrder,
-    StockXListing,
     Brand,
     Category,
+    InventoryItem,
     Product,
     Size,
+    StockXListing,
+    StockXOrder,
+    Supplier,
 )
-from sqlalchemy import select
-import structlog
 
 logger = structlog.get_logger(__name__)
 

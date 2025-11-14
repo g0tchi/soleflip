@@ -71,7 +71,7 @@ class SecretChecker:
 
             if isinstance(secrets_data, list):
                 return {secret["name"] for secret in secrets_data}
-        except:
+        except Exception:
             # Environment might not exist yet
             pass
         return set()

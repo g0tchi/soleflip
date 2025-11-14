@@ -5,8 +5,8 @@ Revises: 2025_09_18_0807_a82e22d786aa_create_market_prices_table_for_
 Create Date: 2025-09-19 12:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic
 revision = 'a1b2c3d4e5f6'

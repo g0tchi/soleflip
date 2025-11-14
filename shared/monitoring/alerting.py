@@ -4,13 +4,14 @@ Advanced alerting and notification system integrated with APM monitoring
 """
 
 import asyncio
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
-from dataclasses import dataclass, field
-from collections import defaultdict
+from typing import Any, Callable, Dict, List, Optional
 
 import structlog
+
 from shared.monitoring.apm import get_apm_collector
 
 logger = structlog.get_logger(__name__)

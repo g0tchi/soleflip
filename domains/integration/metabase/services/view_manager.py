@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.connection import DatabaseManager
+
 from ..config.materialized_views import MetabaseViewConfig, RefreshStrategy
 from ..schemas.metabase_models import MaterializedViewStatus, RefreshJobStatus
 

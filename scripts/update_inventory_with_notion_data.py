@@ -3,9 +3,10 @@
 Update existing inventory items with Notion test data
 """
 
-import requests
 import json
 from datetime import datetime
+
+import requests
 
 API_BASE = "http://localhost:8000"
 

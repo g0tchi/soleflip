@@ -3,28 +3,29 @@ Unit tests for configuration settings
 Testing Pydantic models, validators, and business logic for 100% coverage
 """
 
-import os
-import pytest
 import base64
+import os
 from unittest.mock import patch
+
+import pytest
 from pydantic import ValidationError
 
 from shared.config.settings import (
-    Environment,
-    LogLevel,
-    DatabaseConfig,
-    SecurityConfig,
     APIConfig,
-    LoggingConfig,
-    ExternalServiceConfig,
-    MonitoringConfig,
     CacheConfig,
-    Settings,
+    DatabaseConfig,
     DevelopmentSettings,
+    Environment,
+    ExternalServiceConfig,
+    LoggingConfig,
+    LogLevel,
+    MonitoringConfig,
     ProductionSettings,
+    SecurityConfig,
+    Settings,
     TestingSettings,
-    get_settings_class,
     get_settings,
+    get_settings_class,
     reload_settings,
     validate_settings,
 )
@@ -161,7 +162,7 @@ class TestSecurityConfig:
         """Test encryption key with wrong length"""
         # 16 bytes instead of 32
         short_key = base64.urlsafe_b64encode(b"0" * 16).decode()
-        with pytest.raises(ValidationError, match="32 bytes when decoded"):
+        with pytest.raises(ValidationError, match="32-byte base64-encoded string"):
             SecurityConfig(encryption_key=short_key)
 
     def test_parse_list_env_string(self):
@@ -189,7 +190,7 @@ class TestAPIConfig:
         config = APIConfig()
 
         assert config.title == "SoleFlipper API"
-        assert config.version == "2.2.0"
+        assert config.version == "0.9.0"
         assert config.host == "127.0.0.1"
         assert config.port == 8000
         assert config.workers == 1
@@ -301,7 +302,12 @@ class TestSettings:
         assert dev_settings.is_production() is False
         assert dev_settings.is_testing() is False
 
-        prod_settings = Settings(environment=Environment.PRODUCTION)
+        prod_settings = Settings(
+            environment=Environment.PRODUCTION,
+            security=SecurityConfig(
+                cors_origins=["https://example.com"], allowed_hosts=["example.com"]
+            ),
+        )
         assert prod_settings.is_development() is False
         assert prod_settings.is_production() is True
         assert prod_settings.is_testing() is False
@@ -338,7 +344,8 @@ class TestSettings:
         """Test production validation fails with allowed hosts wildcard"""
         with pytest.raises(ValidationError, match="Allowed hosts must be restricted"):
             Settings(
-                environment=Environment.PRODUCTION, security=SecurityConfig(allowed_hosts=["*"])
+                environment=Environment.PRODUCTION,
+                security=SecurityConfig(cors_origins=["https://example.com"], allowed_hosts=["*"]),
             )
 
     def test_production_validation_success(self):
@@ -357,8 +364,11 @@ class TestSettings:
 
     def test_to_dict_excludes_sensitive_data(self):
         """Test to_dict method excludes sensitive information"""
+        from cryptography.fernet import Fernet
+
+        valid_key = Fernet.generate_key().decode()
         settings = Settings(
-            security=SecurityConfig(encryption_key="secret-key", secret_key="secret-jwt-key"),
+            security=SecurityConfig(encryption_key=valid_key, secret_key="secret-jwt-key"),
             external_services=ExternalServiceConfig(
                 n8n_api_key="secret-n8n-key", metabase_password="secret-password"
             ),
@@ -427,9 +437,9 @@ class TestSettingsFactory:
         assert cls == Settings
 
     def test_get_settings_class_unknown(self):
-        """Test get_settings_class for unknown environment"""
-        cls = get_settings_class("unknown")
-        assert cls == Settings
+        """Test get_settings_class for unknown environment raises ValueError"""
+        with pytest.raises(ValueError, match="is not a valid Environment"):
+            get_settings_class("unknown")
 
     def test_get_settings_class_from_env(self):
         """Test get_settings_class reads from environment"""
