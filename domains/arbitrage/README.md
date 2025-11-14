@@ -233,17 +233,112 @@ class EnhancedOpportunity:
 
 ---
 
-## API Endpoints (Planned)
+## API Endpoints
 
-Future API integration:
+**Base URL:** `/api/v1/arbitrage`
 
+### 1. Get Enhanced Opportunities
+```http
+GET /api/v1/arbitrage/opportunities/enhanced
+
+Query Parameters:
+- min_profit_margin: float (default: 10.0) - Minimum profit margin %
+- min_gross_profit: float (default: 20.0) - Minimum gross profit €
+- max_buy_price: float (optional) - Maximum buy price filter
+- source_filter: string (optional) - Filter by source
+- limit: int (default: 10, max: 100) - Max results
+- calculate_demand: bool (default: true) - Calculate demand scores
+- calculate_risk: bool (default: true) - Calculate risk assessments
+
+Response: List[EnhancedOpportunityResponse]
 ```
-GET  /api/arbitrage/opportunities/enhanced
-GET  /api/arbitrage/opportunities/top
-GET  /api/arbitrage/demand/{product_id}
-GET  /api/arbitrage/risk/{product_id}
-POST /api/arbitrage/assess-batch
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/arbitrage/opportunities/enhanced?min_feasibility=70&limit=5"
 ```
+
+### 2. Get Top Opportunities
+```http
+GET /api/v1/arbitrage/opportunities/top
+
+Query Parameters:
+- limit: int (default: 10, max: 50) - Max results
+- min_feasibility: int (default: 60) - Minimum feasibility score (0-100)
+- max_risk: enum (default: MEDIUM) - Maximum risk level (LOW|MEDIUM|HIGH)
+
+Response: List[EnhancedOpportunityResponse]
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/arbitrage/opportunities/top?limit=10&max_risk=LOW"
+```
+
+### 3. Get Product Demand Score
+```http
+GET /api/v1/arbitrage/demand/{product_id}
+
+Path Parameters:
+- product_id: UUID - Product UUID
+
+Query Parameters:
+- days_back: int (default: 90, min: 7, max: 365) - Analysis period
+- save_pattern: bool (default: false) - Save to database
+
+Response: DemandScoreResponse
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/arbitrage/demand/550e8400-e29b-41d4-a716-446655440000?days_back=60"
+```
+
+### 4. Batch Risk Assessment
+```http
+POST /api/v1/arbitrage/assess-batch
+
+Request Body:
+{
+  "product_ids": ["uuid1", "uuid2", ...]  // Max 50
+}
+
+Response: BatchAssessResponse
+```
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/arbitrage/assess-batch" \
+  -H "Content-Type: application/json" \
+  -d '{"product_ids": ["550e8400-e29b-41d4-a716-446655440000"]}'
+```
+
+### 5. Get Summary Statistics
+```http
+GET /api/v1/arbitrage/summary
+
+Query Parameters:
+- min_profit_margin: float (default: 10.0) - Minimum profit margin %
+- min_gross_profit: float (default: 20.0) - Minimum gross profit €
+
+Response: OpportunitySummaryResponse
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/arbitrage/summary"
+```
+
+### 6. Health Check
+```http
+GET /api/v1/arbitrage/health
+
+Response: { "status": "healthy", "service": "arbitrage", ... }
+```
+
+**Interactive Documentation:**
+- Swagger UI: http://localhost:8000/docs#/Arbitrage
+- ReDoc: http://localhost:8000/redoc
 
 ---
 
