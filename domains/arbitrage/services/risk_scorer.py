@@ -55,7 +55,10 @@ class RiskScorer:
     2. Price Volatility (25%): High volatility = higher risk
     3. Stock Availability (20%): Low stock = higher risk
     4. Profit Margin (15%): Low margin = higher risk
-    5. Platform Reliability (10%): Less reliable platforms = higher risk
+    5. Supplier Reliability (10%): Less reliable suppliers = higher risk
+
+    Note: Sales platforms (StockX, eBay, GOAT) are evaluated separately.
+    This risk score focuses on the purchase/supplier side.
     """
 
     # Weights for different risk factors
@@ -63,22 +66,27 @@ class RiskScorer:
     WEIGHT_VOLATILITY = 0.25
     WEIGHT_STOCK_AVAILABILITY = 0.20
     WEIGHT_PROFIT_MARGIN = 0.15
-    WEIGHT_PLATFORM = 0.10
+    WEIGHT_SUPPLIER = 0.10
 
     # Risk thresholds
     LOW_RISK_THRESHOLD = 30  # Risk score < 30 = LOW
     MEDIUM_RISK_THRESHOLD = 60  # Risk score 30-60 = MEDIUM
     # HIGH_RISK_THRESHOLD = 60  # Risk score > 60 = HIGH
 
-    # Platform reliability scores (0-100, higher = more reliable)
-    PLATFORM_RELIABILITY = {
-        "stockx": 95,
-        "goat": 90,
-        "alias": 90,
-        "ebay": 75,
-        "klekt": 70,
-        "awin": 60,
-        "webgains": 60,
+    # Supplier reliability scores (0-100, higher = more reliable)
+    # Note: Awin/WebGains are data sources (affiliate networks), not sales platforms
+    SUPPLIER_RELIABILITY = {
+        # Established retailers (via Awin/WebGains)
+        "awin": 85,  # Large affiliate network with established retailers
+        "webgains": 80,  # Reputable affiliate network
+        # Direct supplier sources
+        "afew": 95,  # Afew Store - reliable German retailer
+        "asphaltgold": 90,  # Asphaltgold - established retailer
+        "bstn": 90,  # BSTN - reliable retailer
+        "overkill": 85,  # Overkill - established store
+        "allike": 80,  # Allike - boutique retailer
+        # Default for unknown suppliers
+        "unknown": 50,
     }
 
     def __init__(self, db_session: AsyncSession):
@@ -110,7 +118,7 @@ class RiskScorer:
         volatility_risk = await self._calculate_volatility_risk(opportunity.product_id)
         stock_risk = await self._calculate_stock_availability_risk(opportunity)
         margin_risk = self._calculate_margin_risk(opportunity)
-        platform_risk = self._calculate_platform_risk(opportunity)
+        supplier_risk = self._calculate_supplier_risk(opportunity)
 
         # Calculate weighted overall risk score
         risk_score = int(
@@ -118,7 +126,7 @@ class RiskScorer:
             + volatility_risk * self.WEIGHT_VOLATILITY
             + stock_risk * self.WEIGHT_STOCK_AVAILABILITY
             + margin_risk * self.WEIGHT_PROFIT_MARGIN
-            + platform_risk * self.WEIGHT_PLATFORM
+            + supplier_risk * self.WEIGHT_SUPPLIER
         )
 
         # Determine risk level
@@ -134,7 +142,7 @@ class RiskScorer:
 
         # Collect risk factors and recommendations
         risk_factors = self._build_risk_factors(
-            demand_risk, volatility_risk, stock_risk, margin_risk, platform_risk
+            demand_risk, volatility_risk, stock_risk, margin_risk, supplier_risk
         )
         recommendations = self._generate_recommendations(
             risk_level, risk_factors, opportunity
@@ -300,19 +308,34 @@ class RiskScorer:
 
         return min(100.0, risk)
 
-    def _calculate_platform_risk(self, opportunity: QuickFlipOpportunity) -> float:
+    def _calculate_supplier_risk(self, opportunity: QuickFlipOpportunity) -> float:
         """
-        Calculate platform reliability risk.
+        Calculate supplier reliability risk.
 
-        Less reliable platforms = higher risk of fraud, delays, or issues.
+        Less reliable suppliers = higher risk of:
+        - Stock availability issues
+        - Shipping delays
+        - Product authenticity concerns
+        - Order cancellations
+
+        Note: buy_source can be:
+        - Data source (awin, webgains) - affiliate networks providing retail prices
+        - Direct supplier (afew, asphaltgold, etc.)
 
         Returns:
             Risk score (0-100)
         """
-        source = opportunity.buy_source.lower() if opportunity.buy_source else "unknown"
+        # Get supplier from buy_source or buy_supplier
+        supplier = (
+            opportunity.buy_supplier.lower()
+            if opportunity.buy_supplier
+            else opportunity.buy_source.lower()
+            if opportunity.buy_source
+            else "unknown"
+        )
 
-        # Get platform reliability score
-        reliability = self.PLATFORM_RELIABILITY.get(source, 50)  # Default: medium
+        # Get supplier reliability score
+        reliability = self.SUPPLIER_RELIABILITY.get(supplier, 50)  # Default: medium
 
         # Invert: high reliability = low risk
         risk = 100 - reliability
@@ -325,7 +348,7 @@ class RiskScorer:
         volatility_risk: float,
         stock_risk: float,
         margin_risk: float,
-        platform_risk: float,
+        supplier_risk: float,
     ) -> Dict[str, str]:
         """
         Build human-readable risk factor descriptions.
@@ -369,11 +392,11 @@ class RiskScorer:
         else:
             factors["margin"] = "Healthy profit margin"
 
-        # Platform
-        if platform_risk > 50:
-            factors["platform"] = "Platform reliability concerns"
+        # Supplier
+        if supplier_risk > 50:
+            factors["supplier"] = "Supplier reliability concerns"
         else:
-            factors["platform"] = "Reliable platform"
+            factors["supplier"] = "Reliable supplier"
 
         return factors
 

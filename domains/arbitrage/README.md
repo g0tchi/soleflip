@@ -60,7 +60,7 @@ Assesses risk level (LOW/MEDIUM/HIGH) for arbitrage opportunities.
 - **Price Volatility (25%)**: High volatility = higher risk
 - **Stock Availability (20%)**: Low stock = higher risk
 - **Profit Margin (15%)**: Low margin = higher risk
-- **Platform Reliability (10%)**: Less reliable platforms = higher risk
+- **Supplier Reliability (10%)**: Less reliable suppliers = higher risk
 
 **Usage:**
 ```python
@@ -80,12 +80,17 @@ async with session:
     print(f"Recommendations: {assessment.recommendations}")
 ```
 
-**Platform Reliability Scores:**
-- StockX: 95
-- GOAT/Alias: 90
-- eBay: 75
-- Klekt: 70
-- Awin/WebGains: 60
+**Supplier Reliability Scores:**
+- Awin (affiliate network): 85
+- WebGains (affiliate network): 80
+- Afew Store: 95
+- Asphaltgold: 90
+- BSTN: 90
+- Overkill: 85
+- Allike: 80
+
+**Note:** Awin/WebGains are data sources (affiliate networks) providing retail prices,
+not sales platforms. Sales platforms (StockX, eBay, GOAT) are evaluated separately.
 
 ---
 
