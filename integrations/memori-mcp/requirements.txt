@@ -1,5 +1,5 @@
-# Memori MCP Server Dependencies - Simplified Version
-# Core dependencies only
+# Memori MCP Server Dependencies - Full Version with AI Features
+# Core dependencies + OpenAI embeddings support
 
 # HTTP Server
 fastapi>=0.104.0
@@ -7,6 +7,11 @@ uvicorn[standard]>=0.24.0
 
 # Database support
 asyncpg>=0.29.0
+pgvector>=0.2.0
+
+# AI & Embeddings
+openai>=1.0.0
+numpy>=1.24.0
 
 # Configuration
 python-dotenv>=1.0.0

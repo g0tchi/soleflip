@@ -6,6 +6,7 @@
       "env": {
         "MEMORI_DATABASE_URL": "postgresql://soleflip:SoleFlip2025SecureDB!@localhost:5432/memori",
         "MEMORI_NAMESPACE": "soleflip",
+        "MEMORI_OPENAI_API_KEY": "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",
         "MEMORI_LOGGING_LEVEL": "INFO"
       }
     }
