@@ -12,14 +12,13 @@ Tests comprehensive pricing automation including:
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domains.pricing.services.pricing_engine import PricingContext, PricingResult, PricingStrategy
+from domains.pricing.services.pricing_engine import PricingResult, PricingStrategy
 from domains.pricing.services.smart_pricing_service import MarketCondition, SmartPricingService
 from shared.database.models import InventoryItem, Product
 
@@ -441,13 +440,17 @@ async def test_analyze_market_condition_bullish(smart_pricing_service, mock_db_s
         mock_prices.append(price)
 
     query_result = MagicMock()
-    query_result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=mock_prices)))
+    query_result.scalars = MagicMock(
+        return_value=MagicMock(all=MagicMock(return_value=mock_prices))
+    )
     mock_db_session.execute = AsyncMock(return_value=query_result)
 
     market_data = {"highest_bid": 195.00, "lowest_ask": 200.00}
 
     # Mock the method to avoid the recorded_at bug in the service
-    with patch.object(smart_pricing_service, '_analyze_market_condition', return_value=MarketCondition.BULLISH):
+    with patch.object(
+        smart_pricing_service, "_analyze_market_condition", return_value=MarketCondition.BULLISH
+    ):
         condition = await smart_pricing_service._analyze_market_condition(product_id, market_data)
 
     assert condition == MarketCondition.BULLISH
@@ -467,13 +470,17 @@ async def test_analyze_market_condition_bearish(smart_pricing_service, mock_db_s
         mock_prices.append(price)
 
     query_result = MagicMock()
-    query_result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=mock_prices)))
+    query_result.scalars = MagicMock(
+        return_value=MagicMock(all=MagicMock(return_value=mock_prices))
+    )
     mock_db_session.execute = AsyncMock(return_value=query_result)
 
     market_data = {"highest_bid": 165.00, "lowest_ask": 170.00}
 
     # Mock the method to avoid the recorded_at bug in the service
-    with patch.object(smart_pricing_service, '_analyze_market_condition', return_value=MarketCondition.BEARISH):
+    with patch.object(
+        smart_pricing_service, "_analyze_market_condition", return_value=MarketCondition.BEARISH
+    ):
         condition = await smart_pricing_service._analyze_market_condition(product_id, market_data)
 
     assert condition == MarketCondition.BEARISH
@@ -493,13 +500,17 @@ async def test_analyze_market_condition_stable(smart_pricing_service, mock_db_se
         mock_prices.append(price)
 
     query_result = MagicMock()
-    query_result.scalars = MagicMock(return_value=MagicMock(all=MagicMock(return_value=mock_prices)))
+    query_result.scalars = MagicMock(
+        return_value=MagicMock(all=MagicMock(return_value=mock_prices))
+    )
     mock_db_session.execute = AsyncMock(return_value=query_result)
 
     market_data = {"highest_bid": 175.00, "lowest_ask": 185.00}
 
     # Mock the method to avoid the recorded_at bug in the service
-    with patch.object(smart_pricing_service, '_analyze_market_condition', return_value=MarketCondition.STABLE):
+    with patch.object(
+        smart_pricing_service, "_analyze_market_condition", return_value=MarketCondition.STABLE
+    ):
         condition = await smart_pricing_service._analyze_market_condition(product_id, market_data)
 
     assert condition == MarketCondition.STABLE
@@ -518,7 +529,9 @@ async def test_analyze_market_condition_insufficient_data(smart_pricing_service,
     market_data = {"highest_bid": 175.00, "lowest_ask": 185.00}
 
     # Mock the method to avoid the recorded_at bug in the service
-    with patch.object(smart_pricing_service, '_analyze_market_condition', return_value=MarketCondition.STABLE):
+    with patch.object(
+        smart_pricing_service, "_analyze_market_condition", return_value=MarketCondition.STABLE
+    ):
         condition = await smart_pricing_service._analyze_market_condition(product_id, market_data)
 
     assert condition == MarketCondition.STABLE  # Default when not enough data
@@ -545,7 +558,9 @@ def test_calculate_target_margin_bearish(smart_pricing_service):
 
 def test_calculate_target_margin_with_urgent_timeframe(smart_pricing_service):
     """Test target margin with urgent sell timeframe"""
-    margin = smart_pricing_service._calculate_target_margin(MarketCondition.STABLE, target_timeframe=7)
+    margin = smart_pricing_service._calculate_target_margin(
+        MarketCondition.STABLE, target_timeframe=7
+    )
 
     assert margin >= Decimal("10.0")  # Should be reduced for quick sale
 
@@ -828,9 +843,7 @@ async def test_get_fresh_market_data_stockx_error(
     mock_cache.get = AsyncMock(return_value=None)
 
     # Mock StockX API error
-    mock_stockx_service.get_market_data_from_stockx = AsyncMock(
-        side_effect=Exception("API error")
-    )
+    mock_stockx_service.get_market_data_from_stockx = AsyncMock(side_effect=Exception("API error"))
 
     result = await smart_pricing_service._get_fresh_market_data(sample_product, size="10.5")
 

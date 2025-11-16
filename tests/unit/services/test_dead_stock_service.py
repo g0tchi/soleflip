@@ -3,21 +3,20 @@ Comprehensive test suite for DeadStockService
 Tests dead stock identification, risk analysis, and automated clearance
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
+
 from domains.inventory.services.dead_stock_service import (
+    DeadStockAnalysis,
+    DeadStockItem,
     DeadStockService,
     StockRiskLevel,
-    DeadStockItem,
-    DeadStockAnalysis,
 )
-from shared.database.models import InventoryItem, Product, Brand, Category, Size
-
+from shared.database.models import Brand, Category, InventoryItem, Product, Size
 
 # ===== FIXTURES =====
 
@@ -93,9 +92,7 @@ def sample_inventory_items():
 async def test_analyze_dead_stock_success(dead_stock_service, sample_inventory_items):
     """Test successful dead stock analysis"""
     # Mock inventory retrieval
-    dead_stock_service._get_inventory_for_analysis = AsyncMock(
-        return_value=sample_inventory_items
-    )
+    dead_stock_service._get_inventory_for_analysis = AsyncMock(return_value=sample_inventory_items)
 
     # Mock _analyze_item_risk to return realistic DeadStockItem objects
     async def mock_analyze_risk(item):
@@ -157,9 +154,7 @@ async def test_analyze_dead_stock_with_min_risk_score_filter(
     dead_stock_service, sample_inventory_items
 ):
     """Test dead stock analysis filters by minimum risk score"""
-    dead_stock_service._get_inventory_for_analysis = AsyncMock(
-        return_value=sample_inventory_items
-    )
+    dead_stock_service._get_inventory_for_analysis = AsyncMock(return_value=sample_inventory_items)
 
     # Mock items with varying risk scores
     risk_scores = [0.2, 0.4, 0.6, 0.8, 1.0]

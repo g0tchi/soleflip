@@ -14,7 +14,6 @@ from domains.inventory.repositories.inventory_repository import (
     InventoryRepository,
     InventoryStats,
 )
-from shared.database.models import InventoryItem
 
 
 @pytest.fixture

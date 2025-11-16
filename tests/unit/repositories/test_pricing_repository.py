@@ -4,9 +4,8 @@ Testing domain-specific pricing data access methods
 """
 
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date
 from decimal import Decimal
-from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -183,9 +182,7 @@ class TestBrandMultipliers:
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
-        result = await pricing_repo.get_brand_multipliers(
-            brand_id, multiplier_type=multiplier_type
-        )
+        result = await pricing_repo.get_brand_multipliers(brand_id, multiplier_type=multiplier_type)
 
         # Assert
         assert result == mock_multipliers
@@ -391,9 +388,7 @@ class TestMarketPriceData:
         mock_db_session.add.assert_called_once()
         mock_db_session.flush.assert_awaited_once()
 
-    async def test_get_competitive_pricing_data_with_results(
-        self, pricing_repo, mock_db_session
-    ):
+    async def test_get_competitive_pricing_data_with_results(self, pricing_repo, mock_db_session):
         """Test getting competitive pricing data with market prices"""
         # Arrange
         product_id = uuid.uuid4()
@@ -513,9 +508,7 @@ class TestAnalyticsQueries:
         assert result["total_price_changes"] == 50
         mock_db_session.execute.assert_awaited_once()
 
-    async def test_get_top_performing_products_by_volume(
-        self, pricing_repo, mock_db_session
-    ):
+    async def test_get_top_performing_products_by_volume(self, pricing_repo, mock_db_session):
         """Test getting top products by sales volume"""
         # Arrange
         mock_row1 = MagicMock()
@@ -553,9 +546,7 @@ class TestAnalyticsQueries:
         assert result[1]["brand"] == "Adidas"
         assert result[1]["total_volume"] == 800
 
-    async def test_get_top_performing_products_by_price_growth(
-        self, pricing_repo, mock_db_session
-    ):
+    async def test_get_top_performing_products_by_price_growth(self, pricing_repo, mock_db_session):
         """Test getting top products by price appreciation"""
         # Arrange
         mock_row = MagicMock()

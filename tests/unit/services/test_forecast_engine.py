@@ -11,8 +11,6 @@ Tests comprehensive forecasting functionality including:
 
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
-from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
@@ -489,7 +487,11 @@ def test_prepare_training_data_outlier_removal(forecast_engine, sample_config):
     ]
     # Add outlier
     historical_data.append(
-        {"period_date": date.today() - timedelta(days=21), "units_sold": 10000, "total_revenue": 500}
+        {
+            "period_date": date.today() - timedelta(days=21),
+            "units_sold": 10000,
+            "total_revenue": 500,
+        }
     )
 
     df = forecast_engine._prepare_training_data(historical_data, sample_config)
@@ -597,7 +599,15 @@ def test_format_predictions_daily(forecast_engine):
     )
 
     predictions = [10.5, 11.2, 12.0, 13.5, 14.0, 15.2, 16.0]
-    intervals = [(9.0, 12.0), (10.0, 13.0), (11.0, 14.0), (12.0, 15.0), (13.0, 16.0), (14.0, 17.0), (15.0, 18.0)]
+    intervals = [
+        (9.0, 12.0),
+        (10.0, 13.0),
+        (11.0, 14.0),
+        (12.0, 15.0),
+        (13.0, 16.0),
+        (14.0, 17.0),
+        (15.0, 18.0),
+    ]
 
     result = forecast_engine._format_predictions(predictions, intervals, config)
 
