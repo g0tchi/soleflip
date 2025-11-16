@@ -109,3 +109,121 @@ async def test_extract_brand_handles_empty_product_name(mock_db_session):
 
     extracted_brand_none = await service.extract_brand_from_name(None)
     assert extracted_brand_none is None
+
+
+# ===== INTELLIGENT EXTRACTION TESTS =====
+
+
+def test_intelligent_extraction_two_capitalized_words():
+    """Test intelligent extraction with two capitalized words"""
+    service = BrandExtractorService(MagicMock())
+    result = service._intelligent_brand_extraction("Daniel Arsham Air Max 1")
+    assert result == "Daniel Arsham"
+
+
+def test_intelligent_extraction_one_capitalized_word():
+    """Test intelligent extraction with one capitalized word"""
+    service = BrandExtractorService(MagicMock())
+    # "Crocs Classic" - both capitalized, so returns both words
+    result = service._intelligent_brand_extraction("Crocs Classic Clog")
+    assert result == "Crocs Classic"
+
+
+def test_intelligent_extraction_skip_articles():
+    """Test intelligent extraction skips articles"""
+    service = BrandExtractorService(MagicMock())
+    result = service._intelligent_brand_extraction("The Nike Air Force 1")
+    assert result == "Nike"
+
+
+def test_intelligent_extraction_new_balance_brand():
+    """Test intelligent extraction recognizes two-word brands"""
+    service = BrandExtractorService(MagicMock())
+    result = service._intelligent_brand_extraction("New Balance 990v5")
+    assert result == "New Balance"
+
+
+def test_intelligent_extraction_empty():
+    """Test intelligent extraction with empty string"""
+    service = BrandExtractorService(MagicMock())
+    result = service._intelligent_brand_extraction("")
+    assert result is None
+
+
+def test_intelligent_extraction_only_lowercase():
+    """Test intelligent extraction with only lowercase"""
+    service = BrandExtractorService(MagicMock())
+    result = service._intelligent_brand_extraction("some product name")
+    assert result is None
+
+
+# ===== KEYWORD MATCHING TESTS =====
+
+
+@pytest.mark.asyncio
+async def test_extract_brand_keyword_match(mock_db_session):
+    """Test brand extraction with keyword pattern"""
+    service = BrandExtractorService(mock_db_session)
+
+    nike_brand = Brand(name="Nike")
+    keyword_pattern = BrandPattern(
+        pattern="Nike", brand=nike_brand, pattern_type="keyword", priority=100
+    )
+    service._patterns = [keyword_pattern]
+
+    result = await service.extract_brand_from_name("Nike Air Max 90")
+
+    assert result is not None
+    assert result.name == "Nike"
+
+
+@pytest.mark.asyncio
+async def test_extract_brand_keyword_case_insensitive(mock_db_session):
+    """Test keyword matching is case-insensitive"""
+    service = BrandExtractorService(mock_db_session)
+
+    nike_brand = Brand(name="Nike")
+    keyword_pattern = BrandPattern(
+        pattern="Nike", brand=nike_brand, pattern_type="keyword", priority=100
+    )
+    service._patterns = [keyword_pattern]
+
+    result = await service.extract_brand_from_name("NIKE air max 90")
+
+    assert result is not None
+    assert result.name == "Nike"
+
+
+# ===== GET OR CREATE TESTS =====
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_brand_existing(mock_db_session):
+    """Test getting existing brand"""
+    service = BrandExtractorService(mock_db_session)
+
+    existing_brand = Brand(name="Nike", slug="nike")
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = existing_brand
+    mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+    result = await service._get_or_create_brand("Nike")
+
+    assert result.name == "Nike"
+    mock_db_session.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_brand_new(mock_db_session):
+    """Test creating new brand"""
+    service = BrandExtractorService(mock_db_session)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+    result = await service._get_or_create_brand("NewBrand")
+
+    assert result.name == "NewBrand"
+    mock_db_session.add.assert_called_once()
+    await mock_db_session.flush()
