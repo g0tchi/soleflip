@@ -289,13 +289,18 @@ class Product(Base, TimestampMixin):
     __tablename__ = "product"
     __table_args__ = (
         # Performance indexes for enrichment queries
-        Index('idx_product_description_null', 'id', postgresql_where=text('description IS NULL')),
-        Index('idx_product_retail_price_null', 'id', postgresql_where=text('retail_price IS NULL')),
-        Index('idx_product_release_date_null', 'id', postgresql_where=text('release_date IS NULL')),
+        Index("idx_product_description_null", "id", postgresql_where=text("description IS NULL")),
+        Index("idx_product_retail_price_null", "id", postgresql_where=text("retail_price IS NULL")),
+        Index("idx_product_release_date_null", "id", postgresql_where=text("release_date IS NULL")),
         Index(
-            'idx_product_enrichment_status',
-            'id', 'description', 'retail_price', 'release_date',
-            postgresql_where=text('description IS NULL OR retail_price IS NULL OR release_date IS NULL')
+            "idx_product_enrichment_status",
+            "id",
+            "description",
+            "retail_price",
+            "release_date",
+            postgresql_where=text(
+                "description IS NULL OR retail_price IS NULL OR release_date IS NULL"
+            ),
         ),
         {"schema": "catalog"} if IS_POSTGRES else {},
     )

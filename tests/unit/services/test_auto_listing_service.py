@@ -6,12 +6,12 @@ Tests automated listing rules, conditions, and execution
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from domains.pricing.services.auto_listing_service import AutoListingService, ListingRule
-from shared.database.models import Brand, InventoryItem, Product
+from shared.database.models import InventoryItem, Product
 
 # ===== FIXTURES =====
 
@@ -219,9 +219,7 @@ async def test_toggle_rule_not_found(auto_listing_service):
 
 
 @pytest.mark.asyncio
-async def test_calculate_listing_price_cost_plus(
-    auto_listing_service, sample_inventory_item
-):
+async def test_calculate_listing_price_cost_plus(auto_listing_service, sample_inventory_item):
     """Test calculating listing price with cost_plus strategy"""
     price = await auto_listing_service._calculate_listing_price(
         sample_inventory_item, "cost_plus", Decimal("30.0")
