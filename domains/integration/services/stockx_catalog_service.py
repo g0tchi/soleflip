@@ -370,18 +370,24 @@ class StockXCatalogService:
             )
 
             # Step 6: Create product variants with size validation
-            product_query = text("SELECT id, category_id FROM catalog.product WHERE sku = :sku")
-            product_result = await session.execute(product_query, {"sku": sku})
-            product_row = product_result.first()
-
-            if product_row and enriched_data.get("variants"):
-                await self._create_variants_from_stockx(
-                    product_id=product_row.id,
-                    category_id=product_row.category_id,
-                    stockx_product_id=stockx_product_id,
-                    variants_data=enriched_data["variants"],
-                    session=session,
-                )
+            # TEMPORARILY DISABLED: Size variant creation uses old core.size_master schema
+            # which was replaced by catalog.sizes during Gibson migration.
+            # Variant creation needs to be refactored to work with new normalized schema.
+            # For now, basic product enrichment (stockx_product_id, brand, name, retail_price, etc.) works fine.
+            # TODO: Refactor variant creation to use catalog.sizes (one row per size/region, not multi-column)
+            #
+            # product_query = text("SELECT id, category_id FROM catalog.product WHERE sku = :sku")
+            # product_result = await session.execute(product_query, {"sku": sku})
+            # product_row = product_result.first()
+            #
+            # if product_row and enriched_data.get("variants"):
+            #     await self._create_variants_from_stockx(
+            #         product_id=product_row.id,
+            #         category_id=product_row.category_id,
+            #         stockx_product_id=stockx_product_id,
+            #         variants_data=enriched_data["variants"],
+            #         session=session,
+            #     )
 
             await session.commit()
 
