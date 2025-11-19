@@ -221,14 +221,16 @@ async def enrich_product_data(
                             stockx_product = search_results["products"][0]
 
                             # Update product with enriched data
+                            # Gibson AI Hybrid Schema: Track enrichment version
                             update_query = text(
                                 """
-                                UPDATE catalog.product 
-                                SET 
+                                UPDATE catalog.product
+                                SET
                                     sku = COALESCE(sku, :sku),
                                     description = COALESCE(description, :description),
                                     retail_price = COALESCE(retail_price, :retail_price),
                                     release_date = COALESCE(release_date, :release_date),
+                                    enrichment_version = :enrichment_version,
                                     updated_at = NOW()
                                 WHERE id = :product_id
                             """
@@ -244,6 +246,7 @@ async def enrich_product_data(
                                     ],  # Limit description length
                                     "retail_price": stockx_product.get("retailPrice"),
                                     "release_date": stockx_product.get("releaseDate"),
+                                    "enrichment_version": 1,  # Current StockX API version
                                 },
                             )
 
