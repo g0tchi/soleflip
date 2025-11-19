@@ -319,9 +319,9 @@ class Product(Base, TimestampMixin):
     avg_resale_price = Column(Numeric(10, 2))
     release_date = Column(DateTime(timezone=True))
 
-    # StockX Enrichment Fields
+    # StockX Enrichment Fields (Gibson AI Hybrid Schema)
     stockx_product_id = Column(
-        String(255), nullable=True, index=True, comment="StockX product UUID"
+        String(255), nullable=True, unique=True, index=True, comment="StockX product UUID"
     )
     style_code = Column(String(100), nullable=True, comment="Product style code (e.g., SKU)")
     enrichment_data = Column(JSONB, nullable=True, comment="Complete StockX product data")
@@ -335,6 +335,9 @@ class Product(Base, TimestampMixin):
     )
     last_enriched_at = Column(
         DateTime(timezone=True), nullable=True, comment="Last enrichment timestamp"
+    )
+    enrichment_version = Column(
+        Integer, nullable=True, server_default="1", comment="StockX API version used for enrichment"
     )
     brand = relationship("Brand", back_populates="products")
     category = relationship("Category", back_populates="products")

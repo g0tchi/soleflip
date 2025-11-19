@@ -308,19 +308,20 @@ class StockXCatalogService:
             category_id = category_result.scalar_one()
 
             # UPSERT product (create if not exists, update if exists)
+            # Gibson AI Hybrid Schema: Direct columns for frequent queries + JSONB for complete data
             query = text(
                 """
                 INSERT INTO catalog.product (
                     id, sku, brand_id, category_id, name, retail_price, release_date,
                     stockx_product_id, style_code, enrichment_data,
                     lowest_ask, highest_bid, recommended_sell_faster, recommended_earn_more,
-                    last_enriched_at, created_at, updated_at
+                    last_enriched_at, enrichment_version, created_at, updated_at
                 )
                 VALUES (
                     gen_random_uuid(), :sku, :brand_id, :category_id, :name, :retail_price, :release_date,
                     :stockx_product_id, :style_code, CAST(:enrichment_data AS jsonb),
                     :lowest_ask, :highest_bid, :sell_faster, :earn_more,
-                    NOW(), NOW(), NOW()
+                    NOW(), :enrichment_version, NOW(), NOW()
                 )
                 ON CONFLICT (sku) DO UPDATE SET
                     brand_id = EXCLUDED.brand_id,
@@ -336,6 +337,7 @@ class StockXCatalogService:
                     recommended_sell_faster = EXCLUDED.recommended_sell_faster,
                     recommended_earn_more = EXCLUDED.recommended_earn_more,
                     last_enriched_at = NOW(),
+                    enrichment_version = EXCLUDED.enrichment_version,
                     updated_at = NOW()
             """
             )
@@ -356,6 +358,7 @@ class StockXCatalogService:
                     "highest_bid": Decimal(highest_bid) if highest_bid else None,
                     "sell_faster": Decimal(sell_faster_amount) if sell_faster_amount else None,
                     "earn_more": Decimal(earn_more_amount) if earn_more_amount else None,
+                    "enrichment_version": 1,  # Current StockX API version
                 },
             )
 
