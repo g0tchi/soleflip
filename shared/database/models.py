@@ -323,7 +323,7 @@ class Product(Base, TimestampMixin):
     stockx_product_id = Column(
         String(255), nullable=True, unique=True, index=True, comment="StockX product UUID"
     )
-    style_code = Column(String(100), nullable=True, comment="Product style code (e.g., SKU)")
+    # Note: style_code removed - was always identical to sku (4x redundancy)
     enrichment_data = Column(JSONB, nullable=True, comment="Complete StockX product data")
     lowest_ask = Column(Numeric(10, 2), nullable=True, comment="Current lowest ask price")
     highest_bid = Column(Numeric(10, 2), nullable=True, comment="Current highest bid price")

@@ -68,7 +68,7 @@ async def main():
             key_columns = [
                 "id",
                 "ean",
-                "style_code",
+                "sku",
                 "name",
                 "brand",
                 "lowest_ask",
@@ -144,7 +144,7 @@ async def main():
             result = await session.execute(
                 text(
                     f"""
-                    SELECT name, brand, ean, style_code,
+                    SELECT name, brand, ean, sku,
                            lowest_ask / 100.0 as price_eur
                     FROM {schema}.products
                     WHERE ean IS NOT NULL AND ean != ''

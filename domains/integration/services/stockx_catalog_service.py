@@ -253,7 +253,6 @@ class StockXCatalogService:
         stockx_product_id = enriched_data.get("stockx_product_id")
         brand_name = product_details.get("brand")
         title = product_details.get("title")
-        style_id = product_details.get("styleId")
         product_type = product_details.get("productType", "sneakers")
         retail_price = product_details.get("productAttributes", {}).get("retailPrice")
 
@@ -313,13 +312,13 @@ class StockXCatalogService:
                 """
                 INSERT INTO catalog.product (
                     id, sku, brand_id, category_id, name, retail_price, release_date,
-                    stockx_product_id, style_code, enrichment_data,
+                    stockx_product_id, enrichment_data,
                     lowest_ask, highest_bid, recommended_sell_faster, recommended_earn_more,
                     last_enriched_at, enrichment_version, created_at, updated_at
                 )
                 VALUES (
                     gen_random_uuid(), :sku, :brand_id, :category_id, :name, :retail_price, :release_date,
-                    :stockx_product_id, :style_code, CAST(:enrichment_data AS jsonb),
+                    :stockx_product_id, CAST(:enrichment_data AS jsonb),
                     :lowest_ask, :highest_bid, :sell_faster, :earn_more,
                     NOW(), :enrichment_version, NOW(), NOW()
                 )
@@ -330,7 +329,6 @@ class StockXCatalogService:
                     retail_price = EXCLUDED.retail_price,
                     release_date = EXCLUDED.release_date,
                     stockx_product_id = EXCLUDED.stockx_product_id,
-                    style_code = EXCLUDED.style_code,
                     enrichment_data = EXCLUDED.enrichment_data,
                     lowest_ask = EXCLUDED.lowest_ask,
                     highest_bid = EXCLUDED.highest_bid,
@@ -352,7 +350,6 @@ class StockXCatalogService:
                     "retail_price": Decimal(retail_price) if retail_price else None,
                     "release_date": release_date,
                     "stockx_product_id": stockx_product_id,
-                    "style_code": style_id,
                     "enrichment_data": json.dumps(enriched_data),
                     "lowest_ask": Decimal(lowest_ask) if lowest_ask else None,
                     "highest_bid": Decimal(highest_bid) if highest_bid else None,
