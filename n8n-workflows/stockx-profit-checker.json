@@ -1,0 +1,271 @@
+{
+  "name": "StockX Profit Checker",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "title": "🔍 StockX Profit Checker",
+          "subtitle": "Find profitable sneaker opportunities",
+          "inputPlaceholder": "Example: Check KI6956 at 129.95",
+          "showWelcomeScreen": true,
+          "responseMode": "lastNode"
+        },
+        "initialMessages": "Hi! 👋 I can help you find profitable StockX opportunities.\n\nJust send me a message like:\n**Check [SKU] at [retail price]**\n\nExample: Check KI6956 at 129.95"
+      },
+      "id": "chat-trigger",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [240, 300],
+      "webhookId": "stockx-profit-checker"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse SKU and retail price from chat message\nconst message = $input.first().json.chatInput || '';\n\n// Extract SKU and price using regex patterns\n// Pattern: \"Check SKU at price\" or \"Check SKU retail price\"\nconst skuMatch = message.match(/\\b([A-Z0-9]{5,10})\\b/i);\nconst priceMatch = message.match(/\\b(\\d+\\.?\\d*)\\b/);\n\nif (!skuMatch || !priceMatch) {\n  throw new Error('❌ Could not parse your message. Please use format: \"Check [SKU] at [retail price]\"\\n\\nExample: Check KI6956 at 129.95');\n}\n\nconst sku = skuMatch[1].toUpperCase();\nconst retailPrice = parseFloat(priceMatch[1]);\n\nreturn {\n  json: {\n    sku: sku,\n    retailPrice: retailPrice,\n    originalMessage: message\n  }\n};"
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/products/search-stockx?query={{ $json.sku }}",
+        "method": "GET",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "search-stockx",
+      "name": "Search StockX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "product-found-check",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists"
+              },
+              "leftValue": "={{ $json.productId }}",
+              "rightValue": ""
+            }
+          ]
+        }
+      },
+      "id": "check-product-found",
+      "name": "Product Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-message",
+              "name": "response",
+              "type": "string",
+              "value": "=❌ **Product Not Found**\n\nCouldn't find SKU: {{ $('Parse Input').item.json.sku }}\n\nPlease check:\n• SKU is correct\n• Product exists on StockX\n• Try searching by product name instead"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "product-not-found",
+      "name": "Product Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/products/{{ $json.productId }}/stockx-market-data?currencyCode=EUR",
+        "method": "GET",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "get-market-data",
+      "name": "Get Market Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate profit for all variants\nconst marketData = $input.first().json;\nconst retailPrice = $('Parse Input').first().json.retailPrice;\nconst sku = $('Parse Input').first().json.sku;\n\n// Extract product info\nconst productName = marketData.brand + ' ' + marketData.name;\nconst brand = marketData.brand;\n\n// Process variants\nconst variants = marketData.variants || [];\nconst profitableVariants = [];\n\nfor (const variant of variants) {\n  const stockxPrice = variant.market?.lowestAsk || 0;\n  \n  if (stockxPrice > 0) {\n    // Calculate profit (90% after StockX fees)\n    const netProceeds = stockxPrice * 0.90;\n    const profit = netProceeds - retailPrice;\n    const marginPercent = (profit / retailPrice) * 100;\n    \n    if (profit > 0) {\n      profitableVariants.push({\n        size: variant.shoeSize || variant.sizeAllTypes || 'Unknown',\n        stockxPrice: stockxPrice.toFixed(2),\n        profit: profit.toFixed(2),\n        marginPercent: marginPercent.toFixed(1),\n        netProceeds: netProceeds.toFixed(2)\n      });\n    }\n  }\n}\n\n// Sort by margin (highest first)\nprofitableVariants.sort((a, b) => parseFloat(b.marginPercent) - parseFloat(a.marginPercent));\n\n// Get top 5\nconst topOpportunities = profitableVariants.slice(0, 5);\n\nreturn {\n  json: {\n    sku: sku,\n    productName: productName,\n    brand: brand,\n    retailPrice: retailPrice.toFixed(2),\n    totalVariants: variants.length,\n    profitableCount: profitableVariants.length,\n    topOpportunities: topOpportunities,\n    bestMargin: topOpportunities.length > 0 ? topOpportunities[0].marginPercent : 0\n  }\n};"
+      },
+      "id": "calculate-profit",
+      "name": "Calculate Profit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-profitable",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.profitableCount }}",
+              "rightValue": "0"
+            }
+          ]
+        }
+      },
+      "id": "check-profitable",
+      "name": "Has Profitable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format profitable response\nconst data = $input.first().json;\nconst opportunities = data.topOpportunities || [];\n\nlet response = `🔍 **StockX Analysis: ${data.brand} ${data.productName}**\\n\\n`;\nresponse += `📊 **Summary**\\n`;\nresponse += `• SKU: ${data.sku}\\n`;\nresponse += `• Retail: €${data.retailPrice}\\n`;\nresponse += `• Profitable Sizes: ${data.profitableCount} of ${data.totalVariants}\\n\\n`;\n\nif (opportunities.length > 0) {\n  response += `✅ **Top Opportunities** (Net profit after 10% StockX fee)\\n\\n`;\n  \n  opportunities.forEach((opp, index) => {\n    response += `**${index + 1}. Size ${opp.size}**\\n`;\n    response += `   • StockX Price: €${opp.stockxPrice}\\n`;\n    response += `   • Net Proceeds: €${opp.netProceeds}\\n`;\n    response += `   • Profit: €${opp.profit} (${opp.marginPercent}%)\\n\\n`;\n  });\n  \n  const best = opportunities[0];\n  response += `💡 **Best Opportunity**: Size ${best.size} with ${best.marginPercent}% margin (€${best.profit} profit)`;\n} else {\n  response += `❌ No profitable opportunities found at retail price €${data.retailPrice}`;\n}\n\nreturn {\n  json: {\n    response: response\n  }\n};"
+      },
+      "id": "format-profitable",
+      "name": "Format Profitable Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format no profit response\nconst data = $input.first().json;\n\nlet response = `🔍 **StockX Analysis: ${data.brand} ${data.productName}**\\n\\n`;\nresponse += `📊 **Summary**\\n`;\nresponse += `• SKU: ${data.sku}\\n`;\nresponse += `• Retail: €${data.retailPrice}\\n`;\nresponse += `• Total Variants: ${data.totalVariants}\\n\\n`;\nresponse += `❌ **No Profitable Opportunities**\\n\\n`;\nresponse += `Unfortunately, none of the ${data.totalVariants} size variants are profitable at the retail price of €${data.retailPrice}.\\n\\n`;\nresponse += `**Suggestions:**\\n`;\nresponse += `• Wait for StockX prices to increase\\n`;\nresponse += `• Look for discounted retail prices\\n`;\nresponse += `• Try different colorways or models`;\n\nreturn {\n  json: {\n    response: response\n  }\n};"
+      },
+      "id": "format-no-profit",
+      "name": "Format No Profit Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 280]
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Search StockX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search StockX": {
+      "main": [
+        [
+          {
+            "node": "Product Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Found?": {
+      "main": [
+        [
+          {
+            "node": "Get Market Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Product Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Market Data": {
+      "main": [
+        [
+          {
+            "node": "Calculate Profit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Profit": {
+      "main": [
+        [
+          {
+            "node": "Has Profitable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Profitable?": {
+      "main": [
+        [
+          {
+            "node": "Format Profitable Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format No Profit Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-19T00:00:00.000Z",
+  "versionId": "1"
+}
