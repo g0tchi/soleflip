@@ -281,7 +281,7 @@ class StockXCatalogService:
                 """
                 INSERT INTO catalog.brand (id, name, slug, created_at, updated_at)
                 VALUES (gen_random_uuid(), :brand_name, :brand_slug, NOW(), NOW())
-                ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
+                ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
                 RETURNING id
             """
             )
