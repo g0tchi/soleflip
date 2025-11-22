@@ -1,0 +1,478 @@
+# GitHub Actions CI/CD Configuration for SoleFlipper
+# Enhanced workflow with strict quality enforcement
+#
+# This configuration should be placed in: .github/workflows/ci-cd.yml
+#
+# Features:
+# - Ruff linting (zero tolerance)
+# - Black formatting check
+# - Isort import ordering
+# - MyPy strict type checking
+# - Pytest with 80% coverage minimum
+# - Security scanning (pip-audit, bandit)
+# - PostgreSQL and Redis services for integration tests
+
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - claude/*
+      - main
+      - develop
+  push:
+    branches:
+      - claude/*
+      - main
+      - develop
+  workflow_dispatch:  # Allow manual triggers
+
+env:
+  PYTHON_VERSION: '3.11'
+  POETRY_VERSION: '1.5.1'
+
+jobs:
+  # ==========================================
+  # Job 1: Linting and Code Quality
+  # ==========================================
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff (Linter)
+        run: |
+          echo "::group::Ruff Linting"
+          ruff check . --output-format=github
+          echo "::endgroup::"
+
+      - name: Run Black (Format Check)
+        run: |
+          echo "::group::Black Format Check"
+          black --check --diff .
+          echo "::endgroup::"
+
+      - name: Run Isort (Import Order Check)
+        run: |
+          echo "::group::Isort Import Check"
+          isort --check-only --diff .
+          echo "::endgroup::"
+
+      - name: Lint Summary
+        if: always()
+        run: |
+          echo "✅ Linting complete"
+          echo "- Ruff: Zero tolerance for errors"
+          echo "- Black: Strict formatting"
+          echo "- Isort: PEP 8 import ordering"
+
+  # ==========================================
+  # Job 2: Type Checking
+  # ==========================================
+  type-check:
+    name: MyPy Type Checking
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install types-passlib types-redis  # Type stubs
+
+      - name: Run MyPy (Strict Mode)
+        run: |
+          echo "::group::MyPy Strict Type Checking"
+          mypy domains/ shared/ --strict --show-error-codes --pretty
+          echo "::endgroup::"
+
+      - name: Type Check Summary
+        if: always()
+        run: |
+          echo "✅ Type checking complete"
+          echo "- Mode: Strict"
+          echo "- Target: Zero errors"
+
+  # ==========================================
+  # Job 3: Security Scanning
+  # ==========================================
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run pip-audit (Dependency Vulnerabilities)
+        run: |
+          echo "::group::pip-audit Dependency Scan"
+          pip install pip-audit
+          pip-audit --desc --format json --output pip-audit-report.json || true
+          echo "::endgroup::"
+
+      - name: Run Bandit (Code Security)
+        run: |
+          echo "::group::Bandit Security Scan"
+          pip install bandit
+          bandit -r domains/ shared/ -f json -o bandit-report.json || true
+          bandit -r domains/ shared/ -f screen  # Human-readable output
+          echo "::endgroup::"
+
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            pip-audit-report.json
+            bandit-report.json
+          retention-days: 30
+
+      - name: Security Summary
+        if: always()
+        run: |
+          echo "✅ Security scanning complete"
+          echo "- pip-audit: Dependency vulnerabilities"
+          echo "- Bandit: Code security issues"
+          echo "- Reports uploaded as artifacts"
+
+  # ==========================================
+  # Job 4: Unit Tests
+  # ==========================================
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate encryption key for tests
+        run: |
+          python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /tmp/test_key.txt
+          echo "FIELD_ENCRYPTION_KEY=$(cat /tmp/test_key.txt)" >> $GITHUB_ENV
+
+      - name: Run Unit Tests
+        run: |
+          echo "::group::Pytest Unit Tests"
+          pytest -m unit -v --tb=short --junitxml=junit-unit.xml
+          echo "::endgroup::"
+        env:
+          ENVIRONMENT: testing
+          DATABASE_URL: sqlite+aiosqlite:///test.db  # In-memory for unit tests
+          FIELD_ENCRYPTION_KEY: ${{ env.FIELD_ENCRYPTION_KEY }}
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: junit-unit.xml
+          retention-days: 30
+
+  # ==========================================
+  # Job 5: Integration Tests (with PostgreSQL + Redis)
+  # ==========================================
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: soleflip
+          POSTGRES_PASSWORD: test_password_ci
+          POSTGRES_DB: soleflip_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate encryption key
+        run: |
+          python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /tmp/test_key.txt
+          echo "FIELD_ENCRYPTION_KEY=$(cat /tmp/test_key.txt)" >> $GITHUB_ENV
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U soleflip; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - name: Run Alembic Migrations
+        run: |
+          echo "::group::Database Migrations"
+          alembic upgrade head
+          echo "::endgroup::"
+        env:
+          DATABASE_URL: postgresql+asyncpg://soleflip:test_password_ci@localhost:5432/soleflip_test
+          FIELD_ENCRYPTION_KEY: ${{ env.FIELD_ENCRYPTION_KEY }}
+
+      - name: Run Integration Tests with Coverage
+        run: |
+          echo "::group::Pytest Integration Tests (with Coverage)"
+          pytest -m integration \
+            --cov=domains \
+            --cov=shared \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            --junitxml=junit-integration.xml \
+            -v --tb=short
+          echo "::endgroup::"
+        env:
+          ENVIRONMENT: testing
+          DATABASE_URL: postgresql+asyncpg://soleflip:test_password_ci@localhost:5432/soleflip_test
+          REDIS_URL: redis://localhost:6379/0
+          FIELD_ENCRYPTION_KEY: ${{ env.FIELD_ENCRYPTION_KEY }}
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: integration
+          name: integration-coverage
+          fail_ci_if_error: true
+
+      - name: Upload Integration Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            junit-integration.xml
+            coverage.xml
+          retention-days: 30
+
+  # ==========================================
+  # Job 6: API Tests
+  # ==========================================
+  test-api:
+    name: API Endpoint Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: soleflip
+          POSTGRES_PASSWORD: test_password_ci
+          POSTGRES_DB: soleflip_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate encryption key
+        run: |
+          python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /tmp/test_key.txt
+          echo "FIELD_ENCRYPTION_KEY=$(cat /tmp/test_key.txt)" >> $GITHUB_ENV
+
+      - name: Run Alembic Migrations
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://soleflip:test_password_ci@localhost:5432/soleflip_test
+          FIELD_ENCRYPTION_KEY: ${{ env.FIELD_ENCRYPTION_KEY }}
+
+      - name: Run API Tests
+        run: |
+          echo "::group::Pytest API Tests"
+          pytest -m api -v --tb=short --junitxml=junit-api.xml
+          echo "::endgroup::"
+        env:
+          ENVIRONMENT: testing
+          DATABASE_URL: postgresql+asyncpg://soleflip:test_password_ci@localhost:5432/soleflip_test
+          REDIS_URL: redis://localhost:6379/0
+          FIELD_ENCRYPTION_KEY: ${{ env.FIELD_ENCRYPTION_KEY }}
+
+      - name: Upload API Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: junit-api.xml
+          retention-days: 30
+
+  # ==========================================
+  # Job 7: Build and Validate
+  # ==========================================
+  build:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Validate pyproject.toml
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --sdist
+          ls -lh dist/
+
+      - name: Test package installation
+        run: |
+          python -m pip install dist/*.whl
+          python -c "import shared; import domains; print('✅ Package imports successful')"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+
+  # ==========================================
+  # Job 8: Summary (Runs after all jobs)
+  # ==========================================
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [lint, type-check, security, test-unit, test-integration, test-api, build]
+    if: always()
+
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "## CI/CD Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Type Check | ${{ needs.type-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.test-unit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.test-integration.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Tests | ${{ needs.test-api.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ One or more jobs failed"
+          exit 1
+
+      - name: Success message
+        if: "!contains(needs.*.result, 'failure')"
+        run: |
+          echo "✅ All CI/CD checks passed!"
+          echo "✅ Ready to merge"

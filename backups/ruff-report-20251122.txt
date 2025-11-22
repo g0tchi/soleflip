@@ -1,0 +1,5 @@
+8	F841	[ ] unused-variable
+1	E712	[ ] true-false-comparison
+1	F401	[*] unused-import
+Found 10 errors.
+[*] 1 fixable with the `--fix` option (9 hidden fixes can be enabled with the `--unsafe-fixes` option).

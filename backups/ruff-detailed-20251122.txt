@@ -1,0 +1,16 @@
+migrations/versions/2025_11_20_0545_0f4c2653c093_optimize_source_prices_schema_gibson_.py:
+  14:22 F401 [*] `sqlalchemy` imported but unused
+
+tests/unit/repositories/test_pricing_repository.py:
+   86:29 F841 Local variable `mock_rule` is assigned to but never used
+   88:13 F841 Local variable `result` is assigned to but never used
+  113:16 E712 Avoid equality comparisons to `False`; use `not result.active:` for false checks
+  202:29 F841 Local variable `mock_multiplier` is assigned to but never used
+  204:13 F841 Local variable `result` is assigned to but never used
+  225:29 F841 Local variable `mock_price` is assigned to but never used
+  227:13 F841 Local variable `result` is assigned to but never used
+  383:29 F841 Local variable `mock_market_price` is assigned to but never used
+  385:13 F841 Local variable `result` is assigned to but never used
+
+Found 10 errors.
+[*] 1 fixable with the `--fix` option (9 hidden fixes can be enabled with the `--unsafe-fixes` option).

@@ -1,0 +1,56 @@
+================================================================================
+SOLEFLIP BACKUP MANIFEST
+Generated: 2025-11-22 19:08:22 UTC
+Backup ID: backup-20251122-190822
+================================================================================
+
+BACKUP METADATA:
+- Timestamp: 20251122-190822
+- Source Branch: claude/refactor-monolithic-codebase-018AffTcysMopgPbc7cpoEU6
+- Source Commit: 1715672380ccaaa53a89a320545c93d4ef76d5c7
+- Commit Message: fix: Correct size_master schema references and improve data safety
+
+GIT REFERENCES:
+- Backup Branch: claude/backup-pre-refactor-20251122-190822-018AffTcysMopgPbc7cpoEU6
+  Status: ✅ Pushed to remote (https://github.com/g0tchi/soleflip)
+  
+- Backup Tag: backup-20251122-190822
+  Status: ⚠️  Created locally only (cannot push due to 403 restriction)
+  
+BACKUP ARTIFACTS:
+1. Repository Archive:
+   - File: repo-backup-20251122-190822.tar.gz
+   - Size: 13 MB
+   - Format: tar.gz (compressed)
+   - Contents: Complete source code, configs, migrations, tests
+   - Integrity: ✅ Verified (extractable)
+   
+2. Database Dump:
+   - Status: ❌ Not available (no running database in this environment)
+   - Note: Database schema preserved in Alembic migrations/
+   - Alternative: SQLAlchemy models in shared/database/models.py
+   
+3. Checksums:
+   - File: checksums-20251122-190822.sha256
+   - Algorithm: SHA256
+   - Status: ✅ Generated
+
+VERIFICATION STATUS:
+- Repository backup: ✅ COMPLETE
+- Database backup: ⚠️  UNAVAILABLE (environment limitation)
+- Remote backup branch: ✅ VERIFIED
+- Local backup tag: ✅ CREATED
+
+RESTORE INSTRUCTIONS:
+To restore from this backup:
+1. Extract archive: tar -xzf repo-backup-20251122-190822.tar.gz
+2. Or checkout branch: git checkout claude/backup-pre-refactor-20251122-190822-018AffTcysMopgPbc7cpoEU6
+3. Or checkout tag: git checkout backup-20251122-190822 (if pushed)
+
+DATABASE SCHEMA BACKUP:
+The database schema is preserved in the repository:
+- Alembic migrations: migrations/versions/*.py
+- SQLAlchemy models: shared/database/models.py
+- Database can be recreated using: alembic upgrade head
+
+================================================================================

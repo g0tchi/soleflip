@@ -1,0 +1,97 @@
+shared/exceptions/domain_exceptions.py:228:5: error: Returning Any from
+function declared to return "DomainException"  [no-any-return]
+        return exception_class(
+        ^
+shared/auth/password_hasher.py:5:1: error: Cannot find implementation or
+library stub for module named "bcrypt"  [import-not-found]
+    import bcrypt
+    ^
+shared/auth/password_hasher.py:27:9: error: Returning Any from function
+declared to return "str"  [no-any-return]
+            return hashed.decode("utf-8")
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+shared/auth/password_hasher.py:42:13: error: Returning Any from function
+declared to return "bool"  [no-any-return]
+                return bcrypt.checkpw(password.encode("utf-8"), hashed_pas...
+                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+domains/suppliers/core/models.py:5:1: error: Cannot find implementation or
+library stub for module named "pydantic"  [import-not-found]
+    from pydantic import BaseModel
+    ^
+shared/validation/financial_validators.py:11:1: error: Cannot find
+implementation or library stub for module named "fastapi"  [import-not-found]
+    from fastapi import HTTPException, Path, Query, status
+    ^
+shared/validation/financial_validators.py:12:1: error: Cannot find
+implementation or library stub for module named "pydantic"  [import-not-found]
+    from pydantic import BaseModel, Field, validator
+    ^
+shared/validation/financial_validators.py:47:48: error: Unsupported operand
+types for < ("Literal['n']" and "int")  [operator]
+            if decimal_value.as_tuple().exponent < -2:
+                                                   ^~
+shared/validation/financial_validators.py:47:48: error: Unsupported operand
+types for < ("Literal['N']" and "int")  [operator]
+            if decimal_value.as_tuple().exponent < -2:
+                                                   ^~
+shared/validation/financial_validators.py:47:48: error: Unsupported operand
+types for < ("Literal['F']" and "int")  [operator]
+            if decimal_value.as_tuple().exponent < -2:
+                                                   ^~
+shared/validation/financial_validators.py:47:48: note: Left operand is of type "Literal['n', 'N', 'F'] | int"
+shared/validation/financial_validators.py:125:5: error: Returning Any from
+function declared to return "float"  [no-any-return]
+        return Query(
+        ^
+shared/validation/financial_validators.py:151:5: error: Returning Any from
+function declared to return "float"  [no-any-return]
+        return Query(
+        ^
+shared/validation/financial_validators.py:175:5: error: Returning Any from
+function declared to return "int"  [no-any-return]
+        return Query(
+        ^
+shared/validation/financial_validators.py:201:5: error: Returning Any from
+function declared to return "str"  [no-any-return]
+        return Query(
+        ^
+shared/validation/financial_validators.py:224:5: error: Returning Any from
+function declared to return "UUID"  [no-any-return]
+        return Path(..., description=description, example=example, title="...
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+shared/validation/financial_validators.py:240:5: error: Returning Any from
+function declared to return "int"  [no-any-return]
+        return Path(..., description=description, example=example, ge=2020...
+        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+shared/validation/financial_validators.py:280:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_price_precision(cls, v):
+        ^
+shared/validation/financial_validators.py:285:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_reason_format(cls, v):
+        ^
+shared/validation/financial_validators.py:319:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_pricing_strategy(cls, v):
+        ^
+shared/validation/financial_validators.py:327:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_margin_buffer_precision(cls, v):
+        ^
+shared/validation/financial_validators.py:352:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_unique_opportunities(cls, v):
+        ^
+shared/validation/financial_validators.py:359:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_bulk_pricing_strategy(cls, v):
+        ^
+shared/validation/financial_validators.py:380:5: error: Function is missing a
+type annotation  [no-untyped-def]
+        def validate_tracking_format(cls, v):
+        ^
+shared/validation/financial_validators.py:396:50: error: Incompatible default
+for argument "field" (default has type "None", argument has type "str") 
+[assignment]
+        def __init__(self, detail: str, field: str = None):
