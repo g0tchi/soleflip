@@ -83,9 +83,9 @@ class TestPriceRulesManagement:
         }
 
         # Act
-        with MagicMock() as mock_rule:
+        with MagicMock():
             PriceRule.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_price_rule(rule_data)
+            await pricing_repo.create_price_rule(rule_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -110,7 +110,7 @@ class TestPriceRulesManagement:
 
         # Assert
         assert result == mock_rule
-        assert result.active == False
+        assert not result.active
         assert result.priority == 5
         mock_db_session.flush.assert_awaited_once()
 
@@ -199,9 +199,9 @@ class TestBrandMultipliers:
         }
 
         # Act
-        with MagicMock() as mock_multiplier:
+        with MagicMock():
             BrandMultiplier.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_brand_multiplier(multiplier_data)
+            await pricing_repo.create_brand_multiplier(multiplier_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -222,9 +222,9 @@ class TestPriceHistoryTracking:
         }
 
         # Act
-        with MagicMock() as mock_price:
+        with MagicMock():
             PriceHistory.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.record_price_history(price_data)
+            await pricing_repo.record_price_history(price_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -380,9 +380,9 @@ class TestMarketPriceData:
         }
 
         # Act
-        with MagicMock() as mock_market_price:
+        with MagicMock():
             MarketPrice.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_market_price(market_data)
+            await pricing_repo.create_market_price(market_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
