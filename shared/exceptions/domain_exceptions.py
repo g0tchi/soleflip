@@ -3,7 +3,7 @@ Domain-specific exceptions for improved error handling and debugging.
 These replace generic Exception handlers with specific, meaningful error types.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 
 class DomainException(Exception):
@@ -186,7 +186,7 @@ COMMON_EXCEPTION_MAPPINGS = {
 }
 
 
-def map_exception_by_message(error_message: str) -> type:
+def map_exception_by_message(error_message: str) -> Type[DomainException]:
     """
     Map generic exceptions to specific types based on error message content.
 

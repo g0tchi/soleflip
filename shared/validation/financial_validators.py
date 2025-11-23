@@ -5,7 +5,7 @@ Comprehensive validation for financial data in APIs
 
 import re
 from decimal import Decimal, InvalidOperation
-from typing import Annotated, Any, Union
+from typing import Annotated, Any, Optional, Union
 from uuid import UUID
 
 from fastapi import HTTPException, Path, Query, status
@@ -44,7 +44,8 @@ class FinancialValidationMixin:
             raise ValueError("Currency amount too large (max: $999,999.99)")
 
         # Ensure proper decimal places for currency
-        if decimal_value.as_tuple().exponent < -2:
+        exponent = decimal_value.as_tuple().exponent
+        if isinstance(exponent, int) and exponent < -2:
             raise ValueError("Currency amount cannot have more than 2 decimal places")
 
         return decimal_value.quantize(Decimal("0.01"))
@@ -122,7 +123,7 @@ def PriceQuery(
     Returns:
         Annotated query parameter
     """
-    return Query(
+    return Query(  # type: ignore[no-any-return]
         default,
         description=description,
         example=example,
@@ -148,7 +149,7 @@ def MarginQuery(
     Returns:
         Annotated query parameter
     """
-    return Query(
+    return Query(  # type: ignore[no-any-return]
         default,
         description=description,
         example=example,
@@ -172,7 +173,7 @@ def QuantityQuery(
     Returns:
         Annotated query parameter
     """
-    return Query(
+    return Query(  # type: ignore[no-any-return]
         default,
         description=description,
         example=example,
@@ -198,7 +199,7 @@ def PricingStrategyQuery(
     Returns:
         Annotated query parameter
     """
-    return Query(
+    return Query(  # type: ignore[no-any-return]
         default,
         description=description,
         example=example,
@@ -221,7 +222,7 @@ def UUIDPath(
     Returns:
         Annotated path parameter
     """
-    return Path(..., description=description, example=example, title="UUID")
+    return Path(..., description=description, example=example, title="UUID")  # type: ignore[no-any-return]
 
 
 def YearPath(
@@ -237,7 +238,7 @@ def YearPath(
     Returns:
         Annotated path parameter
     """
-    return Path(..., description=description, example=example, ge=2020, le=2030, title="Year")
+    return Path(..., description=description, example=example, ge=2020, le=2030, title="Year")  # type: ignore[no-any-return]
 
 
 # Pydantic Model Validators
@@ -276,13 +277,13 @@ class PriceUpdateRequest(ValidatedFinancialModel):
         title="Update Reason",
     )
 
-    @validator("new_price")
-    def validate_price_precision(cls, v):
+    @validator("new_price")  # type: ignore[misc]
+    def validate_price_precision(cls, v: Any) -> Decimal:
         """Ensure price has max 2 decimal places"""
         return cls.validate_currency_amount(v)
 
-    @validator("reason")
-    def validate_reason_format(cls, v):
+    @validator("reason")  # type: ignore[misc]
+    def validate_reason_format(cls, v: str) -> str:
         """Ensure reason is properly formatted"""
         if not re.match(r"^[a-zA-Z0-9_\s\-]+$", v):
             raise ValueError("Reason contains invalid characters")
@@ -315,16 +316,16 @@ class ListingCreationRequest(ValidatedFinancialModel):
         title="Margin Buffer",
     )
 
-    @validator("pricing_strategy")
-    def validate_pricing_strategy(cls, v):
+    @validator("pricing_strategy")  # type: ignore[misc]
+    def validate_pricing_strategy(cls, v: str) -> str:
         """Validate pricing strategy"""
         allowed_strategies = {"competitive", "premium", "aggressive"}
         if v.lower() not in allowed_strategies:
             raise ValueError(f'Pricing strategy must be one of: {", ".join(allowed_strategies)}')
         return v.lower()
 
-    @validator("margin_buffer")
-    def validate_margin_buffer_precision(cls, v):
+    @validator("margin_buffer")  # type: ignore[misc]
+    def validate_margin_buffer_precision(cls, v: Any) -> float:
         """Validate margin buffer"""
         return cls.validate_margin_buffer(v)
 
@@ -348,15 +349,15 @@ class BulkListingRequest(ValidatedFinancialModel):
         title="Pricing Strategy",
     )
 
-    @validator("opportunity_ids")
-    def validate_unique_opportunities(cls, v):
+    @validator("opportunity_ids")  # type: ignore[misc]
+    def validate_unique_opportunities(cls, v: list[UUID]) -> list[UUID]:
         """Ensure all opportunity IDs are unique"""
         if len(v) != len(set(v)):
             raise ValueError("Duplicate opportunity IDs are not allowed")
         return v
 
-    @validator("pricing_strategy")
-    def validate_bulk_pricing_strategy(cls, v):
+    @validator("pricing_strategy")  # type: ignore[misc]
+    def validate_bulk_pricing_strategy(cls, v: str) -> str:
         """Validate pricing strategy for bulk operations"""
         allowed_strategies = {"competitive", "premium", "aggressive"}
         if v.lower() not in allowed_strategies:
@@ -376,8 +377,8 @@ class OrderTrackingUpdate(ValidatedFinancialModel):
         title="Tracking Number",
     )
 
-    @validator("tracking_number")
-    def validate_tracking_format(cls, v):
+    @validator("tracking_number")  # type: ignore[misc]
+    def validate_tracking_format(cls, v: str) -> str:
         """Validate tracking number format"""
         # Remove whitespace
         cleaned = v.strip().upper()
@@ -393,7 +394,7 @@ class OrderTrackingUpdate(ValidatedFinancialModel):
 class FinancialValidationError(HTTPException):
     """Custom exception for financial validation errors"""
 
-    def __init__(self, detail: str, field: str = None):
+    def __init__(self, detail: str, field: Optional[str] = None):
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"message": detail, "field": field, "type": "financial_validation_error"},

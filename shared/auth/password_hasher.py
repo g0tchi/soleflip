@@ -2,6 +2,8 @@
 Password hashing utilities using bcrypt.
 """
 
+from typing import cast
+
 import bcrypt
 
 # from typing import str as StrType
@@ -24,7 +26,7 @@ class PasswordHasher:
         # Generate salt and hash password
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
-        return hashed.decode("utf-8")
+        return cast(str, hashed.decode("utf-8"))
 
     @staticmethod
     def verify_password(password: str, hashed_password: str) -> bool:
@@ -39,6 +41,6 @@ class PasswordHasher:
             True if password is correct, False otherwise
         """
         try:
-            return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
+            return cast(bool, bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8")))
         except (ValueError, TypeError):
             return False
