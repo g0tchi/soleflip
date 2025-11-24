@@ -150,21 +150,6 @@ async def upload_stockx_file(
     )
 
 
-@router.post("/test-no-auth", tags=["Testing"])
-async def test_no_auth():
-    """Test endpoint without any dependencies"""
-    return {"status": "success", "message": "This endpoint works without auth"}
-
-
-@router.post("/stockx/import", tags=["StockX Integration"])
-async def import_stockx_data(request: ImportRequest):
-    """Test endpoint without dependencies"""
-    return {
-        "status": "success",
-        "message": f"Would import from {request.from_date} to {request.to_date}",
-    }
-
-
 @router.post("/stockx/import-orders", response_model=ImportResponse, tags=["StockX Integration"])
 async def import_stockx_orders(
     request: ImportRequest,
