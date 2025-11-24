@@ -295,7 +295,7 @@ jobs:
           curl -f https://staging.soleflip.com/health || exit 1
 
       - name: Notify deployment
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v2
         if: always()
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -360,7 +360,7 @@ jobs:
           state: failure
 
       - name: Notify production deployment
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v2
         if: always()
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
