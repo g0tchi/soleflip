@@ -241,6 +241,62 @@ services:
           memory: 64M
           cpus: '0.1'
 
+  # Budibase - Low-Code Data Entry UI
+  budibase:
+    image: budibase/budibase:latest
+    container_name: soleflip-budibase
+    restart: unless-stopped
+    environment:
+      # PostgreSQL Connection (connects to soleflip database)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: soleflip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      POSTGRES_DB: budibase
+
+      # Budibase Configuration
+      BUDIBASE_ENVIRONMENT: PRODUCTION
+      MAIN_PORT: 10000
+      INTERNAL_API_KEY: ${BUDIBASE_INTERNAL_API_KEY:-generate_with_openssl_rand_hex_32}
+      JWT_SECRET: ${BUDIBASE_JWT_SECRET:-generate_with_openssl_rand_hex_32}
+      MINIO_ACCESS_KEY: ${BUDIBASE_MINIO_ACCESS_KEY:-budibase}
+      MINIO_SECRET_KEY: ${BUDIBASE_MINIO_SECRET_KEY:-budibase}
+
+      # Redis for caching
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
+      # Timezone
+      TZ: ${TIMEZONE:-Europe/Berlin}
+
+      # Performance
+      NODE_ENV: production
+      WORKER_COUNT: 2
+    ports:
+      - "10000:10000"
+    volumes:
+      - budibase_data:/data
+    networks:
+      - soleflip-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
   # Memori Memory API - AI Memory Engine (OPTIONAL)
   # Enable with: docker-compose --profile memori up -d
   memori-mcp:
@@ -315,6 +371,9 @@ volumes:
   soleflip_logs:
     driver: local
     name: soleflip-api-logs
+  budibase_data:
+    driver: local
+    name: soleflip-budibase-data
   memori_data:
     driver: local
     name: soleflip-memori-data
