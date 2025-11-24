@@ -210,14 +210,58 @@ async def create_stockx_listing(
         from domains.integration.services.stockx_service import StockXService
         from shared.database.connection import db_manager
 
-        # For now, mock the variant_id and amount - in real implementation,
-        # these would come from the inventory item's product data
+        # Get actual variant_id and amount from product data
         async with db_manager.get_session() as stockx_session:
             stockx_service = StockXService(stockx_session)
 
-            # Mock data - in real implementation, get from item.product
-            variant_id = f"mock-variant-{item_id}"
-            amount = str(item.current_price or item.purchase_price or "100.00")
+            # Validate product has StockX enrichment data
+            if not item.product or not item.product.enrichment_data:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Product not enriched with StockX data. Please enrich the product first.",
+                )
+
+            # Extract variant_id from enrichment_data based on item's size
+            enrichment_data = item.product.enrichment_data
+            variants = enrichment_data.get("variants", [])
+
+            if not variants:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No StockX variants found in product data.",
+                )
+
+            # Find variant matching item's size
+            variant_id = None
+            item_size = item.size.value if item.size else None
+
+            for variant in variants:
+                # StockX uses sizeAllTypes.us for US sizing
+                variant_size = variant.get("sizeAllTypes", {}).get("us")
+                if variant_size == item_size:
+                    variant_id = variant.get("id")
+                    break
+
+            # If no exact match, use first variant or stockx_product_id
+            if not variant_id:
+                if variants:
+                    variant_id = variants[0].get("id")
+                elif item.product.stockx_product_id:
+                    variant_id = item.product.stockx_product_id
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Could not find matching StockX variant for size {item_size}",
+                    )
+
+            # Get amount from item pricing
+            if not item.current_price and not item.purchase_price:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Item must have current_price or purchase_price set",
+                )
+
+            amount = str(item.current_price or item.purchase_price)
 
             try:
                 # Try to create actual StockX listing
