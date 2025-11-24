@@ -54,10 +54,21 @@ class SupplierService(TransactionMixin):
         """Creates a new supplier with intelligent categorization."""
         category = self._determine_supplier_category(supplier_data.get("name", ""))
         slug = supplier_data["name"].lower().replace(" ", "-")
-        supplier = Supplier(
-            name=supplier_data["name"], slug=slug, supplier_category=category, **supplier_data
+
+        # Extract additional fields excluding name and category to avoid duplicates
+        extra_fields = {k: v for k, v in supplier_data.items() if k not in ["name", "category"]}
+
+        # Determine supplier_type if not provided (required field)
+        supplier_type = extra_fields.pop("supplier_type", "retail")  # Default to retail
+
+        # Use repository's create method with kwargs
+        supplier = await self.supplier_repo.create(
+            name=supplier_data["name"],
+            slug=slug,
+            supplier_type=supplier_type,
+            supplier_category=category,
+            **extra_fields
         )
-        await self.supplier_repo.create(supplier)
         logger.info("Supplier created", supplier_id=str(supplier.id), name=supplier.name)
         return supplier
 
@@ -71,7 +82,7 @@ class SupplierService(TransactionMixin):
         ]
         created_ids = []
         for sup_data in notion_suppliers:
-            existing = await self.supplier_repo.get_by_attribute("name", sup_data["name"])
+            existing = await self.supplier_repo.find_one(name=sup_data["name"])
             if not existing:
                 supplier = await self.create_supplier(sup_data)
                 created_ids.append(supplier.id)
