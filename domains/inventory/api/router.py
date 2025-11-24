@@ -509,8 +509,12 @@ async def sync_inventory_from_stockx(
                         stockx_product_id = product_data.get("productId")
 
                         # Check if product exists in our database
-                        existing_product = None
-                        # TODO: Query database for existing product by name or stockx_id
+                        from sqlalchemy import select
+                        from shared.database.models import Product
+
+                        stmt = select(Product).where(Product.stockx_product_id == stockx_product_id)
+                        result = await stockx_session.execute(stmt)
+                        existing_product = result.scalar_one_or_none()
 
                         if not existing_product and stockx_product_id:
                             # Product doesn't exist - create it with StockX data
@@ -525,23 +529,51 @@ async def sync_inventory_from_stockx(
                                     stockx_product_id
                                 )
 
-                                # Create new product with StockX data
-                                new_product_data = {
-                                    "name": product_name,
-                                    "sku": product_data.get(
-                                        "styleId", f"STOCKX-{stockx_product_id[:8]}"
-                                    ),
-                                    "brand_name": "Unknown",  # Extract from product_details if available
-                                    "category_name": "Imported from StockX",
-                                    "description": f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
-                                    "stockx_product_id": stockx_product_id,
-                                    "market_data": market_data,
-                                    "product_details": product_details,
-                                }
+                                # Create product using brand/category detection services
+                                from domains.products.services.brand_service import BrandExtractorService
+                                from domains.products.services.category_service import CategoryDetectionService
 
-                                # TODO: Actually create product in database
-                                # For now, just log the creation
-                                logger.info(f"Would create product: {new_product_data}")
+                                brand_service = BrandExtractorService(stockx_session)
+                                category_service = CategoryDetectionService(stockx_session)
+
+                                # Extract brand from product name
+                                brand = await brand_service.extract_brand_from_name(
+                                    product_name, create_if_not_found=True
+                                )
+
+                                # Detect category from product name
+                                category = await category_service.detect_category_from_name(
+                                    product_name, create_if_not_found=True
+                                )
+
+                                # Generate SKU - prefer style_id from StockX
+                                style_id = product_data.get("styleId")
+                                if style_id:
+                                    sku = style_id
+                                elif stockx_product_id:
+                                    sku = f"STOCKX-{stockx_product_id}"
+                                else:
+                                    sku = f"STOCKX-UNKNOWN-{product_name[:20]}"
+
+                                # Create product in database
+                                new_product = Product(
+                                    sku=sku,
+                                    name=product_name,
+                                    brand_id=brand.id if brand else None,
+                                    category_id=category.id if category else None,
+                                    stockx_product_id=stockx_product_id,
+                                    description=f"Auto-imported from StockX listing. Product ID: {stockx_product_id}",
+                                )
+                                stockx_session.add(new_product)
+                                await stockx_session.flush()
+                                existing_product = new_product
+
+                                logger.info(
+                                    f"Created product: {product_name}",
+                                    product_id=str(new_product.id),
+                                    brand=brand.name if brand else "Unknown",
+                                    category=category.name if category else "Unknown",
+                                )
                                 products_created += 1
 
                                 if market_data:
@@ -552,32 +584,82 @@ async def sync_inventory_from_stockx(
                                     f"Failed to fetch product details for {stockx_product_id}: {product_error}"
                                 )
 
-                        # Create inventory item (mock for now)
-                        {
-                            "product_name": product_name,
-                            "size": variant_data.get("variantValue", "Unknown"),
-                            "current_price": float(listing.get("amount", 0)),
-                            "purchase_price": float(
-                                listing.get("amount", 0)
-                            ),  # Use ask price as purchase price estimate
-                            "status": "listed",  # These are already listed on StockX
-                            "stockx_listing_id": listing.get("listingId"),
-                            "stockx_product_id": stockx_product_id,
-                            "condition": "new",
-                            "listing_status": listing.get("status", "UNKNOWN"),
-                            "currency": listing.get("currencyCode", "EUR"),
-                        }
-
                         # Create inventory item in database
+                        if existing_product:
+                            from shared.database.models import Size, InventoryItem
+                            from decimal import Decimal
 
-                        # TODO: Actually create inventory item in database
-                        synced_count += 1
+                            # Get or create Size
+                            size_value = variant_data.get("variantValue", "Unknown")
+                            size_stmt = select(Size).where(
+                                Size.value == size_value,
+                                Size.region == "US"  # Default to US sizing for StockX
+                            )
+                            size_result = await stockx_session.execute(size_stmt)
+                            size = size_result.scalar_one_or_none()
+
+                            if not size:
+                                size = Size(
+                                    value=size_value,
+                                    region="US",
+                                    category_id=existing_product.category_id  # Link to product category
+                                )
+                                stockx_session.add(size)
+                                await stockx_session.flush()
+
+                            # Check if inventory item already exists for this listing
+                            listing_id = listing.get("listingId")
+                            inv_stmt = select(InventoryItem).where(
+                                InventoryItem.external_ids.contains({"stockx_listing_id": listing_id})
+                            )
+                            inv_result = await stockx_session.execute(inv_stmt)
+                            existing_inv = inv_result.scalar_one_or_none()
+
+                            if not existing_inv:
+                                # Create new inventory item
+                                amount = listing.get("amount", 0)
+                                inventory_item = InventoryItem(
+                                    product_id=existing_product.id,
+                                    size_id=size.id,
+                                    quantity=1,
+                                    status="listed_stockx",  # Listed on StockX
+                                    location="StockX",
+                                    condition="new",
+                                    purchase_price=Decimal(str(amount)),  # Use ask price as estimate
+                                    notes=f"Auto-imported from StockX listing {listing_id}",
+                                    external_ids={
+                                        "stockx_listing_id": listing_id,
+                                        "stockx_product_id": stockx_product_id,
+                                        "listing_status": listing.get("status", "UNKNOWN"),
+                                        "currency": listing.get("currencyCode", "EUR"),
+                                    },
+                                )
+                                stockx_session.add(inventory_item)
+                                await stockx_session.flush()
+                                synced_count += 1
+
+                                logger.debug(
+                                    f"Created inventory item for listing {listing_id}",
+                                    inventory_item_id=str(inventory_item.id),
+                                )
+                            else:
+                                logger.debug(f"Inventory item already exists for listing {listing_id}")
+                        else:
+                            logger.warning(f"No product found for listing {listing.get('listingId')}")
 
                     except Exception as listing_error:
                         logger.warning(
                             f"Failed to sync listing {listing.get('listingId', 'unknown')}: {listing_error}"
                         )
                         continue
+
+                # Commit all changes to database
+                await stockx_session.commit()
+                logger.info(
+                    "Inventory sync transaction committed",
+                    synced_count=synced_count,
+                    products_created=products_created,
+                )
 
                 return ResponseBuilder.success(
                     message=f"Inventory sync completed. Synced {synced_count} items, created {products_created} products, imported {market_data_imported} market data entries",
