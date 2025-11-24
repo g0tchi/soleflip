@@ -48,47 +48,47 @@ async def get_dashboard_metrics(
 
         dashboard_query = text(
             """
-            WITH 
-            -- Sales summary statistics
+            WITH
+            -- Sales summary statistics (using sales.order table)
             sales_summary AS (
                 SELECT
-                    COUNT(*) as total_transactions,
-                    SUM(sale_price) as total_revenue,
-                    AVG(sale_price) as avg_sale_price,
+                    COUNT(*) as total_orders,
+                    SUM(gross_sale) as total_revenue,
+                    AVG(gross_sale) as avg_sale_price,
                     SUM(net_profit) as total_profit,
-                    COUNT(DISTINCT DATE_TRUNC('day', transaction_date)) as active_days
+                    COUNT(DISTINCT DATE_TRUNC('day', sold_at)) as active_days
                 FROM sales.order
-                WHERE sale_price IS NOT NULL
+                WHERE gross_sale IS NOT NULL AND sold_at IS NOT NULL
             ),
             -- Top brands by revenue
             top_brands AS (
                 SELECT
                     b.name as brand_name,
-                    COUNT(t.id) as transaction_count,
-                    SUM(t.sale_price) as total_revenue,
-                    AVG(t.sale_price) as avg_price,
-                    ROW_NUMBER() OVER (ORDER BY SUM(t.sale_price) DESC) as rn
-                FROM sales.order t
-                JOIN inventory.stock i ON t.inventory_item_id = i.id
+                    COUNT(o.id) as order_count,
+                    SUM(o.gross_sale) as total_revenue,
+                    AVG(o.gross_sale) as avg_price,
+                    ROW_NUMBER() OVER (ORDER BY SUM(o.gross_sale) DESC) as rn
+                FROM sales.order o
+                JOIN inventory.stock i ON o.inventory_item_id = i.id
                 JOIN catalog.product p ON i.product_id = p.id
                 LEFT JOIN catalog.brand b ON p.brand_id = b.id
-                WHERE t.sale_price IS NOT NULL AND b.name IS NOT NULL
+                WHERE o.gross_sale IS NOT NULL AND b.name IS NOT NULL
                 GROUP BY b.name
             ),
             -- Recent activity
             recent_activity AS (
                 SELECT
-                    t.transaction_date,
-                    t.sale_price,
-                    t.net_profit,
+                    o.sold_at as order_date,
+                    o.gross_sale as sale_price,
+                    o.net_profit,
                     p.name as product_name,
                     b.name as brand_name,
-                    ROW_NUMBER() OVER (ORDER BY t.transaction_date DESC) as rn
-                FROM sales.order t
-                JOIN inventory.stock i ON t.inventory_item_id = i.id
+                    ROW_NUMBER() OVER (ORDER BY o.sold_at DESC) as rn
+                FROM sales.order o
+                JOIN inventory.stock i ON o.inventory_item_id = i.id
                 JOIN catalog.product p ON i.product_id = p.id
                 LEFT JOIN catalog.brand b ON p.brand_id = b.id
-                WHERE t.sale_price IS NOT NULL
+                WHERE o.sold_at IS NOT NULL
             ),
             -- Inventory counts
             inventory_summary AS (
@@ -100,15 +100,15 @@ async def get_dashboard_metrics(
                 FROM inventory.stock
             )
             -- Main query combining all data
-            SELECT 
+            SELECT
                 'sales' as data_type,
-                s.total_transactions,
+                s.total_orders,
                 s.total_revenue,
                 s.avg_sale_price,
                 s.total_profit,
                 s.active_days,
                 NULL::text as brand_name,
-                NULL::int as transaction_count,
+                NULL::int as order_count,
                 NULL::numeric as brand_revenue,
                 NULL::numeric as brand_avg_price,
                 NULL::timestamp as activity_date,
@@ -121,28 +121,28 @@ async def get_dashboard_metrics(
                 NULL::int as sold,
                 NULL::int as listed
             FROM sales_summary s
-            
+
             UNION ALL
-            
-            SELECT 
+
+            SELECT
                 'brand' as data_type,
                 NULL, NULL, NULL, NULL, NULL,
                 tb.brand_name,
-                tb.transaction_count,
+                tb.order_count,
                 tb.total_revenue,
                 tb.avg_price,
                 NULL, NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL, NULL
             FROM top_brands tb
             WHERE tb.rn <= 5
-            
+
             UNION ALL
-            
-            SELECT 
+
+            SELECT
                 'activity' as data_type,
                 NULL, NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL, NULL,
-                ra.transaction_date,
+                ra.order_date,
                 ra.sale_price,
                 ra.net_profit,
                 ra.product_name,
@@ -184,7 +184,7 @@ async def get_dashboard_metrics(
                 top_brands.append(
                     {
                         "name": row.brand_name,
-                        "transaction_count": row.transaction_count,
+                        "order_count": row.order_count,
                         "total_revenue": float(row.brand_revenue or 0),
                         "avg_price": float(row.brand_avg_price or 0),
                     }
@@ -230,7 +230,7 @@ async def get_dashboard_metrics(
 
         sales_data_response = {
             "recent_activity": recent_activity,
-            "total_transactions": sales_data.total_transactions if sales_data else 0,
+            "total_orders": sales_data.total_orders if sales_data else 0,
             "total_revenue": float(sales_data.total_revenue or 0) if sales_data else 0.0,
             "total_profit": float(sales_data.total_profit or 0) if sales_data else 0.0,
             "avg_sale_price": float(sales_data.avg_sale_price or 0) if sales_data else 0.0,
