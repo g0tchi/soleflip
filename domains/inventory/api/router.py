@@ -554,6 +554,7 @@ async def sync_inventory_from_stockx(
 
                         # Check if product exists in our database
                         from sqlalchemy import select
+
                         from shared.database.models import Product
 
                         stmt = select(Product).where(Product.stockx_product_id == stockx_product_id)
@@ -564,18 +565,19 @@ async def sync_inventory_from_stockx(
                             # Product doesn't exist - create it with StockX data
                             logger.info(f"Creating new product from StockX: {product_name}")
 
-                            # Get detailed product info and market data from StockX
+                            # Get market data from StockX
                             try:
-                                product_details = await stockx_service.get_product_details(
-                                    stockx_product_id
-                                )
                                 market_data = await stockx_service.get_market_data_from_stockx(
                                     stockx_product_id
                                 )
 
                                 # Create product using brand/category detection services
-                                from domains.products.services.brand_service import BrandExtractorService
-                                from domains.products.services.category_service import CategoryDetectionService
+                                from domains.products.services.brand_service import (
+                                    BrandExtractorService,
+                                )
+                                from domains.products.services.category_service import (
+                                    CategoryDetectionService,
+                                )
 
                                 brand_service = BrandExtractorService(stockx_session)
                                 category_service = CategoryDetectionService(stockx_session)
@@ -630,14 +632,15 @@ async def sync_inventory_from_stockx(
 
                         # Create inventory item in database
                         if existing_product:
-                            from shared.database.models import Size, InventoryItem
                             from decimal import Decimal
+
+                            from shared.database.models import InventoryItem, Size
 
                             # Get or create Size
                             size_value = variant_data.get("variantValue", "Unknown")
                             size_stmt = select(Size).where(
                                 Size.value == size_value,
-                                Size.region == "US"  # Default to US sizing for StockX
+                                Size.region == "US",  # Default to US sizing for StockX
                             )
                             size_result = await stockx_session.execute(size_stmt)
                             size = size_result.scalar_one_or_none()
@@ -646,7 +649,7 @@ async def sync_inventory_from_stockx(
                                 size = Size(
                                     value=size_value,
                                     region="US",
-                                    category_id=existing_product.category_id  # Link to product category
+                                    category_id=existing_product.category_id,  # Link to product category
                                 )
                                 stockx_session.add(size)
                                 await stockx_session.flush()
@@ -654,7 +657,9 @@ async def sync_inventory_from_stockx(
                             # Check if inventory item already exists for this listing
                             listing_id = listing.get("listingId")
                             inv_stmt = select(InventoryItem).where(
-                                InventoryItem.external_ids.contains({"stockx_listing_id": listing_id})
+                                InventoryItem.external_ids.contains(
+                                    {"stockx_listing_id": listing_id}
+                                )
                             )
                             inv_result = await stockx_session.execute(inv_stmt)
                             existing_inv = inv_result.scalar_one_or_none()
@@ -669,7 +674,9 @@ async def sync_inventory_from_stockx(
                                     status="listed_stockx",  # Listed on StockX
                                     location="StockX",
                                     condition="new",
-                                    purchase_price=Decimal(str(amount)),  # Use ask price as estimate
+                                    purchase_price=Decimal(
+                                        str(amount)
+                                    ),  # Use ask price as estimate
                                     notes=f"Auto-imported from StockX listing {listing_id}",
                                     external_ids={
                                         "stockx_listing_id": listing_id,
@@ -687,9 +694,13 @@ async def sync_inventory_from_stockx(
                                     inventory_item_id=str(inventory_item.id),
                                 )
                             else:
-                                logger.debug(f"Inventory item already exists for listing {listing_id}")
+                                logger.debug(
+                                    f"Inventory item already exists for listing {listing_id}"
+                                )
                         else:
-                            logger.warning(f"No product found for listing {listing.get('listingId')}")
+                            logger.warning(
+                                f"No product found for listing {listing.get('listingId')}"
+                            )
 
                     except Exception as listing_error:
                         logger.warning(
