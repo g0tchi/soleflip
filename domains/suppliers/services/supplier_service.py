@@ -67,7 +67,7 @@ class SupplierService(TransactionMixin):
             slug=slug,
             supplier_type=supplier_type,
             supplier_category=category,
-            **extra_fields
+            **extra_fields,
         )
         logger.info("Supplier created", supplier_id=str(supplier.id), name=supplier.name)
         return supplier

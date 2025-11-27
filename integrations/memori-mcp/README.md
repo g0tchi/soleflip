@@ -1,272 +1,153 @@
-# Memori MCP Server Integration
+# Memori MCP Integration - GibsonAI Memory System
 
-Memori is an open-source memory engine for LLMs, AI Agents, and Multi-Agent Systems. This integration provides memory capabilities via the Model Context Protocol (MCP) for n8n workflows and Claude Code.
+Production-ready AI memory system for SoleFlip, powered by the official [GibsonAI Memori](https://github.com/GibsonAI/memori) library.
 
-## Features
+## 🎯 Overview
 
-- **Persistent Memory**: Store and retrieve information across agent interactions
-- **Semantic Search**: Find relevant memories using natural language queries
-- **Context Injection**: Automatically provide relevant context to AI agents
-- **Multi-Namespace**: Organize memories by project, user, or domain
-- **MCP Compatible**: Works with any MCP-aware tool (n8n, Claude Code, etc.)
+This integration provides **two complementary memory interfaces**:
 
-## Quick Start
+1. **MCP Server** (Local) - For Claude Code via Model Context Protocol
+2. **HTTP API Server** (Docker) - For n8n workflows and external integrations
 
-### For Portainer Users (Recommended)
+Both servers use the same PostgreSQL database and share memory across all services.
 
-See detailed guide: **[docs/integrations/portainer-memori-deployment.md](../../docs/integrations/portainer-memori-deployment.md)**
+## 🏗️ Architecture
 
-**Quick Steps:**
-1. Open Portainer → Stacks → Your Soleflip Stack
-2. Add Environment Variable: `COMPOSE_PROFILES=memori`
-3. Update Stack
-4. Done! Memori is running
-
-### For Docker Compose CLI
-
-```bash
-# Start with Memori enabled
-docker-compose --profile memori up -d
-
-# Or add to existing stack
-docker-compose --profile memori up -d memori-mcp
+```
+┌─────────────────────────────────────────────────────────┐
+│                   SoleFlip System                        │
+├─────────────────────────────────────────────────────────┤
+│                                                           │
+│  ┌─────────────────┐         ┌──────────────────┐      │
+│  │  Claude Code    │◄────────┤  MCP Server      │      │
+│  │  (Local)        │  MCP    │  (Local Process) │      │
+│  └─────────────────┘         └──────────────────┘      │
+│                                       │                  │
+│                                       │                  │
+│                                       ▼                  │
+│                          ┌─────────────────────────┐    │
+│  ┌─────────────────┐    │   PostgreSQL 17         │    │
+│  │  n8n Workflows  │───▶│   + pgvector            │    │
+│  │  (Docker)       │    │   (memori database)     │    │
+│  └─────────────────┘    └─────────────────────────┘    │
+│           │                         ▲                   │
+│           │                         │                   │
+│           ▼                         │                   │
+│  ┌─────────────────┐                │                   │
+│  │  HTTP API       │────────────────┘                   │
+│  │  (Docker:8090)  │    PostgreSQL Connection          │
+│  └─────────────────┘                                    │
+│                                                           │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 2. Configure Environment Variables
+## ✨ Features
 
-Add to your `.env` file:
+### Core Capabilities
+- ✅ **Intelligent Content Analysis** - Uses OpenAI to analyze, categorize, and transform memories
+- ✅ **Dual-Mode Retrieval** - Conscious Ingest (working memory) + Auto Ingest (dynamic search)
+- ✅ **PostgreSQL Full-Text Search** - Keyword and entity-based search
+- ✅ **Persistent Storage** - All memories stored in PostgreSQL
+- ✅ **Namespace Isolation** - Multi-tenant support via namespaces
+- ✅ **MCP Protocol Support** - Native Claude Code integration
+- ✅ **REST API** - HTTP endpoints for external integrations
 
-```bash
-# Optional: Memori Configuration
+### Current Limitations
+- ❌ **No Semantic Vector Search** - GitHub version doesn't support embeddings yet
+  - Library uses PostgreSQL text search instead of vector similarity
+  - pgvector extension is installed and ready for future updates
+  - For most use cases, text search is sufficient
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- PostgreSQL 17 with pgvector (automatically configured)
+- OpenAI API Key
+
+### Installation
+
+1. **Environment Configuration**
+
+Already configured in root `.env`:
+\`\`\`bash
+# OpenAI API Key (required for content analysis)
+MEMORI_OPENAI_API_KEY=sk-proj-...
+
+# Memori Configuration
 MEMORI_NAMESPACE=soleflip
-MEMORI_OPENAI_API_KEY=sk-your-openai-key-here  # Optional: for embeddings
-MEMORI_LOGGING_LEVEL=INFO
-```
+MEMORI_CONSCIOUS_INGEST=true
+MEMORI_AUTO_INGEST=true
+\`\`\`
 
-### 3. Verify Service is Running
+2. **Start Services**
 
-```bash
-# Check logs
-docker-compose logs -f memori-mcp
+\`\`\`bash
+# Start PostgreSQL with pgvector
+docker compose up -d postgres
 
-# Check health
-docker-compose ps memori-mcp
-```
+# Start Memori HTTP API
+docker compose up -d memori-mcp
+\`\`\`
 
-## Available MCP Tools
+3. **Verify Installation**
 
-### 1. `store_memory`
-Store information in memory for later retrieval.
+\`\`\`bash
+curl http://localhost:8090/health
+\`\`\`
 
-**Parameters:**
-- `content` (string, required): Content to store
-- `namespace` (string, optional): Organization namespace
-- `metadata` (object, optional): Additional tags/metadata
+## 📖 Usage
 
-**Example:**
-```json
-{
-  "content": "Customer John prefers email communication over phone",
-  "namespace": "customer_preferences",
-  "metadata": {"customer_id": "123", "priority": "high"}
-}
-```
+### HTTP API Examples
 
-### 2. `search_memory`
-Search stored memories using semantic similarity.
+\`\`\`bash
+# Store memory
+curl -X POST http://localhost:8090/api/memory/store \\
+  -H "Content-Type: application/json" \\
+  -d '{"content": "Important project info", "metadata": {"category": "test"}}'
 
-**Parameters:**
-- `query` (string, required): Search query
-- `namespace` (string, optional): Namespace to search in
-- `limit` (number, optional): Max results (default: 5)
+# Search memories
+curl -X POST http://localhost:8090/api/memory/search \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "project", "limit": 5}'
+\`\`\`
 
-**Example:**
-```json
-{
-  "query": "What are John's communication preferences?",
-  "namespace": "customer_preferences",
-  "limit": 3
-}
-```
+## 🔧 Troubleshooting
 
-### 3. `get_context`
-Get relevant context for a conversation or query.
+### OpenAI API Key Issues
+If using Portainer, update key in Portainer UI (not just .env file):
+- Containers → soleflip-memori-api → Duplicate/Edit → Environment Variables
+- Change MEMORI_OPENAI_API_KEY value
+- Deploy container
 
-**Parameters:**
-- `query` (string, required): Query or conversation text
-- `namespace` (string, optional): Namespace
-- `max_memories` (number, optional): Max memories to include (default: 3)
+### Database Checks
+\`\`\`bash
+# Check memory count
+docker exec soleflip-postgres psql -U soleflip -d memori -c "SELECT COUNT(*) FROM long_term_memory;"
 
-**Example:**
-```json
-{
-  "query": "I need to contact customer John",
-  "namespace": "customer_preferences",
-  "max_memories": 3
-}
-```
+# View recent memories
+docker exec soleflip-postgres psql -U soleflip -d memori -c "SELECT processed_data->>'content', created_at FROM long_term_memory ORDER BY created_at DESC LIMIT 5;"
+\`\`\`
 
-### 4. `list_namespaces`
-List all available memory namespaces.
+## 📊 Database Schema
 
-**Example:**
-```json
-{}
-```
+Memories are stored in **4 tables**:
+- `long_term_memory` - Primary storage with AI-processed content
+- `short_term_memory` - Working memory for current context
+- `chat_history` - Full conversation tracking
+- `memories` - Legacy table (not used by GitHub version)
 
-## Integration Examples
+## 🔮 Future Enhancements
 
-### n8n Workflow Integration
+When Memori library adds embedding support:
+- Semantic vector search with pgvector
+- Similarity-based retrieval
+- Hybrid search (text + vector)
 
-1. **Add MCP Server Connection** in n8n:
-   - Go to Settings → Credentials
-   - Add new "MCP Server" credential
-   - Server URL: `http://memori-mcp:8080` (internal Docker network)
+**Note**: pgvector extension is already installed and ready for future updates!
 
-2. **Use in Workflow**:
-   - Add "MCP Tool" node
-   - Select tool: `store_memory`
-   - Configure parameters
-   - Connect to your AI Agent node
+---
 
-### Claude Code Integration
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "memori": {
-      "command": "docker",
-      "args": ["exec", "-i", "soleflip-memori-mcp", "python", "server.py"]
-    }
-  }
-}
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MEMORI_DATABASE_URL` | `postgresql://...` | PostgreSQL connection URL |
-| `MEMORI_NAMESPACE` | `soleflip` | Default namespace for memories |
-| `MEMORI_CONSCIOUS_INGEST` | `true` | Enable AI-powered ingestion |
-| `MEMORI_AUTO_INGEST` | `true` | Auto-ingest conversations |
-| `MEMORI_OPENAI_API_KEY` | - | OpenAI API key (optional) |
-| `MEMORI_LOGGING_LEVEL` | `INFO` | Logging level |
-| `MEMORI_VERBOSE` | `false` | Enable verbose logging |
-| `MEMORI_MAX_MEMORIES_PER_QUERY` | `5` | Max search results |
-| `MEMORI_CONTEXT_LIMIT` | `3` | Max memories in context |
-
-### Database
-
-Memori uses a dedicated PostgreSQL database (`memori`) in the shared PostgreSQL instance. The database is automatically created on first start.
-
-**Connection Details:**
-- Host: `postgres` (Docker network) or `localhost:5432` (external)
-- Database: `memori`
-- User: `soleflip`
-- Password: Same as `POSTGRES_PASSWORD`
-
-## Use Cases
-
-### 1. Customer Support Memory
-Store customer preferences, past issues, and solutions for context-aware support.
-
-### 2. Multi-Agent Coordination
-Share knowledge between different AI agents working on the same project.
-
-### 3. Long-Term Project Context
-Maintain project history, decisions, and context across multiple sessions.
-
-### 4. Personalized AI Assistants
-Build AI assistants that remember user preferences and past interactions.
-
-## Troubleshooting
-
-### Service Won't Start
-
-```bash
-# Check logs
-docker-compose logs memori-mcp
-
-# Verify database connection
-docker-compose exec postgres psql -U soleflip -d memori -c '\dt'
-```
-
-### Memory Not Persisting
-
-1. Check database connection in logs
-2. Verify `MEMORI_DATABASE_URL` is correct
-3. Ensure PostgreSQL `memori` database exists
-
-### Performance Issues
-
-1. Reduce `MEMORI_MAX_MEMORIES_PER_QUERY`
-2. Set `MEMORI_CONSCIOUS_INGEST=false` for faster ingestion
-3. Increase resource limits in `docker-compose.yml`
-
-## Development
-
-### Local Development
-
-```bash
-# Navigate to integration directory
-cd integrations/memori-mcp
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run locally
-export MEMORI_DATABASE_URL="postgresql://soleflip:password@localhost:5432/memori"
-python server.py
-```
-
-### Testing
-
-```bash
-# Test MCP server
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python server.py
-```
-
-## Resources
-
-- [Memori GitHub](https://github.com/GibsonAI/memori)
-- [Memori Documentation](https://docs.memori.ai)
-- [MCP Protocol Specification](https://modelcontextprotocol.io)
-- [n8n MCP Integration](https://docs.n8n.io/integrations/mcp/)
-
-## Architecture
-
-```
-┌─────────────────┐
-│   n8n Workflow  │
-│  Claude Code    │
-└────────┬────────┘
-         │ MCP Protocol
-         │
-┌────────▼────────┐
-│  Memori MCP     │
-│     Server      │
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   PostgreSQL    │
-│  (memori DB)    │
-└─────────────────┘
-```
-
-## License
-
-This integration follows the Soleflip project license. Memori itself is licensed under Apache 2.0.
-
-## Support
-
-For issues specific to this integration, open an issue in the Soleflip repository.
-For Memori-specific questions, visit [GibsonAI/memori](https://github.com/GibsonAI/memori).
+**Version**: 1.0.0 (First Production Release)
+**Backend**: GibsonAI Memori (GitHub main)
+**Status**: Production Ready ✅

@@ -7,7 +7,7 @@ version: '3.8'
 services:
   # PostgreSQL 17 - Shared database for all services
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17  # pgvector-enabled PostgreSQL 17
     container_name: soleflip-postgres
     restart: unless-stopped
     environment:

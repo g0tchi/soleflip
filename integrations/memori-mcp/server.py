@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 """
-Memori MCP Server - Full Version with Semantic Search
-Provides memory storage and retrieval with OpenAI embeddings via MCP Protocol.
+Memori MCP Server - Powered by GibsonAI Memori
+Provides memory tools for Claude Code via Model Context Protocol.
 """
-import asyncio
-import json
 import os
-from datetime import datetime
-from typing import Any, Optional
-from uuid import uuid4
+from typing import Optional
 
-import asyncpg
 import structlog
 from dotenv import load_dotenv
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from memori import Memori
 
 # Load environment variables
 load_dotenv()
@@ -31,364 +26,266 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 
-def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-    """Calculate cosine similarity between two vectors."""
-    import math
-
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
-    magnitude1 = math.sqrt(sum(a * a for a in vec1))
-    magnitude2 = math.sqrt(sum(b * b for b in vec2))
-
-    if magnitude1 == 0 or magnitude2 == 0:
-        return 0.0
-
-    return dot_product / (magnitude1 * magnitude2)
-
-
-class SimpleMemoriServer:
-    """MCP Server for memory storage with semantic search."""
+class MemoriMCPServer:
+    """MCP Server for Memori memory operations."""
 
     def __init__(self):
-        self.server = Server("memori-mcp-simple")
-        self.db_pool: Optional[asyncpg.Pool] = None
+        self.server = Server("memori-mcp")
+        self.memori: Optional[Memori] = None
         self.namespace = os.getenv("MEMORI_NAMESPACE", "soleflip")
-        self.openai_api_key = os.getenv("MEMORI_OPENAI_API_KEY")
-        self.openai_client = None
+        self.conscious_ingest = os.getenv("MEMORI_CONSCIOUS_INGEST", "true").lower() == "true"
+        self.auto_ingest = os.getenv("MEMORI_AUTO_INGEST", "true").lower() == "true"
 
-        # Initialize OpenAI client if API key is available
-        if self.openai_api_key:
-            try:
-                from openai import AsyncOpenAI
+        # Register MCP tools
+        self._register_tools()
 
-                self.openai_client = AsyncOpenAI(api_key=self.openai_api_key)
-                logger.info("openai_client_initialized", embeddings_enabled=True)
-            except ImportError:
-                logger.warning("openai_not_installed", embeddings_enabled=False)
-        else:
-            logger.info("openai_api_key_not_set", embeddings_enabled=False)
-
-        self._setup_handlers()
-
-    async def _generate_embedding(self, text: str) -> Optional[list[float]]:
-        """Generate OpenAI embedding for text."""
-        if not self.openai_client:
-            return None
-
-        try:
-            response = await self.openai_client.embeddings.create(
-                model="text-embedding-3-small", input=text
-            )
-            embedding = response.data[0].embedding
-            logger.info(
-                "embedding_generated", text_length=len(text), vector_dimension=len(embedding)
-            )
-            return embedding
-        except Exception as e:
-            logger.error("embedding_generation_failed", error=str(e))
-            return None
-
-    def _setup_handlers(self):
-        """Register MCP tool handlers."""
+    def _register_tools(self):
+        """Register all MCP tools."""
 
         @self.server.list_tools()
-        async def list_tools() -> list[Tool]:
+        async def list_tools():
             """List available memory tools."""
             return [
-                Tool(
-                    name="store_memory",
-                    description="Store information in memory with semantic embeddings",
-                    inputSchema={
+                {
+                    "name": "store_memory",
+                    "description": "Store information in memory with semantic embeddings",
+                    "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "content": {"type": "string", "description": "Content to store"},
-                            "namespace": {"type": "string", "description": "Optional namespace"},
-                            "metadata": {"type": "object", "description": "Optional metadata"},
+                            "content": {
+                                "type": "string",
+                                "description": "Content to store in memory",
+                            },
+                            "metadata": {
+                                "type": "object",
+                                "description": "Optional metadata to attach",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": f"Optional namespace (default: {self.namespace})",
+                            },
                         },
                         "required": ["content"],
                     },
-                ),
-                Tool(
-                    name="search_memory",
-                    description="Search stored memories using semantic similarity",
-                    inputSchema={
+                },
+                {
+                    "name": "search_memory",
+                    "description": "Search stored memories using dual-mode retrieval (conscious + auto)",
+                    "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query"},
-                            "namespace": {"type": "string", "description": "Optional namespace"},
-                            "limit": {"type": "number", "description": "Max results", "default": 5},
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                            },
+                            "limit": {
+                                "type": "number",
+                                "description": "Maximum number of results (default: 5)",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": f"Optional namespace (default: {self.namespace})",
+                            },
                         },
                         "required": ["query"],
                     },
-                ),
-                Tool(
-                    name="list_memories",
-                    description="List recent memories",
-                    inputSchema={
+                },
+                {
+                    "name": "list_memories",
+                    "description": "List recent memories from a namespace",
+                    "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "namespace": {"type": "string", "description": "Optional namespace"},
                             "limit": {
                                 "type": "number",
-                                "description": "Max results",
-                                "default": 10,
+                                "description": "Maximum number of memories to return (default: 10)",
+                            },
+                            "namespace": {
+                                "type": "string",
+                                "description": f"Optional namespace (default: {self.namespace})",
                             },
                         },
                     },
-                ),
+                },
             ]
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+        async def call_tool(name: str, arguments: dict):
             """Handle tool calls."""
+            if not self.memori:
+                return [
+                    {
+                        "type": "text",
+                        "text": "Error: Memori not initialized. Please check configuration.",
+                    }
+                ]
+
             try:
                 if name == "store_memory":
-                    result = await self._store_memory(arguments)
+                    return await self._store_memory(arguments)
                 elif name == "search_memory":
-                    result = await self._search_memory(arguments)
+                    return await self._search_memory(arguments)
                 elif name == "list_memories":
-                    result = await self._list_memories(arguments)
+                    return await self._list_memories(arguments)
                 else:
-                    result = {"error": f"Unknown tool: {name}"}
-
-                return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                    return [{"type": "text", "text": f"Unknown tool: {name}"}]
 
             except Exception as e:
                 logger.error("tool_call_failed", tool=name, error=str(e))
-                return [TextContent(type="text", text=json.dumps({"error": str(e)}, indent=2))]
+                return [{"type": "text", "text": f"Error: {str(e)}"}]
 
-    async def _store_memory(self, args: dict[str, Any]) -> dict[str, Any]:
-        """Store content in memory with embedding."""
-        content = args["content"]
-        namespace = args.get("namespace", self.namespace)
+    async def _store_memory(self, args: dict):
+        """Store memory using Memori library."""
+        content = args.get("content")
         metadata = args.get("metadata", {})
-        memory_id = str(uuid4())
+        namespace = args.get("namespace", self.namespace)
 
-        # Generate embedding
-        embedding = await self._generate_embedding(content)
-
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO memories (id, namespace, content, metadata, embedding, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                """,
-                memory_id,
-                namespace,
-                content,
-                json.dumps(metadata),
-                json.dumps(embedding) if embedding else None,
-                datetime.utcnow(),
-            )
+        # Use official Memori.add() - accepts text and optional metadata dict
+        self.memori.add(text=content, metadata=metadata)
 
         logger.info(
-            "memory_stored",
-            memory_id=memory_id,
+            "memory_stored_via_mcp",
             namespace=namespace,
             content_length=len(content),
-            has_embedding=embedding is not None,
+            metadata=metadata,
         )
 
-        return {
-            "success": True,
-            "memory_id": memory_id,
-            "namespace": namespace,
-            "has_embedding": embedding is not None,
-            "message": "Memory stored successfully",
-        }
-
-    async def _search_memory(self, args: dict[str, Any]) -> dict[str, Any]:
-        """Search memories using semantic similarity or fallback to text search."""
-        query = args["query"]
-        namespace = args.get("namespace", self.namespace)
-        limit = args.get("limit", 5)
-
-        # Generate embedding for query
-        query_embedding = await self._generate_embedding(query)
-
-        async with self.db_pool.acquire() as conn:
-            if query_embedding:
-                # Semantic search: fetch all memories with embeddings and rank by similarity
-                rows = await conn.fetch(
-                    """
-                    SELECT id, content, metadata, embedding, created_at
-                    FROM memories
-                    WHERE namespace = $1
-                    AND embedding IS NOT NULL
-                    """,
-                    namespace,
-                )
-
-                # Calculate similarity scores
-                results_with_scores = []
-                for row in rows:
-                    if row["embedding"]:
-                        stored_embedding = json.loads(row["embedding"])
-                        similarity = cosine_similarity(query_embedding, stored_embedding)
-                        results_with_scores.append((row, similarity))
-
-                # Sort by similarity (highest first) and limit
-                results_with_scores.sort(key=lambda x: x[1], reverse=True)
-                top_results = results_with_scores[:limit]
-
-                results = [
-                    {
-                        "id": str(row["id"]),
-                        "content": row["content"],
-                        "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
-                        "created_at": row["created_at"].isoformat(),
-                        "similarity_score": round(score, 4),
-                    }
-                    for row, score in top_results
-                ]
-
-                search_method = "semantic"
-                logger.info(
-                    "semantic_search",
-                    query=query,
-                    namespace=namespace,
-                    results_count=len(results),
-                    total_checked=len(rows),
-                )
-            else:
-                # Fallback to text search
-                rows = await conn.fetch(
-                    """
-                    SELECT id, content, metadata, created_at
-                    FROM memories
-                    WHERE namespace = $1
-                    AND content ILIKE $2
-                    ORDER BY created_at DESC
-                    LIMIT $3
-                    """,
-                    namespace,
-                    f"%{query}%",
-                    limit,
-                )
-
-                results = [
-                    {
-                        "id": str(row["id"]),
-                        "content": row["content"],
-                        "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
-                        "created_at": row["created_at"].isoformat(),
-                    }
-                    for row in rows
-                ]
-
-                search_method = "text"
-                logger.info(
-                    "text_search_fallback",
-                    query=query,
-                    namespace=namespace,
-                    results_count=len(results),
-                )
-
-        return {
-            "success": True,
-            "query": query,
-            "search_method": search_method,
-            "results": results,
-            "count": len(results),
-        }
-
-    async def _list_memories(self, args: dict[str, Any]) -> dict[str, Any]:
-        """List recent memories."""
-        namespace = args.get("namespace", self.namespace)
-        limit = args.get("limit", 10)
-
-        async with self.db_pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT id, content, metadata, embedding, created_at
-                FROM memories
-                WHERE namespace = $1
-                ORDER BY created_at DESC
-                LIMIT $2
-                """,
-                namespace,
-                limit,
-            )
-
-        results = [
+        return [
             {
-                "id": str(row["id"]),
-                "content": (
-                    row["content"][:100] + "..." if len(row["content"]) > 100 else row["content"]
-                ),
-                "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
-                "has_embedding": row["embedding"] is not None,
-                "created_at": row["created_at"].isoformat(),
+                "type": "text",
+                "text": f"✓ Memory stored successfully\n"
+                f"Namespace: {namespace}\n"
+                f"Metadata: {metadata}\n"
+                f"Content length: {len(content)} chars\n"
+                f"Mode: conscious_ingest={self.conscious_ingest}, auto_ingest={self.auto_ingest}",
             }
-            for row in rows
         ]
 
-        return {"success": True, "namespace": namespace, "memories": results, "count": len(results)}
+    async def _search_memory(self, args: dict):
+        """Search memories using Memori library's dual-mode retrieval."""
+        query = args.get("query")
+        limit = args.get("limit", 5)
+        namespace = args.get("namespace", self.namespace)
+
+        # Use official Memori.retrieve_context() with dual-mode
+        results = self.memori.retrieve_context(query, limit=limit)
+
+        logger.info(
+            "memory_search_via_mcp",
+            query=query,
+            namespace=namespace,
+            results_count=len(results),
+        )
+
+        if not results:
+            return [{"type": "text", "text": f"No memories found for query: '{query}'"}]
+
+        # Format results for Claude Code
+        output = [f"Found {len(results)} memories for query: '{query}'\n"]
+        output.append("=" * 60 + "\n\n")
+
+        for i, result in enumerate(results, 1):
+            content = result.get("content", "")
+            category = result.get("category", "")
+            importance = result.get("importance_score")
+            created_at = result.get("created_at", "")
+
+            output.append(f"**Memory {i}**\n")
+            output.append(f"Category: {category}\n")
+            if importance:
+                output.append(f"Importance: {importance:.2f}\n")
+            output.append(f"Created: {created_at}\n")
+            output.append(f"\nContent:\n{content}\n")
+            output.append("-" * 60 + "\n\n")
+
+        return [{"type": "text", "text": "".join(output)}]
+
+    async def _list_memories(self, args: dict):
+        """List memory statistics using Memori library."""
+        namespace = args.get("namespace", self.namespace)
+
+        # Use Memori.get_memory_stats()
+        stats = self.memori.get_memory_stats()
+
+        logger.info(
+            "memory_stats_via_mcp",
+            namespace=namespace,
+            stats=stats,
+        )
+
+        # Format output
+        output = [f"Memory Statistics for '{namespace}' namespace:\n"]
+        output.append("=" * 60 + "\n\n")
+
+        for key, value in stats.items():
+            output.append(f"{key}: {value}\n")
+
+        output.append(
+            "\n💡 Tip: Use search_memory with a broad query to retrieve specific memories\n"
+        )
+
+        return [{"type": "text", "text": "".join(output)}]
 
     async def initialize(self):
-        """Initialize database connection and create schema."""
+        """Initialize Memori library."""
         try:
-            # Parse DATABASE_URL
+            # Get configuration from environment (SQLAlchemy format with driver)
             db_url = os.getenv(
-                "MEMORI_DATABASE_URL", "postgresql://soleflip:password@postgres:5432/memori"
+                "MEMORI_DATABASE_URL",
+                "postgresql+psycopg2://soleflip:password@localhost:5432/memori",
             )
+            openai_api_key = os.getenv("MEMORI_OPENAI_API_KEY")
 
-            # Create connection pool
-            self.db_pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
+            if not openai_api_key:
+                logger.warning("openai_api_key_not_set", embeddings_disabled=True)
 
-            # Create schema if not exists
-            async with self.db_pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS memories (
-                        id UUID PRIMARY KEY,
-                        namespace VARCHAR(255) NOT NULL,
-                        content TEXT NOT NULL,
-                        metadata JSONB,
-                        embedding JSONB,
-                        created_at TIMESTAMP NOT NULL
-                    )
-                    """
-                )
-
-                # Create indexes
-                await conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_namespace ON memories (namespace)"
-                )
-                await conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_created_at ON memories (created_at)"
-                )
-                await conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_embedding ON memories ((embedding IS NOT NULL))"
-                )
+            # Initialize official Memori library
+            self.memori = Memori(
+                database_connect=db_url,  # Changed from connection_string
+                openai_api_key=openai_api_key,
+                namespace=self.namespace,
+                conscious_ingest=self.conscious_ingest,
+                auto_ingest=self.auto_ingest,
+                verbose=os.getenv("MEMORI_VERBOSE", "false").lower() == "true",
+            )
+            self.memori.enable()  # Required to activate Memori
 
             logger.info(
-                "memori_initialized",
+                "memori_mcp_server_initialized",
                 namespace=self.namespace,
-                embeddings_enabled=self.openai_client is not None,
+                conscious_ingest=self.conscious_ingest,
+                auto_ingest=self.auto_ingest,
+                embeddings_enabled=openai_api_key is not None,
             )
 
         except Exception as e:
-            logger.error("memori_initialization_failed", error=str(e))
+            logger.error("initialization_failed", error=str(e))
             raise
 
-    async def run(self):
-        """Run the MCP server."""
-        await self.initialize()
-
-        async with stdio_server() as (read_stream, write_stream):
-            logger.info("memori_mcp_server_started")
-            await self.server.run(
-                read_stream,
-                write_stream,
-                self.server.create_initialization_options(),
-            )
+    async def cleanup(self):
+        """Cleanup resources."""
+        if self.memori:
+            self.memori.cleanup()
+        logger.info("memori_mcp_server_stopped")
 
 
 async def main():
-    """Entry point."""
-    server = SimpleMemoriServer()
-    await server.run()
+    """Run MCP server."""
+    mcp_server = MemoriMCPServer()
+    await mcp_server.initialize()
+
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await mcp_server.server.run(
+                read_stream,
+                write_stream,
+                mcp_server.server.create_initialization_options(),
+            )
+    finally:
+        await mcp_server.cleanup()
 
 
 if __name__ == "__main__":
+    import asyncio
+
     asyncio.run(main())

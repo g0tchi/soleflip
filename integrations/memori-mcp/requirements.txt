@@ -1,15 +1,22 @@
 # Memori MCP Server Dependencies - Full Version with AI Features
-# Core dependencies + OpenAI embeddings support
+# Using official GibsonAI Memori library as backend
+
+# Official GibsonAI Memori Library - Latest from GitHub (not PyPI stable)
+git+https://github.com/GibsonAI/memori.git
 
 # HTTP Server
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
+# MCP Server Protocol
+mcp>=0.9.0
+
 # Database support
 asyncpg>=0.29.0
 pgvector>=0.2.0
+psycopg2-binary>=2.9.0  # Required for PostgreSQL with Memori
 
-# AI & Embeddings
+# AI & Embeddings (included by memori, but explicit for clarity)
 openai>=1.0.0
 numpy>=1.24.0
 

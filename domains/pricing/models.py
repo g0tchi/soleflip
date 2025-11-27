@@ -68,10 +68,23 @@ class PriceRule(Base, TimestampMixin):
         if check_date is None:
             check_date = datetime.now()
 
-        if self.effective_from > check_date:
+        # Ensure check_date is timezone-naive for comparison
+        if check_date.tzinfo is not None:
+            check_date = check_date.replace(tzinfo=None)
+
+        # Convert effective dates to naive for comparison
+        effective_from = self.effective_from
+        if effective_from.tzinfo is not None:
+            effective_from = effective_from.replace(tzinfo=None)
+
+        effective_until = self.effective_until
+        if effective_until and effective_until.tzinfo is not None:
+            effective_until = effective_until.replace(tzinfo=None)
+
+        if effective_from > check_date:
             return False
 
-        if self.effective_until and self.effective_until < check_date:
+        if effective_until and effective_until < check_date:
             return False
 
         return True
