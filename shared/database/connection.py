@@ -16,8 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 # Load environment variables from .env file
 load_dotenv()
 
-from .models import Base  # noqa: E402
 from shared.config.database import DATABASE_CONFIG  # noqa: E402
+
+from .models import Base  # noqa: E402
 
 logger = structlog.get_logger(__name__)
 
