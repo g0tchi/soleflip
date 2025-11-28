@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 load_dotenv()
 
 from .models import Base  # noqa: E402
+from shared.config.database import DATABASE_CONFIG  # noqa: E402
 
 logger = structlog.get_logger(__name__)
 
@@ -66,14 +67,16 @@ class DatabaseManager:
             "echo_pool": False,
         }
         if "sqlite" not in self.database_url:
-            # Optimized for NAS network environment
+            # Optimized configuration from TechnicalOperationsCrew analysis
             engine_args.update(
                 {
-                    "pool_size": 15,  # Increased from 5 for NAS environment
-                    "max_overflow": 20,  # Increased from 10 for burst capacity
-                    "pool_timeout": 45,  # Increased from 30 for network latency
-                    "pool_recycle": 1800,  # Keep connections fresh
-                    "pool_pre_ping": True,  # Essential for network resilience
+                    "pool_size": DATABASE_CONFIG["pool_size"],  # Optimized for production load
+                    "max_overflow": DATABASE_CONFIG["max_overflow"],  # Controlled burst capacity
+                    "pool_timeout": DATABASE_CONFIG["pool_timeout"],  # Balanced timeout
+                    "pool_recycle": DATABASE_CONFIG["pool_recycle"],  # Extended recycle time
+                    "pool_pre_ping": DATABASE_CONFIG[
+                        "pool_pre_ping"
+                    ],  # Essential for network resilience
                     "pool_reset_on_return": "commit",
                     "connect_args": {
                         "command_timeout": 60,  # Increase command timeout for NAS
