@@ -89,10 +89,11 @@ CREATE INDEX IF NOT EXISTS idx_unenriched_products
 ON catalog.product (id, sku, stockx_product_id)
 WHERE enrichment_data IS NULL OR last_enriched_at IS NULL;
 
--- Products needing enrichment update (>7 days old)
+-- Products needing enrichment update (simple index for date filtering)
+-- Note: CURRENT_DATE is not IMMUTABLE, so we use a simple index instead of a partial index
 CREATE INDEX IF NOT EXISTS idx_stale_enrichment
-ON catalog.product (id, last_enriched_at)
-WHERE last_enriched_at < CURRENT_DATE - INTERVAL '7 days';
+ON catalog.product (last_enriched_at)
+WHERE last_enriched_at IS NOT NULL;
 
 -- Active Listings: Current marketplace state
 CREATE INDEX IF NOT EXISTS idx_active_listings
@@ -100,9 +101,10 @@ ON sales.listing (id, inventory_item_id, status)
 WHERE status = 'active';
 
 -- Reserved Stock: Reservation management
-CREATE INDEX IF NOT EXISTS idx_reserved_stock
-ON inventory.stock (id, reserved_qty)
-WHERE reserved_qty > 0;
+-- Note: reserved_qty column will be added in Phase 2 (schema consolidation)
+-- CREATE INDEX IF NOT EXISTS idx_reserved_stock
+-- ON inventory.stock (id, reserved_qty)
+-- WHERE reserved_qty > 0;
 
 -- ============================================================================
 -- PART 4: Missing Foreign Key Indexes
@@ -198,8 +200,8 @@ INCLUDE (retail_price, lowest_ask, recommended_sell_faster);
 CREATE OR REPLACE VIEW analytics.index_usage_stats AS
 SELECT
   schemaname,
-  tablename,
-  indexname,
+  relname as tablename,
+  indexrelname as indexname,
   idx_scan as scans,
   idx_tup_read as tuples_read,
   idx_tup_fetch as tuples_fetched,
@@ -213,18 +215,19 @@ FROM pg_stat_user_indexes
 WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
 ORDER BY idx_scan DESC;
 
--- Create view for slow queries
-CREATE OR REPLACE VIEW analytics.slow_queries AS
-SELECT
-  LEFT(query, 100) as query_preview,
-  calls,
-  ROUND(total_exec_time::numeric / calls, 2) as avg_time_ms,
-  ROUND(total_exec_time::numeric, 2) as total_time_ms,
-  ROUND((100 * total_exec_time / SUM(total_exec_time) OVER())::numeric, 2) as pct_total_time
-FROM pg_stat_statements
-WHERE calls > 10
-ORDER BY total_exec_time DESC
-LIMIT 50;
+-- Create view for slow queries (requires pg_stat_statements extension)
+-- Note: Comment out if extension is not available
+-- CREATE OR REPLACE VIEW analytics.slow_queries AS
+-- SELECT
+--   LEFT(query, 100) as query_preview,
+--   calls,
+--   ROUND(total_exec_time::numeric / calls, 2) as avg_time_ms,
+--   ROUND(total_exec_time::numeric, 2) as total_time_ms,
+--   ROUND((100 * total_exec_time / SUM(total_exec_time) OVER())::numeric, 2) as pct_total_time
+-- FROM pg_stat_statements
+-- WHERE calls > 10
+-- ORDER BY total_exec_time DESC
+-- LIMIT 50;
 
 -- ============================================================================
 -- PART 8: Validation & Rollback
@@ -270,12 +273,12 @@ ANALYZE;
 
 -- Check index sizes
 SELECT
-  schemaname || '.' || tablename as table_name,
-  indexname,
+  schemaname || '.' || relname as table_name,
+  indexrelname as index_name,
   pg_size_pretty(pg_relation_size(indexrelid)) as size
 FROM pg_stat_user_indexes
-WHERE indexname LIKE 'idx_%'
-  AND schemaname IN ('inventory', 'sales', 'catalog', 'pricing', 'analytics')
+WHERE indexrelname LIKE 'idx_%'
+  AND schemaname IN ('inventory', 'sales', 'catalog', 'pricing', 'analytics', 'supplier')
 ORDER BY pg_relation_size(indexrelid) DESC;
 
 -- ============================================================================
@@ -303,7 +306,7 @@ DROP INDEX IF EXISTS sales.idx_pending_orders;
 DROP INDEX IF EXISTS catalog.idx_unenriched_products;
 DROP INDEX IF EXISTS catalog.idx_stale_enrichment;
 DROP INDEX IF EXISTS sales.idx_active_listings;
-DROP INDEX IF EXISTS inventory.idx_reserved_stock;
+-- DROP INDEX IF EXISTS inventory.idx_reserved_stock; -- Not created yet
 
 -- Drop monitoring views
 DROP VIEW IF EXISTS analytics.index_usage_stats;
