@@ -1,5 +1,5 @@
 -- ============================================================================
--- Phase 2: Inventory Schema Consolidation
+-- Phase 2: Inventory Schema Consolidation (FIXED)
 -- ============================================================================
 -- Generated: 2025-11-29
 -- Source: Gibson AI Analysis + Phase 1 Learnings
@@ -56,7 +56,9 @@ END $$;
 -- PART 2: Add New Columns to inventory.stock
 -- ============================================================================
 
-RAISE NOTICE 'Adding new columns to inventory.stock...';
+DO $$ BEGIN
+  RAISE NOTICE 'Adding new columns to inventory.stock...';
+END $$;
 
 -- From stock_lifecycle (unique fields)
 ALTER TABLE inventory.stock
@@ -72,13 +74,17 @@ COMMENT ON COLUMN inventory.stock.listed_on_platforms IS 'Platform listing histo
 COMMENT ON COLUMN inventory.stock.status_history IS 'Status change tracking (from stock_lifecycle)';
 COMMENT ON COLUMN inventory.stock.reserved_quantity IS 'Currently reserved units (from stock_metrics)';
 
-RAISE NOTICE 'New columns added successfully';
+DO $$ BEGIN
+  RAISE NOTICE 'New columns added successfully';
+END $$;
 
 -- ============================================================================
 -- PART 3: Create Indexes on New Columns
 -- ============================================================================
 
-RAISE NOTICE 'Creating indexes on new columns...';
+DO $$ BEGIN
+  RAISE NOTICE 'Creating indexes on new columns...';
+END $$;
 
 -- Reserved quantity index (enable Phase 1 commented index)
 CREATE INDEX IF NOT EXISTS idx_stock_reserved
@@ -94,13 +100,17 @@ CREATE INDEX IF NOT EXISTS idx_stock_status_history
 ON inventory.stock USING GIN (status_history)
 WHERE status_history IS NOT NULL;
 
-RAISE NOTICE 'Indexes created successfully';
+DO $$ BEGIN
+  RAISE NOTICE 'Indexes created successfully';
+END $$;
 
 -- ============================================================================
 -- PART 4: Backfill Data from Old Tables
 -- ============================================================================
 
-RAISE NOTICE 'Backfilling data from stock_lifecycle...';
+DO $$ BEGIN
+  RAISE NOTICE 'Backfilling data from stock_lifecycle...';
+END $$;
 
 -- Migrate stock_lifecycle data
 UPDATE inventory.stock s
@@ -122,7 +132,9 @@ BEGIN
   RAISE NOTICE 'Migrated lifecycle data for % records', migrated_count;
 END $$;
 
-RAISE NOTICE 'Backfilling data from stock_metrics...';
+DO $$ BEGIN
+  RAISE NOTICE 'Backfilling data from stock_metrics...';
+END $$;
 
 -- Migrate stock_metrics reserved_quantity
 UPDATE inventory.stock s
@@ -146,7 +158,9 @@ END $$;
 -- PART 5: Create Materialized View for Stock Metrics
 -- ============================================================================
 
-RAISE NOTICE 'Creating stock_metrics materialized view...';
+DO $$ BEGIN
+  RAISE NOTICE 'Creating stock_metrics materialized view...';
+END $$;
 
 -- Drop view if exists (for re-running script)
 DROP MATERIALIZED VIEW IF EXISTS inventory.stock_metrics_view CASCADE;
@@ -179,13 +193,17 @@ CREATE INDEX idx_stock_metrics_view_available
 ON inventory.stock_metrics_view (available_quantity)
 WHERE available_quantity > 0;
 
-RAISE NOTICE 'Materialized view created successfully';
+DO $$ BEGIN
+  RAISE NOTICE 'Materialized view created successfully';
+END $$;
 
 -- ============================================================================
 -- PART 6: Create Refresh Function
 -- ============================================================================
 
-RAISE NOTICE 'Creating refresh function...';
+DO $$ BEGIN
+  RAISE NOTICE 'Creating refresh function...';
+END $$;
 
 -- Function to refresh stock metrics view
 CREATE OR REPLACE FUNCTION inventory.refresh_stock_metrics()
@@ -208,7 +226,9 @@ SELECT inventory.refresh_stock_metrics();
 -- PART 7: Data Integrity Validation
 -- ============================================================================
 
-RAISE NOTICE 'Validating data integrity...';
+DO $$ BEGIN
+  RAISE NOTICE 'Validating data integrity...';
+END $$;
 
 DO $$
 DECLARE
@@ -259,36 +279,12 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- PART 8: Performance Comparison Query
+-- PART 8: Create Backup Tables (Safety Net)
 -- ============================================================================
 
--- This query demonstrates the performance improvement
--- Run EXPLAIN ANALYZE on both to compare
-
-RAISE NOTICE 'Performance comparison queries prepared';
-RAISE NOTICE 'Run these queries manually to compare performance:';
-RAISE NOTICE '';
-RAISE NOTICE 'OLD (4-table JOIN):';
-RAISE NOTICE 'EXPLAIN ANALYZE
-SELECT s.*, sf.*, sl.*, sm.*
-FROM inventory.stock s
-JOIN inventory.stock_financial sf ON s.id = sf.stock_id
-JOIN inventory.stock_lifecycle sl ON s.id = sl.stock_id
-JOIN inventory.stock_metrics sm ON s.id = sm.stock_id
-WHERE s.status = ''in_stock'';';
-RAISE NOTICE '';
-RAISE NOTICE 'NEW (single table):';
-RAISE NOTICE 'EXPLAIN ANALYZE
-SELECT s.*, smv.*
-FROM inventory.stock s
-LEFT JOIN inventory.stock_metrics_view smv ON s.id = smv.stock_id
-WHERE s.status = ''in_stock'';';
-
--- ============================================================================
--- PART 9: Create Backup Tables (Safety Net)
--- ============================================================================
-
-RAISE NOTICE 'Creating backup tables...';
+DO $$ BEGIN
+  RAISE NOTICE 'Creating backup tables...';
+END $$;
 
 -- Backup old tables before dropping (in Part 10)
 CREATE TABLE IF NOT EXISTS inventory.stock_financial_backup AS
@@ -300,43 +296,21 @@ SELECT * FROM inventory.stock_lifecycle;
 CREATE TABLE IF NOT EXISTS inventory.stock_metrics_backup AS
 SELECT * FROM inventory.stock_metrics;
 
-RAISE NOTICE 'Backup tables created';
-RAISE NOTICE '  stock_financial_backup: % rows', (SELECT COUNT(*) FROM inventory.stock_financial_backup);
-RAISE NOTICE '  stock_lifecycle_backup: % rows', (SELECT COUNT(*) FROM inventory.stock_lifecycle_backup);
-RAISE NOTICE '  stock_metrics_backup: % rows', (SELECT COUNT(*) FROM inventory.stock_metrics_backup);
-
--- ============================================================================
--- PART 10: Drop Old Tables (COMMENTED OUT FOR SAFETY)
--- ============================================================================
-
-RAISE NOTICE '';
-RAISE NOTICE '==================================================================';
-RAISE NOTICE 'IMPORTANT: Old tables NOT dropped automatically';
-RAISE NOTICE 'Verify everything works correctly before dropping old tables';
-RAISE NOTICE '==================================================================';
-RAISE NOTICE '';
-RAISE NOTICE 'To drop old tables after verification, run:';
-RAISE NOTICE '  DROP TABLE inventory.stock_financial CASCADE;';
-RAISE NOTICE '  DROP TABLE inventory.stock_lifecycle CASCADE;';
-RAISE NOTICE '  DROP TABLE inventory.stock_metrics CASCADE;';
-RAISE NOTICE '';
-RAISE NOTICE 'Backup tables will remain available:';
-RAISE NOTICE '  inventory.stock_financial_backup';
-RAISE NOTICE '  inventory.stock_lifecycle_backup';
-RAISE NOTICE '  inventory.stock_metrics_backup';
-
--- DO NOT drop tables automatically - require manual confirmation
--- Uncomment after 2+ weeks of successful testing in production
-
-/*
-RAISE NOTICE 'Dropping old tables...';
-
-DROP TABLE IF EXISTS inventory.stock_financial CASCADE;
-DROP TABLE IF EXISTS inventory.stock_lifecycle CASCADE;
-DROP TABLE IF EXISTS inventory.stock_metrics CASCADE;
-
-RAISE NOTICE 'Old tables dropped successfully';
-*/
+DO $$
+DECLARE
+  fin_count INTEGER;
+  life_count INTEGER;
+  met_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO fin_count FROM inventory.stock_financial_backup;
+  SELECT COUNT(*) INTO life_count FROM inventory.stock_lifecycle_backup;
+  SELECT COUNT(*) INTO met_count FROM inventory.stock_metrics_backup;
+  
+  RAISE NOTICE 'Backup tables created';
+  RAISE NOTICE '  stock_financial_backup: % rows', fin_count;
+  RAISE NOTICE '  stock_lifecycle_backup: % rows', life_count;
+  RAISE NOTICE '  stock_metrics_backup: % rows', met_count;
+END $$;
 
 -- ============================================================================
 -- FINAL VALIDATION
@@ -350,83 +324,23 @@ BEGIN
   RAISE NOTICE '==================================================================';
   RAISE NOTICE '';
   RAISE NOTICE 'Next steps:';
-  RAISE NOTICE '1. Update application code (see phase2-schema-consolidation-plan.md)';
+  RAISE NOTICE '1. Update application code (see phase2-code-migration-guide.md)';
   RAISE NOTICE '2. Run comprehensive tests';
   RAISE NOTICE '3. Monitor performance improvements';
   RAISE NOTICE '4. After 2 weeks: Drop old tables if everything is stable';
   RAISE NOTICE '';
   RAISE NOTICE 'Expected improvements:';
-  RAISE NOTICE '  - Inventory queries: 60-80% faster';
+  RAISE NOTICE '  - Inventory queries: 60-80%% faster';
   RAISE NOTICE '  - Eliminated 3 unnecessary JOINs';
   RAISE NOTICE '  - Simplified codebase';
   RAISE NOTICE '';
+  RAISE NOTICE 'IMPORTANT: Old tables NOT dropped automatically';
+  RAISE NOTICE 'Verify everything works correctly before dropping old tables';
+  RAISE NOTICE '';
+  RAISE NOTICE 'To drop old tables after verification, run:';
+  RAISE NOTICE '  DROP TABLE inventory.stock_financial CASCADE;';
+  RAISE NOTICE '  DROP TABLE inventory.stock_lifecycle CASCADE;';
+  RAISE NOTICE '  DROP TABLE inventory.stock_metrics CASCADE;';
 END $$;
 
 COMMIT;
-
--- ============================================================================
--- ROLLBACK SCRIPT (IF NEEDED)
--- ============================================================================
--- Uncomment and run if you need to rollback
-
-/*
-BEGIN;
-
-RAISE NOTICE 'Rolling back Phase 2 changes...';
-
--- Drop new columns
-ALTER TABLE inventory.stock
-  DROP COLUMN IF EXISTS listed_on_platforms,
-  DROP COLUMN IF EXISTS status_history,
-  DROP COLUMN IF EXISTS reserved_quantity;
-
--- Drop materialized view
-DROP MATERIALIZED VIEW IF EXISTS inventory.stock_metrics_view CASCADE;
-
--- Drop refresh function
-DROP FUNCTION IF EXISTS inventory.refresh_stock_metrics();
-
--- Restore from backups if tables were dropped
--- (Uncomment if old tables were dropped)
--- DROP TABLE IF EXISTS inventory.stock_financial CASCADE;
--- CREATE TABLE inventory.stock_financial AS
--- SELECT * FROM inventory.stock_financial_backup;
-
--- DROP TABLE IF EXISTS inventory.stock_lifecycle CASCADE;
--- CREATE TABLE inventory.stock_lifecycle AS
--- SELECT * FROM inventory.stock_lifecycle_backup;
-
--- DROP TABLE IF EXISTS inventory.stock_metrics CASCADE;
--- CREATE TABLE inventory.stock_metrics AS
--- SELECT * FROM inventory.stock_metrics_backup;
-
-RAISE NOTICE 'Rollback complete';
-
-COMMIT;
-*/
-
--- ============================================================================
--- MONITORING QUERIES
--- ============================================================================
-
--- Check materialized view freshness
--- SELECT
---   stock_id,
---   available_quantity,
---   reserved_quantity,
---   last_calculated_at,
---   now() - last_calculated_at as age
--- FROM inventory.stock_metrics_view
--- WHERE now() - last_calculated_at > interval '1 hour'
--- LIMIT 10;
-
--- Find records with high reservations
--- SELECT
---   s.id,
---   s.quantity,
---   s.reserved_quantity,
---   s.reserved_quantity::decimal / s.quantity * 100 as reservation_pct
--- FROM inventory.stock s
--- WHERE s.reserved_quantity > 0
--- ORDER BY reservation_pct DESC
--- LIMIT 20;
