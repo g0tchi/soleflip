@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.database.models import Brand, InventoryItem, Product
+from shared.database.models import Brand, InventoryItem, Product, StockMetricsView
 from shared.repositories import BaseRepository
 
 
@@ -164,3 +164,69 @@ class InventoryRepository(BaseRepository[InventoryItem]):
 
         result = await self.db.execute(query)
         return result.scalars().all()
+
+    # Phase 2: Schema Consolidation Methods (2025-11-29)
+
+    async def get_stock_metrics(self, stock_id: UUID) -> Optional[StockMetricsView]:
+        """
+        Get computed metrics from materialized view.
+        Note: View is refreshed hourly, data may be up to 1 hour old.
+        """
+        stmt = select(StockMetricsView).where(StockMetricsView.stock_id == stock_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_low_stock_items_with_reservations(
+        self, threshold: int = 5
+    ) -> List[InventoryItem]:
+        """
+        Get items with low available quantity.
+        Uses new available_quantity calculation (total - reserved).
+        """
+        stmt = (
+            select(InventoryItem)
+            .where(InventoryItem.quantity - InventoryItem.reserved_quantity <= threshold)
+            .where(InventoryItem.status == "in_stock")
+            .order_by(InventoryItem.quantity - InventoryItem.reserved_quantity)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def reserve_stock(self, stock_id: UUID, quantity: int) -> Optional[InventoryItem]:
+        """Reserve stock for an order (uses new reserved_quantity field)."""
+        stmt = select(InventoryItem).where(InventoryItem.id == stock_id)
+        result = await self.db.execute(stmt)
+        stock = result.scalar_one_or_none()
+
+        if not stock:
+            return None
+
+        # Check if enough available quantity
+        available = stock.quantity - (stock.reserved_quantity or 0)
+        if available < quantity:
+            raise ValueError(
+                f"Insufficient stock: {available} available, {quantity} requested"
+            )
+
+        # Update reservation
+        stock.reserved_quantity = (stock.reserved_quantity or 0) + quantity
+        await self.db.flush()
+
+        return stock
+
+    async def release_reservation(
+        self, stock_id: UUID, quantity: int
+    ) -> Optional[InventoryItem]:
+        """Release reserved stock (e.g., when order is cancelled)."""
+        stmt = select(InventoryItem).where(InventoryItem.id == stock_id)
+        result = await self.db.execute(stmt)
+        stock = result.scalar_one_or_none()
+
+        if not stock:
+            return None
+
+        # Update reservation
+        stock.reserved_quantity = max(0, (stock.reserved_quantity or 0) - quantity)
+        await self.db.flush()
+
+        return stock

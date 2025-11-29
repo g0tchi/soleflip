@@ -419,6 +419,17 @@ class InventoryItem(Base, TimestampMixin):
         nullable=True,
     )
 
+    # Phase 2: Schema Consolidation Fields (2025-11-29)
+    listed_on_platforms = Column(
+        JSONB, nullable=True, comment="Platform listing history (StockX, eBay, etc.)"
+    )
+    status_history = Column(
+        JSONB, nullable=True, comment="Historical status changes with timestamps"
+    )
+    reserved_quantity = Column(
+        Integer, nullable=False, default=0, comment="Currently reserved units"
+    )
+
     product = relationship("Product", back_populates="inventory_items")
     size = relationship("Size", back_populates="inventory_items")
     supplier_obj = relationship("Supplier", back_populates="inventory_items")
@@ -439,6 +450,78 @@ class InventoryItem(Base, TimestampMixin):
             "notes": self.notes,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "reserved_quantity": self.reserved_quantity,
+            "available_quantity": self.available_quantity,
+            "listed_on_platforms": self.listed_on_platforms,
+            "status_history": self.status_history,
+        }
+
+    @property
+    def available_quantity(self) -> int:
+        """Calculate available quantity (total - reserved)."""
+        return max(0, self.quantity - (self.reserved_quantity or 0))
+
+    def add_platform_listing(self, platform: str, listing_id: str, listed_at):
+        """Track platform listing."""
+        from datetime import datetime
+
+        if not self.listed_on_platforms:
+            self.listed_on_platforms = []
+
+        self.listed_on_platforms.append(
+            {
+                "platform": platform,
+                "listing_id": listing_id,
+                "listed_at": listed_at.isoformat() if isinstance(listed_at, datetime) else listed_at,
+                "status": "active",
+            }
+        )
+
+    def add_status_change(self, old_status: str, new_status: str, reason: str = None):
+        """Track status change."""
+        from datetime import datetime, timezone
+
+        if not self.status_history:
+            self.status_history = []
+
+        self.status_history.append(
+            {
+                "from_status": old_status,
+                "to_status": new_status,
+                "changed_at": datetime.now(timezone.utc).isoformat(),
+                "reason": reason,
+            }
+        )
+
+
+class StockMetricsView(Base):
+    """
+    Read-only materialized view for stock metrics.
+    Refreshed hourly via inventory.refresh_stock_metrics()
+    """
+
+    __tablename__ = "stock_metrics_view"
+    __table_args__ = {"schema": "inventory"} if IS_POSTGRES else None
+
+    stock_id = Column(UUID(as_uuid=True), primary_key=True)
+    total_quantity = Column(Integer, nullable=False)
+    available_quantity = Column(Integer, nullable=False)
+    reserved_quantity = Column(Integer, nullable=False, default=0)
+    total_cost = Column(Numeric(10, 2))
+    expected_profit = Column(Numeric(10, 2))
+    last_calculated_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    def to_dict(self):
+        return {
+            "stock_id": str(self.stock_id),
+            "total_quantity": self.total_quantity,
+            "available_quantity": self.available_quantity,
+            "reserved_quantity": self.reserved_quantity,
+            "total_cost": float(self.total_cost) if self.total_cost else None,
+            "expected_profit": float(self.expected_profit) if self.expected_profit else None,
+            "last_calculated_at": self.last_calculated_at.isoformat(),
         }
 
 
