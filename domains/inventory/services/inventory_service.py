@@ -392,7 +392,7 @@ class InventoryService:
             metadata={
                 "currency": listing.get("currencyCode", "EUR"),
                 "status": listing.get("status", "ACTIVE"),
-            }
+            },
         )
 
         # Phase 2: Add initial status to history
@@ -2073,23 +2073,33 @@ class InventoryService:
             True if reservation successful, False otherwise
         """
         try:
-            success = await self.inventory_repo.reserve_stock(item_id, quantity, reason)
+            # Repository returns Optional[InventoryItem] - check if not None for success
+            result = await self.inventory_repo.reserve_stock(item_id, quantity, reason)
 
-            if success:
+            if result is not None:
                 self.logger.info(
                     "Reserved inventory stock",
                     item_id=str(item_id),
                     quantity=quantity,
                     reason=reason,
                 )
+                return True
             else:
                 self.logger.warning(
-                    "Failed to reserve stock - insufficient available quantity",
+                    "Failed to reserve stock - item not found",
                     item_id=str(item_id),
                     requested_quantity=quantity,
                 )
-
-            return success
+                return False
+        except ValueError as e:
+            # Insufficient stock available
+            self.logger.warning(
+                "Failed to reserve stock - insufficient quantity",
+                item_id=str(item_id),
+                quantity=quantity,
+                error=str(e),
+            )
+            return False
         except Exception as e:
             self.logger.error(
                 "Error reserving inventory stock",
@@ -2114,23 +2124,33 @@ class InventoryService:
             True if release successful, False otherwise
         """
         try:
-            success = await self.inventory_repo.release_reservation(item_id, quantity, reason)
+            # Repository returns Optional[InventoryItem] - check if not None for success
+            result = await self.inventory_repo.release_reservation(item_id, quantity, reason)
 
-            if success:
+            if result is not None:
                 self.logger.info(
                     "Released inventory reservation",
                     item_id=str(item_id),
                     quantity=quantity,
                     reason=reason,
                 )
+                return True
             else:
                 self.logger.warning(
-                    "Failed to release reservation",
+                    "Failed to release reservation - item not found",
                     item_id=str(item_id),
                     quantity=quantity,
                 )
-
-            return success
+                return False
+        except ValueError as e:
+            # Trying to release more than reserved
+            self.logger.warning(
+                "Failed to release reservation - invalid quantity",
+                item_id=str(item_id),
+                quantity=quantity,
+                error=str(e),
+            )
+            return False
         except Exception as e:
             self.logger.error(
                 "Error releasing inventory reservation",
@@ -2196,7 +2216,19 @@ class InventoryService:
                 items_found=len(items),
             )
 
-            return [item.to_dict() for item in items]
+            # Convert to dict without accessing lazy-loaded relationships
+            return [
+                {
+                    "id": str(item.id),
+                    "quantity": item.quantity,
+                    "reserved_quantity": item.reserved_quantity or 0,
+                    "available_quantity": item.available_quantity,
+                    "status": item.status,
+                    "product_id": str(item.product_id),
+                    "size_id": str(item.size_id) if item.size_id else None,
+                }
+                for item in items
+            ]
         except Exception as e:
             self.logger.error(
                 "Failed to get low stock items with reservations",

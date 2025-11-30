@@ -969,7 +969,8 @@ async def release_reservation(
 
         if not success:
             raise HTTPException(
-                status_code=400, detail="Failed to release reservation - item not found or invalid quantity"
+                status_code=400,
+                detail="Failed to release reservation - item not found or invalid quantity",
             )
 
         return ResponseBuilder.success(
@@ -999,7 +1000,8 @@ async def get_stock_metrics(
         metrics = await inventory_service.get_stock_metrics_summary()
 
         return ResponseBuilder.success(
-            message=f"Retrieved metrics for {metrics.get('total_products', 0)} products", data=metrics
+            message=f"Retrieved metrics for {metrics.get('total_products', 0)} products",
+            data=metrics,
         )
     except Exception as e:
         error_context = ErrorContext("fetch", "stock metrics")

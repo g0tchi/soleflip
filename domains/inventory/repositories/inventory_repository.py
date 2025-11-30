@@ -192,7 +192,9 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def reserve_stock(self, stock_id: UUID, quantity: int) -> Optional[InventoryItem]:
+    async def reserve_stock(
+        self, stock_id: UUID, quantity: int, reason: Optional[str] = None
+    ) -> Optional[InventoryItem]:
         """Reserve stock for an order (uses new reserved_quantity field)."""
         stmt = select(InventoryItem).where(InventoryItem.id == stock_id)
         result = await self.db.execute(stmt)
@@ -204,9 +206,7 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         # Check if enough available quantity
         available = stock.quantity - (stock.reserved_quantity or 0)
         if available < quantity:
-            raise ValueError(
-                f"Insufficient stock: {available} available, {quantity} requested"
-            )
+            raise ValueError(f"Insufficient stock: {available} available, {quantity} requested")
 
         # Update reservation
         stock.reserved_quantity = (stock.reserved_quantity or 0) + quantity
@@ -215,7 +215,7 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         return stock
 
     async def release_reservation(
-        self, stock_id: UUID, quantity: int
+        self, stock_id: UUID, quantity: int, reason: Optional[str] = None
     ) -> Optional[InventoryItem]:
         """Release reserved stock (e.g., when order is cancelled)."""
         stmt = select(InventoryItem).where(InventoryItem.id == stock_id)
@@ -225,8 +225,15 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         if not stock:
             return None
 
+        # Validate that we're not releasing more than is reserved
+        current_reserved = stock.reserved_quantity or 0
+        if quantity > current_reserved:
+            raise ValueError(
+                f"Cannot release {quantity} units - only {current_reserved} units are reserved"
+            )
+
         # Update reservation
-        stock.reserved_quantity = max(0, (stock.reserved_quantity or 0) - quantity)
+        stock.reserved_quantity = current_reserved - quantity
         await self.db.flush()
 
         return stock

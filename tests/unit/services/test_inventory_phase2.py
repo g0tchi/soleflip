@@ -2,7 +2,6 @@
 Tests for Phase 2 Inventory Features (Stock Reservations & Metrics)
 """
 
-from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -25,13 +24,16 @@ async def sample_inventory_item(db_session: AsyncSession):
     # Create category (required for Product)
     from shared.database.models import Category
 
-    category = Category(name="Test Category")
+    # Use unique slug for each test to avoid UNIQUE constraint violations
+    unique_slug = f"test-category-{uuid4().hex[:8]}"
+    category = Category(name="Test Category", slug=unique_slug)
     db_session.add(category)
     await db_session.flush()
 
-    # Create product
+    # Create product with unique SKU
+    unique_sku = f"TEST-PRODUCT-{uuid4().hex[:8]}"
     product = Product(
-        sku="TEST-PRODUCT-001",
+        sku=unique_sku,
         name="Test Product",
         description="Test product for Phase 2 testing",
         category_id=category.id,
@@ -52,7 +54,6 @@ async def sample_inventory_item(db_session: AsyncSession):
         reserved_quantity=0,
         status="in_stock",
         purchase_price=Decimal("100.00"),
-        condition="new",
         location="Warehouse A",
         listed_on_platforms=[],  # Initialize empty
         status_history=[],  # Initialize empty
@@ -86,7 +87,9 @@ class TestStockReservations:
         assert item.reserved_quantity == quantity_to_reserve
         assert item.available_quantity == 7  # 10 - 3
 
-    async def test_reserve_stock_insufficient_quantity(self, inventory_service, sample_inventory_item):
+    async def test_reserve_stock_insufficient_quantity(
+        self, inventory_service, sample_inventory_item
+    ):
         """Test reservation with insufficient available quantity"""
         item_id = sample_inventory_item.id
 
@@ -135,7 +138,9 @@ class TestStockReservations:
         assert item.reserved_quantity == 2  # 5 - 3
         assert item.available_quantity == 8  # 10 - 2
 
-    async def test_release_reservation_invalid_quantity(self, inventory_service, sample_inventory_item):
+    async def test_release_reservation_invalid_quantity(
+        self, inventory_service, sample_inventory_item
+    ):
         """Test release with quantity > reserved"""
         item_id = sample_inventory_item.id
 
@@ -169,7 +174,9 @@ class TestStatusHistory:
         item_id = sample_inventory_item.id
 
         # Update status
-        await inventory_service.update_inventory_status(item_id, "listed_stockx", "Listed on StockX")
+        await inventory_service.update_inventory_status(
+            item_id, "listed_stockx", "Listed on StockX"
+        )
 
         # Verify status history
         item = await inventory_service.inventory_repo.get_by_id(item_id)
@@ -180,8 +187,8 @@ class TestStatusHistory:
         latest_history = item.status_history[-1]
         assert latest_history["from_status"] == "in_stock"
         assert latest_history["to_status"] == "listed_stockx"
-        assert latest_history["notes"] == "Listed on StockX"
-        assert "timestamp" in latest_history
+        assert latest_history["reason"] == "Listed on StockX"  # "reason" not "notes"
+        assert "changed_at" in latest_history  # "changed_at" not "timestamp"
 
     async def test_multiple_status_changes(self, inventory_service, sample_inventory_item):
         """Test tracking multiple status changes"""
@@ -266,12 +273,15 @@ class TestStockMetrics:
         # Create category
         from shared.database.models import Category
 
-        category = Category(name="Low Stock Category")
+        # Use unique slug to avoid UNIQUE constraint violations
+        unique_slug = f"low-stock-category-{uuid4().hex[:8]}"
+        category = Category(name="Low Stock Category", slug=unique_slug)
         db_session.add(category)
         await db_session.flush()
 
-        # Create product with low stock
-        product = Product(sku="LOW-STOCK-001", name="Low Stock Product", category_id=category.id)
+        # Create product with low stock and unique SKU
+        unique_sku = f"LOW-STOCK-{uuid4().hex[:8]}"
+        product = Product(sku=unique_sku, name="Low Stock Product", category_id=category.id)
         db_session.add(product)
         await db_session.flush()
 
@@ -299,13 +309,18 @@ class TestStockMetrics:
         item_ids = [item["id"] for item in items]
         assert str(low_stock_item.id) in item_ids
 
-    async def test_low_stock_with_reservations(self, inventory_service, sample_inventory_item):
+    async def test_low_stock_with_reservations(
+        self, inventory_service, sample_inventory_item, db_session
+    ):
         """Test low stock detection considers reservations"""
         item_id = sample_inventory_item.id
 
         # Reserve stock to bring available below threshold
         # Item has 10 total, reserve 7 to leave 3 available (below threshold of 5)
         await inventory_service.reserve_inventory_stock(item_id, 7)
+
+        # Commit the reservation to ensure it's persisted
+        await db_session.commit()
 
         # Get low stock items
         items = await inventory_service.get_low_stock_items_with_reservations(threshold=5)

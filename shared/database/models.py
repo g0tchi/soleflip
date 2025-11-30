@@ -461,21 +461,33 @@ class InventoryItem(Base, TimestampMixin):
         """Calculate available quantity (total - reserved)."""
         return max(0, self.quantity - (self.reserved_quantity or 0))
 
-    def add_platform_listing(self, platform: str, listing_id: str, listed_at):
+    def add_platform_listing(
+        self,
+        platform: str,
+        listing_id: str,
+        ask_price: float = None,
+        metadata: dict = None,
+    ):
         """Track platform listing."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         if not self.listed_on_platforms:
             self.listed_on_platforms = []
 
-        self.listed_on_platforms.append(
-            {
-                "platform": platform,
-                "listing_id": listing_id,
-                "listed_at": listed_at.isoformat() if isinstance(listed_at, datetime) else listed_at,
-                "status": "active",
-            }
-        )
+        listing_entry = {
+            "platform": platform,
+            "listing_id": listing_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": "active",
+        }
+
+        # Add optional fields
+        if ask_price is not None:
+            listing_entry["ask_price"] = ask_price
+        if metadata:
+            listing_entry["metadata"] = metadata
+
+        self.listed_on_platforms.append(listing_entry)
 
     def add_status_change(self, old_status: str, new_status: str, reason: str = None):
         """Track status change."""
