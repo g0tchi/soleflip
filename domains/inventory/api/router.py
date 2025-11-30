@@ -907,3 +907,125 @@ async def export_inventory_stream(
     except Exception as e:
         logger.error("Inventory streaming export failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+# ============================================================================
+# Phase 2 Endpoints - Stock Reservations & Metrics
+# ============================================================================
+
+
+@router.post(
+    "/items/{item_id}/reserve",
+    response_model=SuccessResponse,
+    summary="Reserve Stock",
+    description="Reserve inventory stock for an order or listing (Phase 2)",
+)
+async def reserve_stock(
+    item_id: UUID = Depends(validate_inventory_item_id),
+    quantity: int = 1,
+    reason: Optional[str] = None,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """Reserve inventory stock"""
+    logger.info("Reserving stock", item_id=str(item_id), quantity=quantity, reason=reason)
+
+    try:
+        success = await inventory_service.reserve_inventory_stock(item_id, quantity, reason)
+
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to reserve stock - insufficient available quantity or item not found",
+            )
+
+        return ResponseBuilder.success(
+            message=f"Successfully reserved {quantity} unit(s)",
+            data={"item_id": str(item_id), "reserved_quantity": quantity, "reason": reason},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_context = ErrorContext("reserve", "inventory stock")
+        raise error_context.create_error_response(e)
+
+
+@router.post(
+    "/items/{item_id}/release",
+    response_model=SuccessResponse,
+    summary="Release Reservation",
+    description="Release reserved inventory stock (Phase 2)",
+)
+async def release_reservation(
+    item_id: UUID = Depends(validate_inventory_item_id),
+    quantity: int = 1,
+    reason: Optional[str] = None,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """Release reserved stock"""
+    logger.info("Releasing reservation", item_id=str(item_id), quantity=quantity, reason=reason)
+
+    try:
+        success = await inventory_service.release_inventory_reservation(item_id, quantity, reason)
+
+        if not success:
+            raise HTTPException(
+                status_code=400, detail="Failed to release reservation - item not found or invalid quantity"
+            )
+
+        return ResponseBuilder.success(
+            message=f"Successfully released {quantity} unit(s)",
+            data={"item_id": str(item_id), "released_quantity": quantity, "reason": reason},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_context = ErrorContext("release", "inventory reservation")
+        raise error_context.create_error_response(e)
+
+
+@router.get(
+    "/metrics",
+    response_model=SuccessResponse,
+    summary="Get Stock Metrics",
+    description="Get comprehensive stock metrics from materialized view (Phase 2)",
+)
+async def get_stock_metrics(
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """Get stock metrics summary"""
+    logger.info("Fetching stock metrics")
+
+    try:
+        metrics = await inventory_service.get_stock_metrics_summary()
+
+        return ResponseBuilder.success(
+            message=f"Retrieved metrics for {metrics.get('total_products', 0)} products", data=metrics
+        )
+    except Exception as e:
+        error_context = ErrorContext("fetch", "stock metrics")
+        raise error_context.create_error_response(e)
+
+
+@router.get(
+    "/low-stock",
+    response_model=SuccessResponse,
+    summary="Get Low Stock Items",
+    description="Get items with low available stock considering reservations (Phase 2)",
+)
+async def get_low_stock_items(
+    threshold: int = 5,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+):
+    """Get low stock items with reservation awareness"""
+    logger.info("Fetching low stock items", threshold=threshold)
+
+    try:
+        items = await inventory_service.get_low_stock_items_with_reservations(threshold)
+
+        return ResponseBuilder.success(
+            message=f"Found {len(items)} items with low stock (threshold: {threshold})",
+            data={"items": items, "threshold": threshold, "count": len(items)},
+        )
+    except Exception as e:
+        error_context = ErrorContext("fetch", "low stock items")
+        raise error_context.create_error_response(e)

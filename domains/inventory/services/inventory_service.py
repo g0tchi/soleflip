@@ -364,13 +364,14 @@ class InventoryService:
             self.db_session.add(size_obj)
             await self.db_session.flush()
 
-        # Create inventory item with comprehensive external_ids
+        # Create inventory item with comprehensive external_ids and Phase 2 fields
         inventory_item = InventoryItem(
             product_id=existing_product.id,
             size_id=size_obj.id,
             quantity=1,
             status="listed_stockx",
             purchase_price=float(listing.get("amount", 0)),
+            reserved_quantity=0,  # Phase 2: Initialize reserved quantity
             external_ids={
                 "stockx_listing_id": listing_id,
                 "stockx_product_id": product_info.get("productId"),
@@ -382,6 +383,21 @@ class InventoryService:
                 "listing_status": listing.get("status", "ACTIVE"),
             },
         )
+
+        # Phase 2: Add platform listing using model helper
+        inventory_item.add_platform_listing(
+            platform="stockx",
+            listing_id=listing_id,
+            ask_price=float(listing.get("amount", 0)),
+            metadata={
+                "currency": listing.get("currencyCode", "EUR"),
+                "status": listing.get("status", "ACTIVE"),
+            }
+        )
+
+        # Phase 2: Add initial status to history
+        inventory_item.add_status_change(None, "listed_stockx", "Created from StockX sync")
+
         self.db_session.add(inventory_item)
         await self.db_session.flush()
 
@@ -735,7 +751,7 @@ class InventoryService:
     async def update_inventory_status(
         self, inventory_id: UUID, new_status: str, notes: Optional[str] = None
     ) -> bool:
-        """Update inventory item status"""
+        """Update inventory item status with status history tracking (Phase 2)"""
         valid_statuses = [
             "in_stock",
             "listed_stockx",
@@ -747,18 +763,28 @@ class InventoryService:
         if new_status not in valid_statuses:
             raise ValueError(f"Invalid status: {new_status}. Must be one of {valid_statuses}")
 
+        # Get current item to track old status
+        item = await self.inventory_repo.get_by_id(inventory_id)
+        if not item:
+            self.logger.warning(
+                "Failed to update inventory status - item not found",
+                inventory_id=str(inventory_id),
+            )
+            return False
+
+        # Use model's helper method to add status change to history
+        old_status = item.status
+        item.add_status_change(old_status, new_status, notes)
+
+        # Update the status
         success = await self.product_repo.update_inventory_status(inventory_id, new_status, notes)
 
         if success:
             self.logger.info(
-                "Updated inventory status",
+                "Updated inventory status with history tracking",
                 inventory_id=str(inventory_id),
+                old_status=old_status,
                 new_status=new_status,
-            )
-        else:
-            self.logger.warning(
-                "Failed to update inventory status - item not found",
-                inventory_id=str(inventory_id),
             )
         return success
 
@@ -2031,3 +2057,150 @@ class InventoryService:
                 exc_info=True,
             )
             raise
+
+    async def reserve_inventory_stock(
+        self, item_id: UUID, quantity: int, reason: Optional[str] = None
+    ) -> bool:
+        """
+        Reserve stock for an order or listing (Phase 2)
+
+        Args:
+            item_id: Inventory item UUID
+            quantity: Quantity to reserve
+            reason: Optional reason for reservation
+
+        Returns:
+            True if reservation successful, False otherwise
+        """
+        try:
+            success = await self.inventory_repo.reserve_stock(item_id, quantity, reason)
+
+            if success:
+                self.logger.info(
+                    "Reserved inventory stock",
+                    item_id=str(item_id),
+                    quantity=quantity,
+                    reason=reason,
+                )
+            else:
+                self.logger.warning(
+                    "Failed to reserve stock - insufficient available quantity",
+                    item_id=str(item_id),
+                    requested_quantity=quantity,
+                )
+
+            return success
+        except Exception as e:
+            self.logger.error(
+                "Error reserving inventory stock",
+                item_id=str(item_id),
+                quantity=quantity,
+                error=str(e),
+            )
+            return False
+
+    async def release_inventory_reservation(
+        self, item_id: UUID, quantity: int, reason: Optional[str] = None
+    ) -> bool:
+        """
+        Release reserved stock (Phase 2)
+
+        Args:
+            item_id: Inventory item UUID
+            quantity: Quantity to release
+            reason: Optional reason for release
+
+        Returns:
+            True if release successful, False otherwise
+        """
+        try:
+            success = await self.inventory_repo.release_reservation(item_id, quantity, reason)
+
+            if success:
+                self.logger.info(
+                    "Released inventory reservation",
+                    item_id=str(item_id),
+                    quantity=quantity,
+                    reason=reason,
+                )
+            else:
+                self.logger.warning(
+                    "Failed to release reservation",
+                    item_id=str(item_id),
+                    quantity=quantity,
+                )
+
+            return success
+        except Exception as e:
+            self.logger.error(
+                "Error releasing inventory reservation",
+                item_id=str(item_id),
+                quantity=quantity,
+                error=str(e),
+            )
+            return False
+
+    async def get_stock_metrics_summary(self) -> Dict[str, Any]:
+        """
+        Get stock metrics from materialized view (Phase 2)
+
+        Returns:
+            Dictionary with stock metrics including available quantities
+        """
+        try:
+            metrics = await self.inventory_repo.get_stock_metrics()
+
+            self.logger.info(
+                "Retrieved stock metrics",
+                total_metrics=len(metrics),
+            )
+
+            # Convert to dict format
+            return {
+                "metrics": [
+                    {
+                        "product_id": str(m.product_id),
+                        "product_name": m.product_name,
+                        "total_quantity": m.total_quantity,
+                        "reserved_quantity": m.reserved_quantity,
+                        "available_quantity": m.available_quantity,
+                        "total_value": float(m.total_value) if m.total_value else 0.0,
+                        "status_distribution": m.status_distribution,
+                    }
+                    for m in metrics
+                ],
+                "total_products": len(metrics),
+            }
+        except Exception as e:
+            self.logger.error("Failed to get stock metrics", error=str(e))
+            return {"metrics": [], "total_products": 0, "error": str(e)}
+
+    async def get_low_stock_items_with_reservations(
+        self, threshold: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get items with low available stock (Phase 2 - considers reservations)
+
+        Args:
+            threshold: Minimum available quantity threshold
+
+        Returns:
+            List of items with low available stock
+        """
+        try:
+            items = await self.inventory_repo.get_low_stock_items_with_reservations(threshold)
+
+            self.logger.info(
+                "Retrieved low stock items with reservations",
+                threshold=threshold,
+                items_found=len(items),
+            )
+
+            return [item.to_dict() for item in items]
+        except Exception as e:
+            self.logger.error(
+                "Failed to get low stock items with reservations",
+                threshold=threshold,
+                error=str(e),
+            )
+            return []
