@@ -176,6 +176,18 @@ class InventoryRepository(BaseRepository[InventoryItem]):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_all_stock_metrics(self) -> List[StockMetricsView]:
+        """
+        Get computed metrics for ALL stock items from materialized view.
+        Note: View is refreshed hourly, data may be up to 1 hour old.
+
+        Returns:
+            List of stock metrics for all inventory items
+        """
+        stmt = select(StockMetricsView).order_by(StockMetricsView.product_name)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_low_stock_items_with_reservations(
         self, threshold: int = 5
     ) -> List[InventoryItem]:

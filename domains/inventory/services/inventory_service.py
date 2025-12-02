@@ -2162,38 +2162,40 @@ class InventoryService:
 
     async def get_stock_metrics_summary(self) -> Dict[str, Any]:
         """
-        Get stock metrics from materialized view (Phase 2)
+        Get aggregate stock metrics summary (Phase 2)
 
         Returns:
-            Dictionary with stock metrics including available quantities
+            Dictionary with overall inventory statistics including counts by status
         """
         try:
-            metrics = await self.inventory_repo.get_stock_metrics()
+            stats = await self.inventory_repo.get_inventory_stats()
 
             self.logger.info(
-                "Retrieved stock metrics",
-                total_metrics=len(metrics),
+                "Retrieved inventory statistics",
+                total_items=stats.total_items,
+                in_stock=stats.in_stock,
             )
 
-            # Convert to dict format
+            # Convert InventoryStats to dict
             return {
-                "metrics": [
-                    {
-                        "product_id": str(m.product_id),
-                        "product_name": m.product_name,
-                        "total_quantity": m.total_quantity,
-                        "reserved_quantity": m.reserved_quantity,
-                        "available_quantity": m.available_quantity,
-                        "total_value": float(m.total_value) if m.total_value else 0.0,
-                        "status_distribution": m.status_distribution,
-                    }
-                    for m in metrics
-                ],
-                "total_products": len(metrics),
+                "total_items": stats.total_items,
+                "in_stock": stats.in_stock,
+                "sold": stats.sold,
+                "listed": stats.listed,
+                "total_value": float(stats.total_value),
+                "avg_purchase_price": float(stats.avg_purchase_price),
             }
         except Exception as e:
             self.logger.error("Failed to get stock metrics", error=str(e))
-            return {"metrics": [], "total_products": 0, "error": str(e)}
+            return {
+                "total_items": 0,
+                "in_stock": 0,
+                "sold": 0,
+                "listed": 0,
+                "total_value": 0.0,
+                "avg_purchase_price": 0.0,
+                "error": str(e),
+            }
 
     async def get_low_stock_items_with_reservations(
         self, threshold: int = 5

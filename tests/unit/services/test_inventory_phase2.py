@@ -264,9 +264,14 @@ class TestStockMetrics:
         metrics = await inventory_service.get_stock_metrics_summary()
 
         assert metrics is not None
-        assert "metrics" in metrics
-        assert "total_products" in metrics
-        assert isinstance(metrics["metrics"], list)
+        assert "total_items" in metrics
+        assert "in_stock" in metrics
+        assert "sold" in metrics
+        assert "listed" in metrics
+        assert "total_value" in metrics
+        assert "avg_purchase_price" in metrics
+        assert isinstance(metrics["total_items"], int)
+        assert metrics["total_items"] >= 1  # At least our sample item
 
     async def test_get_low_stock_items(self, inventory_service, db_session):
         """Test retrieving items with low stock"""

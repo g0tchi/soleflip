@@ -1,0 +1,514 @@
+{
+  "name": "SoleFlipper - Automated Inventory Monitoring & Stock Management",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-1",
+      "name": "Daily Inventory Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soleflip-inventory-check",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger-1",
+      "name": "Manual Trigger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 500],
+      "webhookId": "soleflip-manual"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/v1/inventory/metrics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-get-metrics",
+      "name": "Get Stock Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/v1/inventory/low-stock",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "threshold",
+                "value": "5"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-get-low-stock",
+      "name": "Get Low Stock Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "low-stock-check",
+              "leftValue": "={{ $json.items ? $json.items.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-low-stock",
+      "name": "Check if Low Stock Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-1",
+              "name": "alert_message",
+              "value": "=⚠️ LOW STOCK ALERT\n\nTotal Low Stock Items: {{ $('Get Low Stock Items').item.json.items.length }}\n\nPlease review inventory and reorder as needed.",
+              "type": "string"
+            },
+            {
+              "id": "assign-2",
+              "name": "low_stock_count",
+              "value": "={{ $('Get Low Stock Items').item.json.items.length }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-3",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-alert-data",
+      "name": "Prepare Alert Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "item-id",
+              "name": "item_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "product-name",
+              "name": "product_name",
+              "value": "={{ $json.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "current-stock",
+              "name": "current_stock",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "sku",
+              "name": "sku",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "condition",
+              "name": "condition",
+              "value": "={{ $json.condition }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-item-details",
+      "name": "Extract Item Details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:8000/api/v1/products/{{ $json.product_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-get-product",
+      "name": "Get Product Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:8000/api/v1/inventory/items/{{ $('Extract Item Details').item.json.item_id }}/reserve",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "quantity",
+                "value": "1"
+              },
+              {
+                "name": "reason",
+                "value": "Low stock - reserved for pending review"
+              }
+            ]
+          }
+        }
+      },
+      "id": "http-reserve-stock",
+      "name": "Reserve Stock (Optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/v1/inventory/sync-from-stockx",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-sync-stockx",
+      "name": "Sync from StockX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/v1/pricing/calculate",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_id\": \"{{ $('Get Product Details').item.json.id }}\",\n  \"condition\": \"{{ $('Extract Item Details').item.json.condition }}\",\n  \"quantity\": {{ $('Extract Item Details').item.json.current_stock }}\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-calculate-pricing",
+      "name": "Calculate Smart Pricing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 700]
+    },
+    {
+      "parameters": {
+        "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"🚨 SoleFlipper Low Stock Alert\",\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": \"📦 Low Stock Alert - SoleFlipper Inventory\"\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"fields\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Total Items:*\\n{{ $('Prepare Alert Data').item.json.low_stock_count }}\"\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Timestamp:*\\n{{ $('Prepare Alert Data').item.json.timestamp }}\"\n        }\n      ]\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"{{ $('Prepare Alert Data').item.json.alert_message }}\"\n      }\n    },\n    {\n      \"type\": \"divider\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "http-slack-notification",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary-1",
+              "name": "workflow_status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "summary-2",
+              "name": "items_processed",
+              "value": "={{ $('Get Low Stock Items').item.json.items ? $('Get Low Stock Items').item.json.items.length : 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "summary-3",
+              "name": "notification_sent",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "summary-4",
+              "name": "execution_time",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-final-summary",
+      "name": "Workflow Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-action-1",
+              "name": "status",
+              "value": "no_action_needed",
+              "type": "string"
+            },
+            {
+              "id": "no-action-2",
+              "name": "message",
+              "value": "✅ All inventory levels are healthy. No low stock items found.",
+              "type": "string"
+            },
+            {
+              "id": "no-action-3",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-action",
+      "name": "No Action Required",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1120, 500]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Inventory Check": {
+      "main": [
+        [
+          {
+            "node": "Get Stock Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Stock Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stock Metrics": {
+      "main": [
+        [
+          {
+            "node": "Get Low Stock Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Low Stock Items": {
+      "main": [
+        [
+          {
+            "node": "Check if Low Stock Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Low Stock Exists": {
+      "main": [
+        [
+          {
+            "node": "Prepare Alert Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Item Details",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sync from StockX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Action Required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Alert Data": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Item Details": {
+      "main": [
+        [
+          {
+            "node": "Get Product Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Product Details": {
+      "main": [
+        [
+          {
+            "node": "Reserve Stock (Optional)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Calculate Smart Pricing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Notification": {
+      "main": [
+        [
+          {
+            "node": "Workflow Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "soleflip-inventory-monitoring"
+  },
+  "id": "soleflip-inventory-workflow",
+  "tags": []
+}
