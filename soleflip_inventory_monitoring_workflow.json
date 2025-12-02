@@ -34,7 +34,7 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8000/api/v1/inventory/metrics",
+        "url": "http://127.0.0.1:8000/api/v1/inventory/metrics",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -54,7 +54,7 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8000/api/v1/inventory/low-stock",
+        "url": "http://127.0.0.1:8000/api/v1/inventory/low-stock",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -189,7 +189,7 @@
     },
     {
       "parameters": {
-        "url": "=http://localhost:8000/api/v1/products/{{ $json.product_id }}",
+        "url": "=http://127.0.0.1:8000/api/v1/products/{{ $json.product_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -209,7 +209,7 @@
     },
     {
       "parameters": {
-        "url": "=http://localhost:8000/api/v1/inventory/items/{{ $('Extract Item Details').item.json.item_id }}/reserve",
+        "url": "=http://127.0.0.1:8000/api/v1/inventory/items/{{ $('Extract Item Details').item.json.item_id }}/reserve",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
@@ -243,7 +243,7 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8000/api/v1/inventory/sync-from-stockx",
+        "url": "http://127.0.0.1:8000/api/v1/inventory/sync-from-stockx",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
@@ -264,7 +264,7 @@
     },
     {
       "parameters": {
-        "url": "http://localhost:8000/api/v1/pricing/calculate",
+        "url": "http://127.0.0.1:8000/api/v1/pricing/calculate",
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
