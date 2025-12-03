@@ -1,0 +1,226 @@
+{
+  "name": "Webgains Product Import with Profitability (Simple)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "8c3f4a8e-1234-4321-8765-12345678abcd",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.WEBGAINS_FEED_URL || 'https://api.webgains.com/feed' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "name": "Fetch Webgains Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Example: Parse response and extract products\n// Adjust based on actual API response format\nconst products = $input.item.json.data || [];\n\nreturn products.map(product => ({\n  json: {\n    ean: product.ean,\n    sku: product.sku,\n    brand: product.brand,\n    product_name: product.name,\n    supplier_price: parseFloat(product.price),\n    category: product.category,\n    size: product.size,\n    color: product.color,\n    image_url: product.image,\n    merchant_id: product.merchant_id,\n    source: 'webgains'\n  }\n}));"
+      },
+      "id": "b2c3d4e5-6789-01bc-def0-23456789abcd",
+      "name": "Parse Feed Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pricing/evaluate-profitability",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"ean\": $json.ean,\n  \"sku\": $json.sku,\n  \"supplier_price\": $json.supplier_price,\n  \"brand\": $json.brand,\n  \"model\": $json.product_name,\n  \"size\": $json.size\n} }}",
+        "options": {
+          "retry": {
+            "enabled": true,
+            "maxTries": 2,
+            "waitBetween": 1000
+          }
+        }
+      },
+      "id": "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+      "name": "Check Profitability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge profitability data back to product\nconst productData = $input.first().json;\nconst profitabilityData = $input.last().json;\n\nreturn [{\n  json: {\n    ...productData,\n    profitable: profitabilityData.profitable,\n    margin_percent: profitabilityData.margin_percent,\n    absolute_profit: profitabilityData.absolute_profit,\n    market_price: profitabilityData.market_price,\n    should_import: profitabilityData.should_import,\n    profitability_reason: profitabilityData.reason\n  }\n}];"
+      },
+      "id": "d4e5f6a7-8901-23de-f012-45678901abcd",
+      "name": "Merge Profitability Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.profitable }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "e5f6a7b8-9012-34ef-0123-56789012abcd",
+      "name": "Route: Profitable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/products",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"brand\": $json.brand,\n  \"name\": $json.product_name,\n  \"sku\": $json.sku,\n  \"category\": $json.category,\n  \"price\": $json.supplier_price,\n  \"currency\": \"EUR\",\n  \"size\": $json.size,\n  \"color\": $json.color,\n  \"image_url\": $json.image_url,\n  \"source\": \"webgains\",\n  \"merchant_id\": $json.merchant_id\n} }}",
+        "options": {}
+      },
+      "id": "f6a7b8c9-0123-45f0-1234-67890123abcd",
+      "name": "Import to Catalog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1450,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log unprofitable product for review\nconst product = $input.item.json;\n\nreturn [{\n  json: {\n    ean: product.ean,\n    sku: product.sku,\n    brand: product.brand,\n    product_name: product.product_name,\n    supplier_price: product.supplier_price,\n    market_price: product.market_price,\n    margin_percent: product.margin_percent,\n    reason: product.profitability_reason,\n    reviewed: 0,\n    logged_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "a7b8c9d0-1234-56f0-2345-78901234abcd",
+      "name": "Log Unprofitable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Webgains Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Webgains Feed": {
+      "main": [
+        [
+          {
+            "node": "Parse Feed Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Feed Data": {
+      "main": [
+        [
+          {
+            "node": "Check Profitability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Profitability": {
+      "main": [
+        [
+          {
+            "node": "Merge Profitability Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Profitability Data": {
+      "main": [
+        [
+          {
+            "node": "Route: Profitable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Profitable?": {
+      "main": [
+        [
+          {
+            "node": "Import to Catalog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unprofitable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-03T00:00:00.000Z",
+  "versionId": "1"
+}
