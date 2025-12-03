@@ -1,0 +1,417 @@
+{
+  "name": "Webgains Product Import with Profitability Filtering",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 2 * * *"}]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 2:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WEBGAINS_FEED_URL }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {"timeout": 300000}
+      },
+      "id": "fetch-webgains-feed",
+      "name": "Fetch Webgains Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "parseCSV",
+        "options": {
+          "delimiter": ",",
+          "skipEmptyLines": true,
+          "columnsToInclude": "ean,brand,product_name,category,price,currency,product_url,image_url,merchant_id"
+        }
+      },
+      "id": "parse-csv",
+      "name": "Parse CSV Feed",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const importId = `webgains_${new Date().toISOString().split('T')[0]}_${Date.now()}`;\nconst stats = {\n  importId: importId,\n  source: 'webgains',\n  runDate: new Date().toISOString(),\n  totalProducts: $input.all().length,\n  brandFiltered: 0,\n  categoryFiltered: 0,\n  duplicatesFound: 0,\n  profitableCount: 0,\n  unprofitableCount: 0,\n  newProducts: 0,\n  errors: 0,\n  startTime: Date.now()\n};\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport = stats;\nfor (let item of $input.all()) {\n  item.json.import_id = importId;\n  item.json.import_timestamp = stats.runDate;\n}\nreturn $input.all();"
+      },
+      "id": "generate-import-id",
+      "name": "Generate Import ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {"batchSize": 1000, "options": {}},
+      "id": "split-in-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "brand_whitelist",
+        "filterType": "object",
+        "filters": {"conditions": [{"field": "active", "operator": "equal", "value": 1}]},
+        "options": {}
+      },
+      "id": "get-brand-whitelist",
+      "name": "Get Brand Whitelist",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const whitelist = $('Get Brand Whitelist').all().map(item => ({\n  brand: item.json.brand_name,\n  variations: JSON.parse(item.json.variations || '[]')\n}));\nconst filtered = [];\nconst rejected = [];\nfor (let item of $input.all()) {\n  const productBrand = (item.json.brand || '').trim();\n  const isAllowed = whitelist.some(w => {\n    if (w.brand.toLowerCase() === productBrand.toLowerCase()) return true;\n    return w.variations.some(v => v.toLowerCase() === productBrand.toLowerCase());\n  });\n  if (isAllowed) {\n    const canonicalBrand = whitelist.find(w => \n      w.brand.toLowerCase() === productBrand.toLowerCase() ||\n      w.variations.some(v => v.toLowerCase() === productBrand.toLowerCase())\n    );\n    item.json.brand_normalized = canonicalBrand?.brand || productBrand;\n    filtered.push(item);\n  } else {\n    rejected.push(item);\n  }\n}\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.brandFiltered = rejected.length;\nreturn filtered;"
+      },
+      "id": "filter-by-brand",
+      "name": "Filter by Brand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "category_filters",
+        "filterType": "object",
+        "filters": {"conditions": [{"field": "include", "operator": "equal", "value": 1}]},
+        "options": {}
+      },
+      "id": "get-category-filters",
+      "name": "Get Category Filters",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const filters = $('Get Category Filters').all().map(item => ({\n  keyword: item.json.category_keyword.toLowerCase(),\n  matchType: item.json.match_type || 'contains'\n}));\nconst filtered = [];\nconst rejected = [];\nfor (let item of $input.all()) {\n  const category = (item.json.category || '').toLowerCase();\n  const productName = (item.json.product_name || '').toLowerCase();\n  const isAllowed = filters.some(f => {\n    const text = category + ' ' + productName;\n    switch (f.matchType) {\n      case 'exact': return text === f.keyword;\n      case 'starts_with': return text.startsWith(f.keyword);\n      case 'contains':\n      default: return text.includes(f.keyword);\n    }\n  });\n  if (isAllowed) {\n    filtered.push(item);\n  } else {\n    rejected.push(item);\n  }\n}\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.categoryFiltered = rejected.length;\nreturn filtered;"
+      },
+      "id": "filter-by-category",
+      "name": "Filter by Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleaned = [];\nfor (let item of $input.all()) {\n  const json = item.json;\n  let ean = (json.ean || '').toString().replace(/[-\\s]/g, '');\n  if (!/^\\d{8}$|^\\d{12}$|^\\d{13}$|^\\d{14}$/.test(ean)) {\n    ean = null;\n  }\n  let size = null;\n  const sizePatterns = [\n    /\\bUS\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bEU\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bUK\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bSize\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\b(\\d+\\.?\\d*)\\s*(?:US|EU|UK)\\b/i\n  ];\n  for (let pattern of sizePatterns) {\n    const match = json.product_name?.match(pattern);\n    if (match) {\n      size = match[1] || match[0];\n      break;\n    }\n  }\n  let color = null;\n  const colorMatch = json.product_name?.match(/\\b(Black|White|Red|Blue|Green|Yellow|Pink|Grey|Gray|Brown|Orange|Purple|Navy|Beige)\\b/i);\n  if (colorMatch) {\n    color = colorMatch[1];\n  }\n  cleaned.push({\n    json: {\n      ...json,\n      ean: ean,\n      brand: json.brand_normalized || json.brand,\n      size: size,\n      color: color,\n      price: parseFloat(json.price) || 0,\n      fingerprint_key: ean || `${json.brand}_${json.product_name}`.toLowerCase().replace(/\\s+/g, '_')\n    }\n  });\n}\nreturn cleaned;"
+      },
+      "id": "normalize-data",
+      "name": "Normalize Product Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "product_fingerprints",
+        "filterType": "none",
+        "options": {}
+      },
+      "id": "get-all-fingerprints",
+      "name": "Get All Fingerprints",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fingerprints = $('Get All Fingerprints').all();\nconst fingerprintMap = new Map();\nfor (let fp of fingerprints) {\n  const key = fp.json.ean_code || fp.json.fingerprint_key;\n  if (key) {\n    fingerprintMap.set(key, fp.json);\n  }\n}\nconst newProducts = [];\nconst duplicates = [];\nfor (let item of $input.all()) {\n  const key = item.json.fingerprint_key;\n  if (fingerprintMap.has(key)) {\n    const existingProduct = fingerprintMap.get(key);\n    item.json.is_duplicate = true;\n    item.json.existing_product_id = existingProduct.soleflip_product_id;\n    item.json.first_imported = existingProduct.first_imported;\n    duplicates.push(item);\n  } else {\n    item.json.is_duplicate = false;\n    newProducts.push(item);\n  }\n}\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.duplicatesFound = duplicates.length;\nreturn [...newProducts, ...duplicates];"
+      },
+      "id": "check-duplicates",
+      "name": "Check for Duplicates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/pricing/evaluate-profitability",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"ean\": $json.ean,\n  \"supplier_price\": $json.price,\n  \"brand\": $json.brand,\n  \"model\": $json.product_name,\n  \"size\": $json.size\n} }}",
+        "options": {
+          "timeout": 10000,
+          "retry": {"enabled": true, "maxRetries": 2, "waitBetween": 1000}
+        }
+      },
+      "id": "check-profitability",
+      "name": "Check Product Profitability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge profitability data back to product\nconst profitabilityData = $json;\nconst originalProduct = $node['Check for Duplicates'].item.json;\n\n// Add profitability fields to product\nconst enrichedProduct = {\n  ...originalProduct,\n  profitable: profitabilityData.profitable,\n  margin_percent: profitabilityData.margin_percent,\n  absolute_profit: profitabilityData.absolute_profit,\n  market_price: profitabilityData.market_price,\n  profitability_reason: profitabilityData.reason,\n  profitability_checked: true\n};\n\nreturn [{ json: enrichedProduct }];"
+      },
+      "id": "merge-profitability-data",
+      "name": "Merge Profitability Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2850, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "boolean": [{"value1": "={{ $json.profitable }}", "value2": true}]
+              },
+              "renameOutput": true,
+              "outputKey": "profitable"
+            },
+            {
+              "conditions": {
+                "boolean": [{"value1": "={{ $json.profitable }}", "value2": false}]
+              },
+              "renameOutput": true,
+              "outputKey": "unprofitable"
+            }
+          ]
+        }
+      },
+      "id": "route-by-profitability",
+      "name": "Route: Profitable?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [3050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTable": "unprofitable_products_review",
+        "fields": {
+          "mappings": [
+            {"fieldName": "ean", "fieldValue": "={{ $json.ean }}"},
+            {"fieldName": "brand", "fieldValue": "={{ $json.brand }}"},
+            {"fieldName": "product_name", "fieldValue": "={{ $json.product_name }}"},
+            {"fieldName": "supplier_price", "fieldValue": "={{ $json.price }}"},
+            {"fieldName": "market_price", "fieldValue": "={{ $json.market_price }}"},
+            {"fieldName": "margin_percent", "fieldValue": "={{ $json.margin_percent }}"},
+            {"fieldName": "reason", "fieldValue": "={{ $json.profitability_reason }}"},
+            {"fieldName": "import_id", "fieldValue": "={{ $json.import_id }}"},
+            {"fieldName": "reviewed", "fieldValue": 0}
+          ]
+        }
+      },
+      "id": "log-unprofitable",
+      "name": "Log Unprofitable Product",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [3250, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "string": [{"value1": "={{ $json.is_duplicate }}", "value2": "false"}]
+              },
+              "renameOutput": true,
+              "outputKey": "new_product"
+            },
+            {
+              "conditions": {
+                "string": [{"value1": "={{ $json.is_duplicate }}", "value2": "true"}]
+              },
+              "renameOutput": true,
+              "outputKey": "duplicate"
+            }
+          ]
+        }
+      },
+      "id": "route-by-duplicate-status",
+      "name": "Route: New vs Duplicate",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [3250, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/products",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "brand", "value": "={{ $json.brand }}"},
+            {"name": "name", "value": "={{ $json.product_name }}"},
+            {"name": "ean", "value": "={{ $json.ean }}"},
+            {"name": "category", "value": "={{ $json.category }}"},
+            {"name": "price", "value": "={{ $json.price }}"},
+            {"name": "currency", "value": "={{ $json.currency || 'EUR' }}"},
+            {"name": "size", "value": "={{ $json.size }}"},
+            {"name": "color", "value": "={{ $json.color }}"},
+            {"name": "image_url", "value": "={{ $json.image_url }}"},
+            {"name": "source", "value": "webgains"},
+            {"name": "merchant_id", "value": "={{ $json.merchant_id }}"},
+            {"name": "supplier_price", "value": "={{ $json.price }}"},
+            {"name": "market_price", "value": "={{ $json.market_price }}"},
+            {"name": "profit_margin", "value": "={{ $json.margin_percent }}"},
+            {"name": "profitability_status", "value": "profitable"}
+          ]
+        },
+        "options": {"timeout": 30000}
+      },
+      "id": "create-product-api",
+      "name": "Create Product in SoleFlip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3450, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTable": "product_fingerprints",
+        "fields": {
+          "mappings": [
+            {"fieldName": "ean_code", "fieldValue": "={{ $json.ean }}"},
+            {"fieldName": "brand", "fieldValue": "={{ $json.brand }}"},
+            {"fieldName": "model", "fieldValue": "={{ $json.product_name }}"},
+            {"fieldName": "color", "fieldValue": "={{ $json.color }}"},
+            {"fieldName": "size", "fieldValue": "={{ $json.size }}"},
+            {"fieldName": "source", "fieldValue": "webgains"},
+            {"fieldName": "merchant_id", "fieldValue": "={{ $json.merchant_id }}"},
+            {"fieldName": "soleflip_product_id", "fieldValue": "={{ $('Create Product in SoleFlip').item.json.id }}"},
+            {"fieldName": "fingerprint_key", "fieldValue": "={{ $json.fingerprint_key }}"},
+            {"fieldName": "first_imported", "fieldValue": "={{ $now }}"},
+            {"fieldName": "last_seen", "fieldValue": "={{ $now }}"},
+            {"fieldName": "status", "fieldValue": "active"}
+          ]
+        }
+      },
+      "id": "insert-fingerprint",
+      "name": "Insert Product Fingerprint",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [3650, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTable": "product_fingerprints",
+        "filterType": "object",
+        "filters": {
+          "conditions": [
+            {"field": "fingerprint_key", "operator": "equal", "value": "={{ $json.fingerprint_key }}"}
+          ]
+        },
+        "fields": {
+          "mappings": [{"fieldName": "last_seen", "fieldValue": "={{ $now }}"}]
+        }
+      },
+      "id": "update-last-seen",
+      "name": "Update Last Seen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [3450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const newProducts = $('Insert Product Fingerprint').all();\nconst duplicates = $('Update Last Seen').all();\nconst unprofitable = $('Log Unprofitable Product').all();\nlet successCount = 0;\nlet errorCount = 0;\nfor (let item of newProducts) {\n  if (item.json.error) {\n    errorCount++;\n  } else {\n    successCount++;\n  }\n}\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.newProducts = successCount;\nworkflowData.currentImport.errors = errorCount;\nworkflowData.currentImport.profitableCount = newProducts.length;\nworkflowData.currentImport.unprofitableCount = unprofitable.length;\nreturn [{ json: workflowData.currentImport }];"
+      },
+      "id": "aggregate-stats",
+      "name": "Aggregate Statistics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3850, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTable": "import_log",
+        "fields": {
+          "mappings": [
+            {"fieldName": "import_id", "fieldValue": "={{ $json.importId }}"},
+            {"fieldName": "source", "fieldValue": "={{ $json.source }}"},
+            {"fieldName": "run_date", "fieldValue": "={{ $json.runDate }}"},
+            {"fieldName": "total_products", "fieldValue": "={{ $json.totalProducts }}"},
+            {"fieldName": "brand_filtered", "fieldValue": "={{ $json.brandFiltered }}"},
+            {"fieldName": "category_filtered", "fieldValue": "={{ $json.categoryFiltered }}"},
+            {"fieldName": "duplicates_found", "fieldValue": "={{ $json.duplicatesFound }}"},
+            {"fieldName": "profitable_count", "fieldValue": "={{ $json.profitableCount }}"},
+            {"fieldName": "unprofitable_count", "fieldValue": "={{ $json.unprofitableCount }}"},
+            {"fieldName": "new_products", "fieldValue": "={{ $json.newProducts }}"},
+            {"fieldName": "errors", "fieldValue": "={{ $json.errors }}"},
+            {"fieldName": "duration_seconds", "fieldValue": "={{ Math.round((Date.now() - $json.startTime) / 1000) }}"},
+            {"fieldName": "status", "fieldValue": "={{ $json.errors > 0 ? 'partial' : 'success' }}"}
+          ]
+        }
+      },
+      "id": "log-import-stats",
+      "name": "Log Import Statistics",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [4050, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stats = $json;\nconst summary = `\n🎯 Webgains Product Import Complete\n\n📊 Statistics:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📦 Total Products: ${stats.totalProducts}\n🏷️  Brand Filtered: ${stats.brandFiltered}\n📂 Category Filtered: ${stats.categoryFiltered}\n🔄 Duplicates: ${stats.duplicatesFound}\n\n💰 Profitability Check:\n   ✅ Profitable: ${stats.profitableCount}\n   ❌ Unprofitable: ${stats.unprofitableCount}\n   📈 Profit Rate: ${((stats.profitableCount / (stats.profitableCount + stats.unprofitableCount)) * 100).toFixed(1)}%\n\n✅ New Products: ${stats.newProducts}\n❌ Errors: ${stats.errors}\n⏱️  Duration: ${Math.round((Date.now() - stats.startTime) / 1000)}s\n\n📈 Efficiency: ${((stats.newProducts / stats.totalProducts) * 100).toFixed(2)}% kept\n🎯 Success Rate: ${stats.errors === 0 ? '100%' : ((stats.newProducts / (stats.newProducts + stats.errors)) * 100).toFixed(2) + '%'}\n\nImport ID: ${stats.importId}\n`;\nreturn [{ json: { summary, stats } }];"
+      },
+      "id": "format-summary",
+      "name": "Format Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4250, 200]
+    }
+  ],
+  "connections": {
+    "Daily 2:00 AM": {"main": [[{"node": "Fetch Webgains Feed", "type": "main", "index": 0}]]},
+    "Fetch Webgains Feed": {"main": [[{"node": "Parse CSV Feed", "type": "main", "index": 0}]]},
+    "Parse CSV Feed": {"main": [[{"node": "Generate Import ID", "type": "main", "index": 0}]]},
+    "Generate Import ID": {"main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]},
+    "Split In Batches": {"main": [[{"node": "Get Brand Whitelist", "type": "main", "index": 0}], [{"node": "Aggregate Statistics", "type": "main", "index": 0}]]},
+    "Get Brand Whitelist": {"main": [[{"node": "Filter by Brand", "type": "main", "index": 0}]]},
+    "Filter by Brand": {"main": [[{"node": "Get Category Filters", "type": "main", "index": 0}]]},
+    "Get Category Filters": {"main": [[{"node": "Filter by Category", "type": "main", "index": 0}]]},
+    "Filter by Category": {"main": [[{"node": "Normalize Product Data", "type": "main", "index": 0}]]},
+    "Normalize Product Data": {"main": [[{"node": "Get All Fingerprints", "type": "main", "index": 0}]]},
+    "Get All Fingerprints": {"main": [[{"node": "Check for Duplicates", "type": "main", "index": 0}]]},
+    "Check for Duplicates": {"main": [[{"node": "Check Product Profitability", "type": "main", "index": 0}]]},
+    "Check Product Profitability": {"main": [[{"node": "Merge Profitability Data", "type": "main", "index": 0}]]},
+    "Merge Profitability Data": {"main": [[{"node": "Route: Profitable?", "type": "main", "index": 0}]]},
+    "Route: Profitable?": {"main": [[{"node": "Route: New vs Duplicate", "type": "main", "index": 0}], [{"node": "Log Unprofitable Product", "type": "main", "index": 0}]]},
+    "Route: New vs Duplicate": {"main": [[{"node": "Create Product in SoleFlip", "type": "main", "index": 0}], [{"node": "Update Last Seen", "type": "main", "index": 0}]]},
+    "Create Product in SoleFlip": {"main": [[{"node": "Insert Product Fingerprint", "type": "main", "index": 0}]]},
+    "Insert Product Fingerprint": {"main": [[{"node": "Aggregate Statistics", "type": "main", "index": 0}]]},
+    "Update Last Seen": {"main": [[{"node": "Aggregate Statistics", "type": "main", "index": 0}]]},
+    "Log Unprofitable Product": {"main": [[{"node": "Aggregate Statistics", "type": "main", "index": 0}]]},
+    "Aggregate Statistics": {"main": [[{"node": "Log Import Statistics", "type": "main", "index": 0}]]},
+    "Log Import Statistics": {"main": [[{"node": "Format Summary", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "staticData": null,
+  "tags": [
+    {"id": "1", "name": "product-import"},
+    {"id": "2", "name": "webgains"},
+    {"id": "3", "name": "profitability"}
+  ],
+  "pinData": {},
+  "versionId": "2.0.0"
+}

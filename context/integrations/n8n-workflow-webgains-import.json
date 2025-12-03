@@ -1,0 +1,552 @@
+{
+  "name": "Webgains Product Import with Filtering",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 2:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WEBGAINS_FEED_URL }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "fetch-webgains-feed",
+      "name": "Fetch Webgains Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "webgains_api_key",
+          "name": "Webgains API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "parseCSV",
+        "options": {
+          "delimiter": ",",
+          "skipEmptyLines": true,
+          "columnsToInclude": "ean,brand,product_name,category,price,currency,product_url,image_url,merchant_id"
+        }
+      },
+      "id": "parse-csv",
+      "name": "Parse CSV Feed",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate unique import ID\nconst importId = `webgains_${new Date().toISOString().split('T')[0]}_${Date.now()}`;\n\n// Initialize counters\nconst stats = {\n  importId: importId,\n  source: 'webgains',\n  runDate: new Date().toISOString(),\n  totalProducts: $input.all().length,\n  brandFiltered: 0,\n  categoryFiltered: 0,\n  duplicatesFound: 0,\n  newProducts: 0,\n  errors: 0,\n  startTime: Date.now()\n};\n\n// Store in workflow static data for later use\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport = stats;\n\n// Add import_id to each product\nfor (let item of $input.all()) {\n  item.json.import_id = importId;\n  item.json.import_timestamp = stats.runDate;\n}\n\nreturn $input.all();"
+      },
+      "id": "generate-import-id",
+      "name": "Generate Import ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1000,
+        "options": {}
+      },
+      "id": "split-in-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "brand_whitelist",
+        "filterType": "object",
+        "filters": {
+          "conditions": [
+            {
+              "field": "active",
+              "operator": "equal",
+              "value": 1
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-brand-whitelist",
+      "name": "Get Brand Whitelist",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get brand whitelist from previous node\nconst whitelist = $('Get Brand Whitelist').all().map(item => ({\n  brand: item.json.brand_name,\n  variations: JSON.parse(item.json.variations || '[]')\n}));\n\n// Filter products by brand\nconst filtered = [];\nconst rejected = [];\n\nfor (let item of $input.all()) {\n  const productBrand = (item.json.brand || '').trim();\n  \n  // Check if product brand matches any whitelist entry\n  const isAllowed = whitelist.some(w => {\n    // Check exact match with canonical name\n    if (w.brand.toLowerCase() === productBrand.toLowerCase()) return true;\n    \n    // Check variations\n    return w.variations.some(v => v.toLowerCase() === productBrand.toLowerCase());\n  });\n  \n  if (isAllowed) {\n    // Normalize to canonical brand name\n    const canonicalBrand = whitelist.find(w => \n      w.brand.toLowerCase() === productBrand.toLowerCase() ||\n      w.variations.some(v => v.toLowerCase() === productBrand.toLowerCase())\n    );\n    \n    item.json.brand_normalized = canonicalBrand?.brand || productBrand;\n    filtered.push(item);\n  } else {\n    rejected.push(item);\n  }\n}\n\n// Update stats\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.brandFiltered = rejected.length;\n\nconsole.log(`Brand Filter: ${filtered.length} passed, ${rejected.length} rejected`);\n\nreturn filtered;"
+      },
+      "id": "filter-by-brand",
+      "name": "Filter by Brand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "category_filters",
+        "filterType": "object",
+        "filters": {
+          "conditions": [
+            {
+              "field": "include",
+              "operator": "equal",
+              "value": 1
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-category-filters",
+      "name": "Get Category Filters",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get category filters\nconst filters = $('Get Category Filters').all().map(item => ({\n  keyword: item.json.category_keyword.toLowerCase(),\n  matchType: item.json.match_type || 'contains'\n}));\n\n// Filter products by category\nconst filtered = [];\nconst rejected = [];\n\nfor (let item of $input.all()) {\n  const category = (item.json.category || '').toLowerCase();\n  const productName = (item.json.product_name || '').toLowerCase();\n  \n  // Check if category or product name matches any filter\n  const isAllowed = filters.some(f => {\n    const text = category + ' ' + productName;\n    \n    switch (f.matchType) {\n      case 'exact':\n        return text === f.keyword;\n      case 'starts_with':\n        return text.startsWith(f.keyword);\n      case 'contains':\n      default:\n        return text.includes(f.keyword);\n    }\n  });\n  \n  if (isAllowed) {\n    filtered.push(item);\n  } else {\n    rejected.push(item);\n  }\n}\n\n// Update stats\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.categoryFiltered = rejected.length;\n\nconsole.log(`Category Filter: ${filtered.length} passed, ${rejected.length} rejected`);\n\nreturn filtered;"
+      },
+      "id": "filter-by-category",
+      "name": "Filter by Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize and clean product data\nconst cleaned = [];\n\nfor (let item of $input.all()) {\n  const json = item.json;\n  \n  // Clean EAN code (remove dashes, spaces)\n  let ean = (json.ean || '').toString().replace(/[-\\s]/g, '');\n  \n  // Validate EAN (should be 8, 12, 13, or 14 digits)\n  if (!/^\\d{8}$|^\\d{12}$|^\\d{13}$|^\\d{14}$/.test(ean)) {\n    console.log(`Invalid EAN: ${ean} for product: ${json.product_name}`);\n    // Set to null if invalid - will use fallback deduplication\n    ean = null;\n  }\n  \n  // Extract size from product name (common patterns)\n  let size = null;\n  const sizePatterns = [\n    /\\bUS\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bEU\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bUK\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\bSize\\s*(\\d+\\.?\\d*)\\b/i,\n    /\\b(\\d+\\.?\\d*)\\s*(?:US|EU|UK)\\b/i\n  ];\n  \n  for (let pattern of sizePatterns) {\n    const match = json.product_name?.match(pattern);\n    if (match) {\n      size = match[1] || match[0];\n      break;\n    }\n  }\n  \n  // Extract color/colorway\n  let color = null;\n  const colorMatch = json.product_name?.match(/\\b(Black|White|Red|Blue|Green|Yellow|Pink|Grey|Gray|Brown|Orange|Purple|Navy|Beige)\\b/i);\n  if (colorMatch) {\n    color = colorMatch[1];\n  }\n  \n  cleaned.push({\n    json: {\n      ...json,\n      ean: ean,\n      brand: json.brand_normalized || json.brand,\n      size: size,\n      color: color,\n      price: parseFloat(json.price) || 0,\n      fingerprint_key: ean || `${json.brand}_${json.product_name}`.toLowerCase().replace(/\\s+/g, '_')\n    }\n  });\n}\n\nreturn cleaned;"
+      },
+      "id": "normalize-data",
+      "name": "Normalize Product Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "product_fingerprints",
+        "filterType": "none",
+        "options": {}
+      },
+      "id": "get-all-fingerprints",
+      "name": "Get All Fingerprints",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get existing fingerprints\nconst fingerprints = $('Get All Fingerprints').all();\nconst fingerprintMap = new Map();\n\nfor (let fp of fingerprints) {\n  const key = fp.json.ean_code || fp.json.fingerprint_key;\n  if (key) {\n    fingerprintMap.set(key, fp.json);\n  }\n}\n\n// Check each product for duplicates\nconst newProducts = [];\nconst duplicates = [];\n\nfor (let item of $input.all()) {\n  const key = item.json.fingerprint_key;\n  \n  if (fingerprintMap.has(key)) {\n    // Duplicate found\n    const existingProduct = fingerprintMap.get(key);\n    item.json.is_duplicate = true;\n    item.json.existing_product_id = existingProduct.soleflip_product_id;\n    item.json.first_imported = existingProduct.first_imported;\n    duplicates.push(item);\n  } else {\n    // New product\n    item.json.is_duplicate = false;\n    newProducts.push(item);\n  }\n}\n\n// Update stats\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.duplicatesFound = duplicates.length;\n\nconsole.log(`Deduplication: ${newProducts.length} new, ${duplicates.length} duplicates`);\n\n// Return both arrays for switch node\nreturn [...newProducts, ...duplicates];"
+      },
+      "id": "check-duplicates",
+      "name": "Check for Duplicates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{ $json.is_duplicate }}",
+                    "value2": "false"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "new_product"
+            },
+            {
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{ $json.is_duplicate }}",
+                    "value2": "true"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "duplicate"
+            }
+          ]
+        }
+      },
+      "id": "route-by-duplicate-status",
+      "name": "Route: New vs Duplicate",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/products",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "brand",
+              "value": "={{ $json.brand }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.product_name }}"
+            },
+            {
+              "name": "ean",
+              "value": "={{ $json.ean }}"
+            },
+            {
+              "name": "category",
+              "value": "={{ $json.category }}"
+            },
+            {
+              "name": "price",
+              "value": "={{ $json.price }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency || 'EUR' }}"
+            },
+            {
+              "name": "size",
+              "value": "={{ $json.size }}"
+            },
+            {
+              "name": "color",
+              "value": "={{ $json.color }}"
+            },
+            {
+              "name": "image_url",
+              "value": "={{ $json.image_url }}"
+            },
+            {
+              "name": "source",
+              "value": "webgains"
+            },
+            {
+              "name": "merchant_id",
+              "value": "={{ $json.merchant_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "create-product-api",
+      "name": "Create Product in SoleFlip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2850, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "soleflip_api_key",
+          "name": "SoleFlip API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTable": "product_fingerprints",
+        "fields": {
+          "mappings": [
+            {
+              "fieldName": "ean_code",
+              "fieldValue": "={{ $json.ean }}"
+            },
+            {
+              "fieldName": "brand",
+              "fieldValue": "={{ $json.brand }}"
+            },
+            {
+              "fieldName": "model",
+              "fieldValue": "={{ $json.product_name }}"
+            },
+            {
+              "fieldName": "color",
+              "fieldValue": "={{ $json.color }}"
+            },
+            {
+              "fieldName": "size",
+              "fieldValue": "={{ $json.size }}"
+            },
+            {
+              "fieldName": "source",
+              "fieldValue": "webgains"
+            },
+            {
+              "fieldName": "merchant_id",
+              "fieldValue": "={{ $json.merchant_id }}"
+            },
+            {
+              "fieldName": "soleflip_product_id",
+              "fieldValue": "={{ $('Create Product in SoleFlip').item.json.id }}"
+            },
+            {
+              "fieldName": "fingerprint_key",
+              "fieldValue": "={{ $json.fingerprint_key }}"
+            },
+            {
+              "fieldName": "first_imported",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldName": "last_seen",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "active"
+            }
+          ]
+        }
+      },
+      "id": "insert-fingerprint",
+      "name": "Insert Product Fingerprint",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [3050, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTable": "product_fingerprints",
+        "filterType": "object",
+        "filters": {
+          "conditions": [
+            {
+              "field": "fingerprint_key",
+              "operator": "equal",
+              "value": "={{ $json.fingerprint_key }}"
+            }
+          ]
+        },
+        "fields": {
+          "mappings": [
+            {
+              "fieldName": "last_seen",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "update-last-seen",
+      "name": "Update Last Seen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [2850, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate results from both branches\nconst newProducts = $('Insert Product Fingerprint').all();\nconst duplicates = $('Update Last Seen').all();\n\n// Count successes and errors\nlet successCount = 0;\nlet errorCount = 0;\n\nfor (let item of newProducts) {\n  if (item.json.error) {\n    errorCount++;\n  } else {\n    successCount++;\n  }\n}\n\n// Update stats\nconst workflowData = $getWorkflowStaticData('global');\nworkflowData.currentImport.newProducts = successCount;\nworkflowData.currentImport.errors = errorCount;\n\nreturn [{ json: workflowData.currentImport }];"
+      },
+      "id": "aggregate-stats",
+      "name": "Aggregate Statistics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "dataTable": "import_log",
+        "fields": {
+          "mappings": [
+            {
+              "fieldName": "import_id",
+              "fieldValue": "={{ $json.importId }}"
+            },
+            {
+              "fieldName": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldName": "run_date",
+              "fieldValue": "={{ $json.runDate }}"
+            },
+            {
+              "fieldName": "total_products",
+              "fieldValue": "={{ $json.totalProducts }}"
+            },
+            {
+              "fieldName": "brand_filtered",
+              "fieldValue": "={{ $json.brandFiltered }}"
+            },
+            {
+              "fieldName": "category_filtered",
+              "fieldValue": "={{ $json.categoryFiltered }}"
+            },
+            {
+              "fieldName": "duplicates_found",
+              "fieldValue": "={{ $json.duplicatesFound }}"
+            },
+            {
+              "fieldName": "new_products",
+              "fieldValue": "={{ $json.newProducts }}"
+            },
+            {
+              "fieldName": "errors",
+              "fieldValue": "={{ $json.errors }}"
+            },
+            {
+              "fieldName": "duration_seconds",
+              "fieldValue": "={{ Math.round((Date.now() - $json.startTime) / 1000) }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.errors > 0 ? 'partial' : 'success' }}"
+            }
+          ]
+        }
+      },
+      "id": "log-import-stats",
+      "name": "Log Import Statistics",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [3450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format summary message\nconst stats = $json;\n\nconst summary = `\n🎯 Webgains Product Import Complete\n\n📊 Statistics:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📦 Total Products: ${stats.totalProducts}\n🏷️  Brand Filtered: ${stats.brandFiltered}\n📂 Category Filtered: ${stats.categoryFiltered}\n🔄 Duplicates: ${stats.duplicatesFound}\n✅ New Products: ${stats.newProducts}\n❌ Errors: ${stats.errors}\n⏱️  Duration: ${Math.round((Date.now() - stats.startTime) / 1000)}s\n\n📈 Efficiency: ${((stats.newProducts / stats.totalProducts) * 100).toFixed(2)}% kept\n🎯 Success Rate: ${stats.errors === 0 ? '100%' : ((stats.newProducts / (stats.newProducts + stats.errors)) * 100).toFixed(2) + '%'}\n\nImport ID: ${stats.importId}\n`;\n\nreturn [{ json: { summary, stats } }];"
+      },
+      "id": "format-summary",
+      "name": "Format Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3650, 300]
+    },
+    {
+      "parameters": {
+        "content": "## 📧 Send Notification (Optional)\n\nUncomment to enable email/Slack notifications:\n\n- Email: Use Gmail node\n- Slack: Use Slack node\n- Discord: Use Discord webhook\n\nMessage content available in {{ $json.summary }}",
+        "height": 240,
+        "width": 320
+      },
+      "id": "sticky-note-notification",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [3650, 500]
+    }
+  ],
+  "connections": {
+    "Daily 2:00 AM": {
+      "main": [[{ "node": "Fetch Webgains Feed", "type": "main", "index": 0 }]]
+    },
+    "Fetch Webgains Feed": {
+      "main": [[{ "node": "Parse CSV Feed", "type": "main", "index": 0 }]]
+    },
+    "Parse CSV Feed": {
+      "main": [[{ "node": "Generate Import ID", "type": "main", "index": 0 }]]
+    },
+    "Generate Import ID": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    },
+    "Split In Batches": {
+      "main": [
+        [{ "node": "Get Brand Whitelist", "type": "main", "index": 0 }],
+        [{ "node": "Aggregate Statistics", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Brand Whitelist": {
+      "main": [[{ "node": "Filter by Brand", "type": "main", "index": 0 }]]
+    },
+    "Filter by Brand": {
+      "main": [[{ "node": "Get Category Filters", "type": "main", "index": 0 }]]
+    },
+    "Get Category Filters": {
+      "main": [[{ "node": "Filter by Category", "type": "main", "index": 0 }]]
+    },
+    "Filter by Category": {
+      "main": [[{ "node": "Normalize Product Data", "type": "main", "index": 0 }]]
+    },
+    "Normalize Product Data": {
+      "main": [[{ "node": "Get All Fingerprints", "type": "main", "index": 0 }]]
+    },
+    "Get All Fingerprints": {
+      "main": [[{ "node": "Check for Duplicates", "type": "main", "index": 0 }]]
+    },
+    "Check for Duplicates": {
+      "main": [[{ "node": "Route: New vs Duplicate", "type": "main", "index": 0 }]]
+    },
+    "Route: New vs Duplicate": {
+      "main": [
+        [{ "node": "Create Product in SoleFlip", "type": "main", "index": 0 }],
+        [{ "node": "Update Last Seen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Product in SoleFlip": {
+      "main": [[{ "node": "Insert Product Fingerprint", "type": "main", "index": 0 }]]
+    },
+    "Insert Product Fingerprint": {
+      "main": [[{ "node": "Aggregate Statistics", "type": "main", "index": 0 }]]
+    },
+    "Update Last Seen": {
+      "main": [[{ "node": "Aggregate Statistics", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Statistics": {
+      "main": [[{ "node": "Log Import Statistics", "type": "main", "index": 0 }]]
+    },
+    "Log Import Statistics": {
+      "main": [[{ "node": "Format Summary", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-12-02T10:00:00.000Z",
+      "updatedAt": "2025-12-02T10:00:00.000Z",
+      "id": "1",
+      "name": "product-import"
+    },
+    {
+      "createdAt": "2025-12-02T10:00:00.000Z",
+      "updatedAt": "2025-12-02T10:00:00.000Z",
+      "id": "2",
+      "name": "webgains"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1.0.0"
+}

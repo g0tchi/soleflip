@@ -146,7 +146,7 @@ stockx_product_id = await get_stockx_product_id("HQ4276")
 ```
 
 ### 2. Product Catalog Enrichment
-**Scenario:** We have 500 products in `products.products` table with SKUs but missing StockX data
+**Scenario:** We have 500 products in `catalog.product` table with SKUs but missing StockX data
 
 **Solution:** Batch enrichment script
 
@@ -536,7 +536,7 @@ async def search_stockx_products(
 | Use Case | Trigger | Data Retrieved | Destination | Frequency |
 |----------|---------|----------------|-------------|-----------|
 | **Notion Sale Sync** | Webhook/Manual | StockX Product ID | `platforms.stockx_listings` | Real-time |
-| **Product Enrichment** | Manual Script | Full product info | `products.products` | One-time/Ad-hoc |
+| **Product Enrichment** | Manual Script | Full product info | `catalog.product` | One-time/Ad-hoc |
 | **Market Data Sync** | Celery Daily | Prices, bids, asks | `analytics.marketplace_data` | Daily 3 AM |
 | **Smart Pricing** | User Request | Current market state | Pricing Algorithm | On-demand |
 | **Inventory Import** | CSV Upload | Validate SKU exists | Validation Layer | Batch |

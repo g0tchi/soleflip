@@ -22,8 +22,8 @@ class TestPriceRule:
 
     def test_is_active_default_behavior(self):
         """Test is_active with default parameters"""
-        now = datetime.now()
-        future = datetime.now().replace(year=now.year + 1)
+        now = datetime.now(timezone.utc)
+        future = datetime.now(timezone.utc).replace(year=now.year + 1)
 
         rule = PriceRule(
             id=uuid4(),

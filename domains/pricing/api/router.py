@@ -56,6 +56,30 @@ class MarketAnalysis(BaseModel):
     recommended_action: str
 
 
+class ProfitabilityCheckRequest(BaseModel):
+    """Request model for pre-import profitability evaluation"""
+
+    ean: Optional[str] = None  # EAN from affiliate feed
+    sku: Optional[str] = None  # SKU (alternative identifier)
+    supplier_price: float
+    brand: str
+    model: str
+    size: Optional[str] = None
+
+
+class ProfitabilityCheckResponse(BaseModel):
+    """Response model for profitability evaluation"""
+
+    profitable: bool
+    margin_percent: float
+    absolute_profit: float
+    supplier_price: float
+    market_price: Optional[float]
+    should_import: bool
+    reason: str
+    min_margin_threshold: float
+
+
 def get_pricing_repository(db: AsyncSession = Depends(get_db_session)) -> PricingRepository:
     return PricingRepository(db)
 
@@ -227,6 +251,164 @@ async def get_pricing_strategies():
         },
     }
     return strategies
+
+
+@router.post(
+    "/evaluate-profitability",
+    summary="Evaluate Product Profitability (Pre-Import)",
+    description="Check if a product from affiliate feed would be profitable BEFORE importing to catalog. Used by n8n workflows.",
+    response_model=ProfitabilityCheckResponse,
+)
+async def evaluate_profitability(
+    request: ProfitabilityCheckRequest,
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Evaluate profitability of a product before import.
+
+    This endpoint is designed for n8n workflows to pre-filter products from
+    affiliate feeds (Webgains, Awin) before importing them to the catalog.
+
+    Args:
+        request: Product details including EAN, supplier price, brand, model
+
+    Returns:
+        Profitability assessment with margin calculations and import recommendation
+    """
+    logger.info(
+        "Evaluating product profitability",
+        ean=request.ean,
+        brand=request.brand,
+        supplier_price=request.supplier_price,
+    )
+
+    try:
+        # Constants (could be moved to config/env vars)
+        MIN_MARGIN_THRESHOLD = (
+            15.0  # 15% minimum margin (matches AutoListingService "Quick Turnover Items")
+        )
+        OPERATIONAL_COST_FIXED = 5.0  # €5 fixed operational cost per item
+
+        # Try to get market price from StockX or existing catalog
+        market_price = None
+        reason = ""
+
+        # Option 1: Check if product already exists in catalog by SKU or EAN
+        from sqlalchemy import select
+
+        from shared.database.models import Product
+
+        # Try to find product by SKU first (if provided), then by name matching
+        existing_product = None
+
+        if request.sku:
+            product_query = await db_session.execute(
+                select(Product).where(Product.sku == request.sku).limit(1)
+            )
+            existing_product = product_query.scalar_one_or_none()
+
+        # If no SKU match and EAN provided, try finding by product name similarity
+        # (since Product model doesn't have EAN field)
+        if not existing_product and request.ean:
+            logger.info(
+                "No SKU match, EAN lookup not supported (Product model has no EAN field)",
+                ean=request.ean,
+            )
+
+        if existing_product:
+            # Product exists in catalog - use retail price
+            market_price = (
+                float(existing_product.retail_price) if existing_product.retail_price else None
+            )
+            reason = "Market price from existing catalog entry (retail_price)"
+            logger.info(
+                "Found existing product in catalog",
+                product_id=str(existing_product.id),
+                sku=existing_product.sku,
+                market_price=market_price,
+            )
+
+        # Option 2: Try to fetch from StockX API if not in catalog
+        if not market_price:
+            try:
+                # Try to get market data from StockX
+                # Note: This requires the product to exist in StockX's catalog
+                # For truly new products, this may return None
+                # TODO: Implement StockX EAN/UPC lookup when API supports it
+                logger.info(
+                    "StockX market data lookup not yet implemented for EAN-only queries",
+                    ean=request.ean,
+                )
+                reason = "No market data available - product not in catalog or StockX"
+
+            except Exception as stockx_error:
+                logger.warning(
+                    "Failed to fetch StockX market data", ean=request.ean, error=str(stockx_error)
+                )
+                reason = f"Market data unavailable: {str(stockx_error)}"
+
+        # If still no market price, use heuristic estimation
+        if not market_price:
+            # Heuristic: Assume typical retail markup of 1.25x (25% margin) as baseline
+            # This is a fallback and should be refined with actual market data
+            market_price = request.supplier_price * 1.25
+            reason = "Estimated market price (no data available)"
+            logger.info(
+                "Using estimated market price",
+                ean=request.ean,
+                estimated_price=market_price,
+            )
+
+        # Calculate profitability metrics
+        absolute_profit = market_price - request.supplier_price - OPERATIONAL_COST_FIXED
+        margin_percent = (
+            ((market_price - request.supplier_price) / market_price) * 100
+            if market_price > 0
+            else 0.0
+        )
+
+        # Determine if profitable
+        is_profitable = margin_percent >= MIN_MARGIN_THRESHOLD and absolute_profit > 0
+        should_import = is_profitable
+
+        # Enhanced reasoning
+        if is_profitable:
+            reason = f"Profitable: {margin_percent:.1f}% margin (min: {MIN_MARGIN_THRESHOLD}%)"
+        elif absolute_profit <= 0:
+            reason = f"Unprofitable: Negative profit (€{absolute_profit:.2f})"
+        else:
+            reason = (
+                f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
+            )
+
+        response = ProfitabilityCheckResponse(
+            profitable=is_profitable,
+            margin_percent=round(margin_percent, 2),
+            absolute_profit=round(absolute_profit, 2),
+            supplier_price=request.supplier_price,
+            market_price=market_price,
+            should_import=should_import,
+            reason=reason,
+            min_margin_threshold=MIN_MARGIN_THRESHOLD,
+        )
+
+        logger.info(
+            "Profitability evaluation completed",
+            ean=request.ean,
+            profitable=is_profitable,
+            margin_percent=margin_percent,
+        )
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            "Failed to evaluate profitability",
+            ean=request.ean,
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=f"Profitability evaluation failed: {str(e)}")
 
 
 # =====================================================

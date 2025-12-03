@@ -83,9 +83,8 @@ class TestPriceRulesManagement:
         }
 
         # Act
-        with MagicMock() as mock_rule:
-            PriceRule.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_price_rule(rule_data)
+        PriceRule.__init__ = MagicMock(return_value=None)
+        _ = await pricing_repo.create_price_rule(rule_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -110,7 +109,7 @@ class TestPriceRulesManagement:
 
         # Assert
         assert result == mock_rule
-        assert result.active == False
+        assert not result.active
         assert result.priority == 5
         mock_db_session.flush.assert_awaited_once()
 
@@ -199,9 +198,8 @@ class TestBrandMultipliers:
         }
 
         # Act
-        with MagicMock() as mock_multiplier:
-            BrandMultiplier.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_brand_multiplier(multiplier_data)
+        BrandMultiplier.__init__ = MagicMock(return_value=None)
+        _ = await pricing_repo.create_brand_multiplier(multiplier_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -222,9 +220,8 @@ class TestPriceHistoryTracking:
         }
 
         # Act
-        with MagicMock() as mock_price:
-            PriceHistory.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.record_price_history(price_data)
+        PriceHistory.__init__ = MagicMock(return_value=None)
+        _ = await pricing_repo.record_price_history(price_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
@@ -380,9 +377,8 @@ class TestMarketPriceData:
         }
 
         # Act
-        with MagicMock() as mock_market_price:
-            MarketPrice.__init__ = MagicMock(return_value=None)
-            result = await pricing_repo.create_market_price(market_data)
+        MarketPrice.__init__ = MagicMock(return_value=None)
+        _ = await pricing_repo.create_market_price(market_data)
 
         # Assert
         mock_db_session.add.assert_called_once()
