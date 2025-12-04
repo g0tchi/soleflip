@@ -4,7 +4,7 @@ Advanced pricing and forecasting data models
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -66,7 +66,7 @@ class PriceRule(Base, TimestampMixin):
             return False
 
         if check_date is None:
-            check_date = datetime.now()
+            check_date = datetime.now(timezone.utc)
 
         # Ensure check_date is timezone-naive for comparison
         if check_date.tzinfo is not None:
