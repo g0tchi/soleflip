@@ -3,11 +3,13 @@ API Router for Product-related endpoints
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +23,33 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
+# Request/Response Models
+class CreateProductRequest(BaseModel):
+    """Request model for creating a new product"""
+    brand: str = Field(..., description="Brand name")
+    name: str = Field(..., alias="model", description="Product name/model")
+    sku: Optional[str] = Field(None, description="Product SKU")
+    ean: Optional[str] = Field(None, description="EAN/GTIN code")
+    price: Optional[float] = Field(None, alias="supplier_price", description="Supplier price")
+    currency: str = Field("EUR", description="Currency code")
+    source: str = Field("webgains", description="Import source")
+    size: Optional[str] = Field(None, description="Product size")
+    market_price: Optional[float] = Field(None, description="Market price from profitability check")
+    margin_percent: Optional[float] = Field(None, description="Margin percentage")
+
+
+class CreateProductResponse(BaseModel):
+    """Response model for product creation"""
+    id: UUID
+    brand: str
+    name: str
+    sku: Optional[str]
+    ean: Optional[str]
+    retail_price: Optional[float]
+    enriched: bool
+    message: str
+
+
 def get_inventory_service(db: AsyncSession = Depends(get_db_session)) -> InventoryService:
     return InventoryService(db)
 
@@ -32,6 +61,217 @@ def get_stockx_service(db: AsyncSession = Depends(get_db_session)) -> StockXServ
 def get_catalog_service(db: AsyncSession = Depends(get_db_session)) -> StockXCatalogService:
     stockx_service = StockXService(db)
     return StockXCatalogService(stockx_service)
+
+
+# Premium brands that should be enriched from StockX
+PREMIUM_BRANDS = {
+    "nike", "jordan", "adidas", "yeezy", "new balance", "asics",
+    "puma", "reebok", "vans", "converse", "supreme", "off-white",
+    "balenciaga", "gucci", "louis vuitton", "dior", "prada"
+}
+
+
+@router.post(
+    "/",
+    status_code=201,
+    summary="Create Product with Auto-Enrichment",
+    description="Creates a new product in the catalog. Automatically enriches premium brands with StockX market data.",
+    response_model=CreateProductResponse,
+)
+async def create_product(
+    request: CreateProductRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Create a new product with automatic StockX enrichment for premium brands.
+
+    Workflow:
+    1. Create/get brand
+    2. Check if product exists (by EAN or SKU)
+    3. Create product in database
+    4. If premium brand: enrich from StockX (search + get market data)
+    5. Return product details
+    """
+    logger.info(
+        "Creating new product",
+        brand=request.brand,
+        name=request.name,
+        sku=request.sku,
+        ean=request.ean,
+    )
+
+    try:
+        # Step 1: Get or create brand
+        brand_slug = request.brand.lower().replace(" ", "-").replace("&", "and")
+        brand_query = text(
+            """
+            INSERT INTO catalog.brand (id, name, slug, created_at, updated_at)
+            VALUES (gen_random_uuid(), :brand_name, :brand_slug, NOW(), NOW())
+            ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+            RETURNING id
+            """
+        )
+        brand_result = await db.execute(
+            brand_query, {"brand_name": request.brand, "brand_slug": brand_slug}
+        )
+        brand_id = brand_result.scalar_one()
+
+        # Step 1b: Get or create default category (Sneakers for footwear imports)
+        category_query = text(
+            """
+            INSERT INTO catalog.category (id, name, slug, created_at, updated_at)
+            VALUES (gen_random_uuid(), :category_name, :category_slug, NOW(), NOW())
+            ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+            RETURNING id
+            """
+        )
+        category_result = await db.execute(
+            category_query, {"category_name": "Sneakers", "category_slug": "sneakers"}
+        )
+        category_id = category_result.scalar_one()
+
+        # Step 2: Check if product already exists
+        if request.ean:
+            existing_query = text(
+                "SELECT id, retail_price FROM catalog.product WHERE ean = :ean LIMIT 1"
+            )
+            existing_result = await db.execute(existing_query, {"ean": request.ean})
+            existing = existing_result.first()
+            if existing:
+                logger.info("Product already exists (by EAN)", product_id=str(existing.id))
+                return CreateProductResponse(
+                    id=existing.id,
+                    brand=request.brand,
+                    name=request.name,
+                    sku=request.sku,
+                    ean=request.ean,
+                    retail_price=float(existing.retail_price) if existing.retail_price else None,
+                    enriched=False,
+                    message="Product already exists",
+                )
+
+        # Step 3: Create product in database
+        product_query = text(
+            """
+            INSERT INTO catalog.product (
+                id, brand_id, category_id, name, sku, ean, retail_price, created_at, updated_at
+            )
+            VALUES (
+                gen_random_uuid(), :brand_id, :category_id, :name, :sku, :ean, :retail_price, NOW(), NOW()
+            )
+            RETURNING id
+            """
+        )
+
+        # Use market_price from profitability check if available, otherwise null
+        initial_retail_price = None
+        if request.market_price and request.market_price > 0:
+            initial_retail_price = Decimal(str(request.market_price))
+
+        product_result = await db.execute(
+            product_query,
+            {
+                "brand_id": brand_id,
+                "category_id": category_id,
+                "name": request.name,
+                "sku": request.sku,
+                "ean": request.ean,
+                "retail_price": initial_retail_price,
+            },
+        )
+        product_id = product_result.scalar_one()
+        await db.commit()
+
+        logger.info("Product created", product_id=str(product_id))
+
+        # Step 4: Auto-enrich premium brands from StockX
+        enriched = False
+        final_retail_price = float(initial_retail_price) if initial_retail_price else None
+
+        if request.brand.lower() in PREMIUM_BRANDS and not initial_retail_price:
+            logger.info("Premium brand detected, enriching from StockX", brand=request.brand)
+
+            try:
+                stockx_service = StockXService(db)
+                catalog_service = StockXCatalogService(stockx_service)
+
+                # Search StockX
+                search_query = f"{request.brand} {request.name}"
+                search_results = await catalog_service.search_catalog(
+                    query=search_query, page_number=1, page_size=1
+                )
+
+                if search_results and search_results.get("products"):
+                    stockx_product = search_results["products"][0]
+                    stockx_product_id = stockx_product.get("productId")
+
+                    if stockx_product_id:
+                        # Get variants
+                        variants = await catalog_service.get_product_variants(stockx_product_id)
+
+                        if variants and len(variants) > 0:
+                            # Use first variant
+                            variant = variants[0]
+                            variant_id = variant.get("variantId")
+
+                            if variant_id:
+                                # Get market data
+                                market_data = await catalog_service.get_market_data(
+                                    product_id=stockx_product_id,
+                                    variant_id=variant_id,
+                                    currency_code="EUR",
+                                )
+
+                                lowest_ask = market_data.get("lowestAskAmount")
+
+                                if lowest_ask:
+                                    # Update product with retail price
+                                    update_query = text(
+                                        """
+                                        UPDATE catalog.product
+                                        SET retail_price = :retail_price, updated_at = NOW()
+                                        WHERE id = :product_id
+                                        """
+                                    )
+                                    await db.execute(
+                                        update_query,
+                                        {
+                                            "product_id": product_id,
+                                            "retail_price": Decimal(str(lowest_ask)),
+                                        },
+                                    )
+                                    await db.commit()
+
+                                    final_retail_price = float(lowest_ask)
+                                    enriched = True
+                                    logger.info(
+                                        "Product enriched from StockX",
+                                        product_id=str(product_id),
+                                        retail_price=lowest_ask,
+                                    )
+
+            except Exception as e:
+                logger.warning(
+                    "StockX enrichment failed, continuing without",
+                    product_id=str(product_id),
+                    error=str(e),
+                )
+
+        return CreateProductResponse(
+            id=product_id,
+            brand=request.brand,
+            name=request.name,
+            sku=request.sku,
+            ean=request.ean,
+            retail_price=final_retail_price,
+            enriched=enriched,
+            message="Product created" + (" and enriched from StockX" if enriched else ""),
+        )
+
+    except Exception as e:
+        await db.rollback()
+        logger.error("Failed to create product", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create product: {str(e)}")
 
 
 @router.post(

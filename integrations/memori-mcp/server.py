@@ -32,7 +32,8 @@ class MemoriMCPServer:
     def __init__(self):
         self.server = Server("memori-mcp")
         self.memori: Optional[Memori] = None
-        self.namespace = os.getenv("MEMORI_NAMESPACE", "soleflip")
+        # Use user_id instead of deprecated namespace
+        self.user_id = os.getenv("MEMORI_USER_ID", os.getenv("MEMORI_NAMESPACE", "soleflip"))
         self.conscious_ingest = os.getenv("MEMORI_CONSCIOUS_INGEST", "true").lower() == "true"
         self.auto_ingest = os.getenv("MEMORI_AUTO_INGEST", "true").lower() == "true"
 
@@ -62,7 +63,7 @@ class MemoriMCPServer:
                             },
                             "namespace": {
                                 "type": "string",
-                                "description": f"Optional namespace (default: {self.namespace})",
+                                "description": f"Optional namespace (default: {self.user_id})",
                             },
                         },
                         "required": ["content"],
@@ -84,7 +85,7 @@ class MemoriMCPServer:
                             },
                             "namespace": {
                                 "type": "string",
-                                "description": f"Optional namespace (default: {self.namespace})",
+                                "description": f"Optional namespace (default: {self.user_id})",
                             },
                         },
                         "required": ["query"],
@@ -102,7 +103,7 @@ class MemoriMCPServer:
                             },
                             "namespace": {
                                 "type": "string",
-                                "description": f"Optional namespace (default: {self.namespace})",
+                                "description": f"Optional namespace (default: {self.user_id})",
                             },
                         },
                     },
@@ -138,7 +139,7 @@ class MemoriMCPServer:
         """Store memory using Memori library."""
         content = args.get("content")
         metadata = args.get("metadata", {})
-        namespace = args.get("namespace", self.namespace)
+        namespace = args.get("namespace", self.user_id)
 
         # Use official Memori.add() - accepts text and optional metadata dict
         self.memori.add(text=content, metadata=metadata)
@@ -165,7 +166,7 @@ class MemoriMCPServer:
         """Search memories using Memori library's dual-mode retrieval."""
         query = args.get("query")
         limit = args.get("limit", 5)
-        namespace = args.get("namespace", self.namespace)
+        namespace = args.get("namespace", self.user_id)
 
         # Use official Memori.retrieve_context() with dual-mode
         results = self.memori.retrieve_context(query, limit=limit)
@@ -202,7 +203,7 @@ class MemoriMCPServer:
 
     async def _list_memories(self, args: dict):
         """List memory statistics using Memori library."""
-        namespace = args.get("namespace", self.namespace)
+        namespace = args.get("namespace", self.user_id)
 
         # Use Memori.get_memory_stats()
         stats = self.memori.get_memory_stats()
@@ -243,7 +244,7 @@ class MemoriMCPServer:
             self.memori = Memori(
                 database_connect=db_url,  # Changed from connection_string
                 openai_api_key=openai_api_key,
-                namespace=self.namespace,
+                user_id=self.user_id,  # Use user_id instead of deprecated namespace
                 conscious_ingest=self.conscious_ingest,
                 auto_ingest=self.auto_ingest,
                 verbose=os.getenv("MEMORI_VERBOSE", "false").lower() == "true",
@@ -252,7 +253,7 @@ class MemoriMCPServer:
 
             logger.info(
                 "memori_mcp_server_initialized",
-                namespace=self.namespace,
+                user_id=self.user_id,
                 conscious_ingest=self.conscious_ingest,
                 auto_ingest=self.auto_ingest,
                 embeddings_enabled=openai_api_key is not None,

@@ -307,6 +307,9 @@ class Product(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sku = Column(String(100), nullable=False, unique=True)
+    ean = Column(
+        String(13), nullable=True, index=True, comment="EAN/GTIN product identifier (size-independent)"
+    )
     brand_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("brand.id", "catalog")), nullable=True
     )
@@ -373,6 +376,9 @@ class InventoryItem(Base, TimestampMixin):
     )
     size_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("sizes.id", "catalog")), nullable=False
+    )
+    ean = Column(
+        String(13), nullable=True, index=True, comment="Size-specific EAN/GTIN identifier"
     )
     supplier_id = Column(
         UUID(as_uuid=True), ForeignKey(get_schema_ref("profile.id", "supplier")), nullable=True

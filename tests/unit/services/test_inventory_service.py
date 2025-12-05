@@ -212,6 +212,15 @@ async def test_update_inventory_status(inventory_service):
     # Arrange
     inventory_id = uuid4()
     new_status = "sold"
+
+    # Mock the get_by_id call (Phase 2 - for history tracking)
+    mock_item = MagicMock()
+    mock_item.status = "in_stock"  # Current status
+    mock_item.status_history = []
+    mock_item.add_status_change = MagicMock()
+    inventory_service.inventory_repo.get_by_id = AsyncMock(return_value=mock_item)
+
+    # Mock the status update call
     inventory_service.product_repo.update_inventory_status = AsyncMock(return_value=True)
 
     # Act
@@ -219,6 +228,8 @@ async def test_update_inventory_status(inventory_service):
 
     # Assert
     assert result is True
+    inventory_service.inventory_repo.get_by_id.assert_called_once_with(inventory_id)
+    mock_item.add_status_change.assert_called_once_with("in_stock", "sold", None)
     inventory_service.product_repo.update_inventory_status.assert_called_once_with(
         inventory_id, new_status, None
     )

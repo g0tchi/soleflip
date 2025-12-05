@@ -80,6 +80,23 @@ class ProfitabilityCheckResponse(BaseModel):
     min_margin_threshold: float
 
 
+class BatchProfitabilityRequest(BaseModel):
+    """Request model for batch profitability evaluation"""
+
+    products: List[ProfitabilityCheckRequest]
+    max_batch_size: int = 1000
+
+
+class BatchProfitabilityResponse(BaseModel):
+    """Response model for batch profitability evaluation"""
+
+    total_evaluated: int
+    profitable_count: int
+    unprofitable_count: int
+    processing_time_seconds: float
+    results: List[ProfitabilityCheckResponse]
+
+
 def get_pricing_repository(db: AsyncSession = Depends(get_db_session)) -> PricingRepository:
     return PricingRepository(db)
 
@@ -289,31 +306,35 @@ async def evaluate_profitability(
         )
         OPERATIONAL_COST_FIXED = 5.0  # €5 fixed operational cost per item
 
+        # Premium brands worth querying StockX for
+        PREMIUM_BRANDS = {
+            "Nike", "Jordan", "Air Jordan", "Adidas", "Yeezy",
+            "New Balance", "Asics", "Puma", "Reebok", "Vans",
+            "Converse", "Supreme", "Off-White", "Bape", "Palace"
+        }
+
         # Try to get market price from StockX or existing catalog
         market_price = None
         reason = ""
+        existing_product = None
 
-        # Option 1: Check if product already exists in catalog by SKU or EAN
-        from sqlalchemy import select
+        # Step 1: Check if product already exists in catalog by SKU or EAN
+        from sqlalchemy import select, or_
 
         from shared.database.models import Product
 
-        # Try to find product by SKU first (if provided), then by name matching
-        existing_product = None
+        # Try to find product by SKU first (if provided), then by EAN
+        if request.sku or request.ean:
+            conditions = []
+            if request.sku:
+                conditions.append(Product.sku == request.sku)
+            if request.ean:
+                conditions.append(Product.ean == request.ean)
 
-        if request.sku:
             product_query = await db_session.execute(
-                select(Product).where(Product.sku == request.sku).limit(1)
+                select(Product).where(or_(*conditions)).limit(1)
             )
             existing_product = product_query.scalar_one_or_none()
-
-        # If no SKU match and EAN provided, try finding by product name similarity
-        # (since Product model doesn't have EAN field)
-        if not existing_product and request.ean:
-            logger.info(
-                "No SKU match, EAN lookup not supported (Product model has no EAN field)",
-                ean=request.ean,
-            )
 
         if existing_product:
             # Product exists in catalog - use retail price
@@ -325,61 +346,111 @@ async def evaluate_profitability(
                 "Found existing product in catalog",
                 product_id=str(existing_product.id),
                 sku=existing_product.sku,
+                ean=existing_product.ean,
                 market_price=market_price,
             )
 
-        # Option 2: Try to fetch from StockX API if not in catalog
-        if not market_price:
-            try:
-                # Try to get market data from StockX
-                # Note: This requires the product to exist in StockX's catalog
-                # For truly new products, this may return None
-                # TODO: Implement StockX EAN/UPC lookup when API supports it
+        # Step 2: For unknown products, check if it's a premium brand worth querying StockX
+        if not existing_product:
+            brand_normalized = request.brand.strip().title()
+            is_premium_brand = any(
+                premium in brand_normalized for premium in PREMIUM_BRANDS
+            )
+
+            if is_premium_brand:
+                # Premium brand - query StockX API for market data
+                try:
+                    from domains.integration.services.stockx_service import StockXService
+
+                    stockx_service = StockXService(db_session)
+
+                    # Search StockX by brand + model (EAN search not supported by StockX API)
+                    search_query = f"{request.brand} {request.model}"
+                    logger.info(
+                        "Querying StockX for premium brand product",
+                        brand=request.brand,
+                        search_query=search_query,
+                    )
+
+                    # Try to find product on StockX
+                    stockx_products = await stockx_service.search_products(
+                        query=search_query,
+                        limit=1
+                    )
+
+                    if stockx_products and len(stockx_products) > 0:
+                        stockx_product = stockx_products[0]
+                        # Use lowest_ask as market price (conservative estimate)
+                        market_price = float(stockx_product.get("market", {}).get("lowestAsk", 0))
+                        if market_price > 0:
+                            reason = f"Market price from StockX (lowest ask)"
+                            logger.info(
+                                "Found product on StockX",
+                                stockx_product_id=stockx_product.get("id"),
+                                market_price=market_price,
+                            )
+                        else:
+                            reason = "Found on StockX but no valid market price"
+                    else:
+                        reason = "Not found on StockX - no market data available"
+
+                except Exception as stockx_error:
+                    logger.warning(
+                        "Failed to fetch StockX market data",
+                        brand=request.brand,
+                        error=str(stockx_error),
+                    )
+                    reason = f"StockX query failed: {str(stockx_error)}"
+            else:
+                # Non-premium brand - skip import
+                reason = "Non-premium brand - not worth importing without existing catalog entry"
                 logger.info(
-                    "StockX market data lookup not yet implemented for EAN-only queries",
-                    ean=request.ean,
+                    "Skipping non-premium brand product",
+                    brand=request.brand,
                 )
-                reason = "No market data available - product not in catalog or StockX"
 
-            except Exception as stockx_error:
-                logger.warning(
-                    "Failed to fetch StockX market data", ean=request.ean, error=str(stockx_error)
-                )
-                reason = f"Market data unavailable: {str(stockx_error)}"
-
-        # If still no market price, use heuristic estimation
-        if not market_price:
-            # Heuristic: Assume typical retail markup of 1.25x (25% margin) as baseline
-            # This is a fallback and should be refined with actual market data
+        # Step 3: Fallback to estimation only if we have market data or it's premium
+        if not market_price and existing_product:
+            # Product in catalog but no retail price - use fallback estimation
             market_price = request.supplier_price * 1.25
-            reason = "Estimated market price (no data available)"
+            reason = "Estimated market price (product in catalog but no retail_price)"
             logger.info(
-                "Using estimated market price",
-                ean=request.ean,
+                "Using estimated market price for catalog product",
+                product_id=str(existing_product.id),
                 estimated_price=market_price,
             )
 
-        # Calculate profitability metrics
-        absolute_profit = market_price - request.supplier_price - OPERATIONAL_COST_FIXED
-        margin_percent = (
-            ((market_price - request.supplier_price) / market_price) * 100
-            if market_price > 0
-            else 0.0
-        )
-
-        # Determine if profitable
-        is_profitable = margin_percent >= MIN_MARGIN_THRESHOLD and absolute_profit > 0
-        should_import = is_profitable
-
-        # Enhanced reasoning
-        if is_profitable:
-            reason = f"Profitable: {margin_percent:.1f}% margin (min: {MIN_MARGIN_THRESHOLD}%)"
-        elif absolute_profit <= 0:
-            reason = f"Unprofitable: Negative profit (€{absolute_profit:.2f})"
+        # Calculate profitability metrics (only if we have market price)
+        if market_price is None or market_price == 0:
+            # No market data - cannot evaluate profitability
+            absolute_profit = 0.0
+            margin_percent = 0.0
+            is_profitable = False
+            should_import = False
+            if not reason:  # Only set if not already set
+                reason = "Cannot evaluate: No market data available"
         else:
-            reason = (
-                f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
+            # Calculate profitability with available market data
+            absolute_profit = market_price - request.supplier_price - OPERATIONAL_COST_FIXED
+            margin_percent = (
+                ((market_price - request.supplier_price) / market_price) * 100
+                if market_price > 0
+                else 0.0
             )
+
+            # Determine if profitable
+            is_profitable = margin_percent >= MIN_MARGIN_THRESHOLD and absolute_profit > 0
+            should_import = is_profitable
+
+            # Enhanced reasoning
+            if is_profitable:
+                reason = f"Profitable: {margin_percent:.1f}% margin (min: {MIN_MARGIN_THRESHOLD}%)"
+            elif absolute_profit <= 0:
+                reason = f"Unprofitable: Negative profit (€{absolute_profit:.2f})"
+            else:
+                reason = (
+                    f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
+                )
 
         response = ProfitabilityCheckResponse(
             profitable=is_profitable,
@@ -409,6 +480,219 @@ async def evaluate_profitability(
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail=f"Profitability evaluation failed: {str(e)}")
+
+
+@router.post(
+    "/evaluate-profitability-batch",
+    summary="Batch Evaluate Product Profitability (Pre-Import)",
+    description="Check profitability for multiple products from affiliate feed in a single request. Optimized for n8n workflows processing large product feeds.",
+    response_model=BatchProfitabilityResponse,
+)
+async def evaluate_profitability_batch(
+    request: BatchProfitabilityRequest,
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Evaluate profitability of multiple products before import (batch processing).
+
+    This endpoint processes up to 1000 products per request to efficiently filter
+    large affiliate feeds (Webgains, Awin) before importing to catalog.
+
+    Args:
+        request: Batch of product details including EAN, supplier price, brand, model
+
+    Returns:
+        Batch profitability assessment with aggregated statistics and individual results
+    """
+    import time
+
+    start_time = time.time()
+
+    logger.info(
+        "Starting batch profitability evaluation",
+        total_products=len(request.products),
+    )
+
+    # Validate batch size
+    if len(request.products) > request.max_batch_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size exceeds maximum of {request.max_batch_size} products",
+        )
+
+    if len(request.products) == 0:
+        raise HTTPException(status_code=400, detail="Products list cannot be empty")
+
+    try:
+        # Constants (shared with single endpoint)
+        MIN_MARGIN_THRESHOLD = 15.0
+        OPERATIONAL_COST_FIXED = 5.0
+
+        # Premium brands worth querying StockX for
+        PREMIUM_BRANDS = {
+            "Nike", "Jordan", "Air Jordan", "Adidas", "Yeezy",
+            "New Balance", "Asics", "Puma", "Reebok", "Vans",
+            "Converse", "Supreme", "Off-White", "Bape", "Palace"
+        }
+
+        results = []
+        profitable_count = 0
+        unprofitable_count = 0
+
+        from sqlalchemy import select, or_
+
+        from shared.database.models import Product
+
+        # Process each product
+        for product_request in request.products:
+            try:
+                # Try to get market price from existing catalog or StockX
+                market_price = None
+                reason = ""
+                existing_product = None
+
+                # Step 1: Check if product exists in catalog by SKU or EAN
+                if product_request.sku or product_request.ean:
+                    conditions = []
+                    if product_request.sku:
+                        conditions.append(Product.sku == product_request.sku)
+                    if product_request.ean:
+                        conditions.append(Product.ean == product_request.ean)
+
+                    product_query = await db_session.execute(
+                        select(Product).where(or_(*conditions)).limit(1)
+                    )
+                    existing_product = product_query.scalar_one_or_none()
+
+                if existing_product:
+                    market_price = (
+                        float(existing_product.retail_price)
+                        if existing_product.retail_price
+                        else None
+                    )
+                    reason = "Market price from existing catalog entry"
+
+                # Step 2: For unknown products, check if premium brand (worth StockX query)
+                if not existing_product and product_request.brand:
+                    brand_normalized = product_request.brand.strip().title()
+                    is_premium_brand = any(
+                        premium in brand_normalized for premium in PREMIUM_BRANDS
+                    )
+
+                    if not is_premium_brand:
+                        # Non-premium brand - skip without StockX query
+                        reason = "Non-premium brand - skipped"
+                        # Leave market_price as None - will be marked as should_import=False below
+                    # Note: In batch mode, we skip StockX API calls for performance
+                    # If needed, use single-item endpoint for StockX lookups
+
+                # Step 3: Fallback to estimation only for existing products
+                if not market_price and existing_product:
+                    market_price = product_request.supplier_price * 1.25
+                    reason = "Estimated market price (product in catalog but no retail_price)"
+
+                # Calculate profitability metrics (only if we have market price)
+                if market_price is None or market_price == 0:
+                    # No market data - cannot evaluate profitability
+                    absolute_profit = 0.0
+                    margin_percent = 0.0
+                    is_profitable = False
+                    should_import = False
+                    if not reason:
+                        reason = "Cannot evaluate: No market data available"
+                    unprofitable_count += 1
+                else:
+                    # Calculate profitability with available market data
+                    absolute_profit = (
+                        market_price - product_request.supplier_price - OPERATIONAL_COST_FIXED
+                    )
+                    margin_percent = (
+                        ((market_price - product_request.supplier_price) / market_price) * 100
+                        if market_price > 0
+                        else 0.0
+                    )
+
+                    # Determine if profitable
+                    is_profitable = margin_percent >= MIN_MARGIN_THRESHOLD and absolute_profit > 0
+                    should_import = is_profitable
+
+                    # Enhanced reasoning
+                    if is_profitable:
+                        reason = f"Profitable: {margin_percent:.1f}% margin (min: {MIN_MARGIN_THRESHOLD}%)"
+                        profitable_count += 1
+                    elif absolute_profit <= 0:
+                        reason = f"Unprofitable: Negative profit (€{absolute_profit:.2f})"
+                        unprofitable_count += 1
+                    else:
+                        reason = f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
+                        unprofitable_count += 1
+
+                result = ProfitabilityCheckResponse(
+                    profitable=is_profitable,
+                    margin_percent=round(margin_percent, 2),
+                    absolute_profit=round(absolute_profit, 2),
+                    supplier_price=product_request.supplier_price,
+                    market_price=market_price,
+                    should_import=should_import,
+                    reason=reason,
+                    min_margin_threshold=MIN_MARGIN_THRESHOLD,
+                )
+
+                results.append(result)
+
+            except Exception as product_error:
+                logger.warning(
+                    "Failed to evaluate individual product in batch",
+                    ean=product_request.ean,
+                    error=str(product_error),
+                )
+                # Add failed result with error reason
+                results.append(
+                    ProfitabilityCheckResponse(
+                        profitable=False,
+                        margin_percent=0.0,
+                        absolute_profit=0.0,
+                        supplier_price=product_request.supplier_price,
+                        market_price=None,
+                        should_import=False,
+                        reason=f"Evaluation failed: {str(product_error)}",
+                        min_margin_threshold=MIN_MARGIN_THRESHOLD,
+                    )
+                )
+                unprofitable_count += 1
+
+        processing_time = time.time() - start_time
+
+        response = BatchProfitabilityResponse(
+            total_evaluated=len(request.products),
+            profitable_count=profitable_count,
+            unprofitable_count=unprofitable_count,
+            processing_time_seconds=round(processing_time, 2),
+            results=results,
+        )
+
+        logger.info(
+            "Batch profitability evaluation completed",
+            total_evaluated=len(request.products),
+            profitable_count=profitable_count,
+            unprofitable_count=unprofitable_count,
+            processing_time_seconds=processing_time,
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to evaluate batch profitability",
+            total_products=len(request.products),
+            error=str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Batch profitability evaluation failed: {str(e)}"
+        )
 
 
 # =====================================================

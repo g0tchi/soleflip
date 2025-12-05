@@ -1,0 +1,137 @@
+{
+  "name": "Webgains Batch Profitability Import",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5228cb91-c346-4431-b06e-0f26e64b6393",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-960, 320]
+    },
+    {
+      "parameters": {
+        "url": "https://platform-api.webgains.com/auth/publishers/78499/campaigns/173269/feeds/products",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "feedIds[]", "value": "2211"},
+            {"name": "format", "value": "csv"},
+            {"name": "categories[]", "value": "187"}
+          ]
+        },
+        "options": {
+          "response": {"response": {"responseFormat": "file"}}
+        }
+      },
+      "id": "9749ac8b-f94e-4c12-8b9f-35a516f53920",
+      "name": "Fetch Webgains Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-736, 320]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [-512, 320],
+      "id": "fb40db19-75f5-4a36-95a5-1685915a7980",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "b45a66c0-7b6b-49bc-9854-bc4bc0536e9e", "name": "gtin", "value": "={{ $json.gtin }}", "type": "string"},
+            {"id": "97db61c7-ff53-4ff8-899c-4c4b72d15f4c", "name": "sku", "value": "={{ $json.mpn }}", "type": "string"},
+            {"id": "4ef3a7c5-a013-4fae-ac71-f49b96808867", "name": "price", "value": "={{ $json.price }}", "type": "number"},
+            {"id": "f0c7f064-9664-4372-a41d-f3b33c575d76", "name": "brand", "value": "={{ $json.brand }}", "type": "string"},
+            {"id": "91bbe6b9-77b4-485d-967d-ca19ead1eba6", "name": "title", "value": "={{ $json.title }}", "type": "string"},
+            {"id": "c8e9f1a2-3b4c-5d6e-7f8a-9b0c1d2e3f4a", "name": "size", "value": "={{ $json.size.toString().split(' EUR')[0].trim() }}", "type": "string"}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-288, 320],
+      "id": "d1b77548-332e-4932-9310-6d3a3783de92",
+      "name": "Map Feed Fields"
+    },
+    {
+      "parameters": {"batchSize": 500},
+      "id": "e8f4c2a1-9b3d-4e5f-a1c3-5d6e7f8a9b0c",
+      "name": "Split in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-64, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const products = $input.all().map(item => ({ean: item.json.gtin, sku: item.json.sku, supplier_price: parseFloat(item.json.price), brand: item.json.brand, model: item.json.title, size: item.json.size || null})); return [{json: {products: products, max_batch_size: 1000}}];"
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Prepare Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://157.90.21.65:8000/api/v1/pricing/evaluate-profitability-batch",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {"timeout": 30000}
+      },
+      "id": "df4061ea-d3fc-47ce-80eb-e62ae2b5048e",
+      "name": "Check Profitability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [384, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const batch = $input.first().json; const results = batch.results.filter(r => r.should_import).map(r => ({json: r})); return results;"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Filter Profitable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [608, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://157.90.21.65:8000/api/v1/products/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {brand: $json.brand, model: $json.model, sku: $json.sku, ean: $json.ean, supplier_price: $json.supplier_price, currency: 'EUR', source: 'webgains', market_price: $json.market_price, margin_percent: $json.margin_percent} }}"
+      },
+      "id": "23001d16-db37-4989-afa2-54b1a632afc5",
+      "name": "Import to Catalog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [832, 320]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {"main": [[{"node": "Fetch Webgains Feed", "type": "main", "index": 0}]]},
+    "Fetch Webgains Feed": {"main": [[{"node": "Extract from File", "type": "main", "index": 0}]]},
+    "Extract from File": {"main": [[{"node": "Map Feed Fields", "type": "main", "index": 0}]]},
+    "Map Feed Fields": {"main": [[{"node": "Split in Batches", "type": "main", "index": 0}]]},
+    "Split in Batches": {"main": [[{"node": "Prepare Batch", "type": "main", "index": 0}]]},
+    "Prepare Batch": {"main": [[{"node": "Check Profitability", "type": "main", "index": 0}]]},
+    "Check Profitability": {"main": [[{"node": "Filter Profitable", "type": "main", "index": 0}]]},
+    "Filter Profitable": {"main": [[{"node": "Import to Catalog", "type": "main", "index": 0}]]}
+  }
+}
