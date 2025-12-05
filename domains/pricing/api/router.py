@@ -308,9 +308,21 @@ async def evaluate_profitability(
 
         # Premium brands worth querying StockX for
         PREMIUM_BRANDS = {
-            "Nike", "Jordan", "Air Jordan", "Adidas", "Yeezy",
-            "New Balance", "Asics", "Puma", "Reebok", "Vans",
-            "Converse", "Supreme", "Off-White", "Bape", "Palace"
+            "Nike",
+            "Jordan",
+            "Air Jordan",
+            "Adidas",
+            "Yeezy",
+            "New Balance",
+            "Asics",
+            "Puma",
+            "Reebok",
+            "Vans",
+            "Converse",
+            "Supreme",
+            "Off-White",
+            "Bape",
+            "Palace",
         }
 
         # Try to get market price from StockX or existing catalog
@@ -319,7 +331,7 @@ async def evaluate_profitability(
         existing_product = None
 
         # Step 1: Check if product already exists in catalog by SKU or EAN
-        from sqlalchemy import select, or_
+        from sqlalchemy import or_, select
 
         from shared.database.models import Product
 
@@ -353,9 +365,7 @@ async def evaluate_profitability(
         # Step 2: For unknown products, check if it's a premium brand worth querying StockX
         if not existing_product:
             brand_normalized = request.brand.strip().title()
-            is_premium_brand = any(
-                premium in brand_normalized for premium in PREMIUM_BRANDS
-            )
+            is_premium_brand = any(premium in brand_normalized for premium in PREMIUM_BRANDS)
 
             if is_premium_brand:
                 # Premium brand - query StockX API for market data
@@ -374,8 +384,7 @@ async def evaluate_profitability(
 
                     # Try to find product on StockX
                     stockx_products = await stockx_service.search_products(
-                        query=search_query,
-                        limit=1
+                        query=search_query, limit=1
                     )
 
                     if stockx_products and len(stockx_products) > 0:
@@ -383,7 +392,7 @@ async def evaluate_profitability(
                         # Use lowest_ask as market price (conservative estimate)
                         market_price = float(stockx_product.get("market", {}).get("lowestAsk", 0))
                         if market_price > 0:
-                            reason = f"Market price from StockX (lowest ask)"
+                            reason = "Market price from StockX (lowest ask)"
                             logger.info(
                                 "Found product on StockX",
                                 stockx_product_id=stockx_product.get("id"),
@@ -448,9 +457,7 @@ async def evaluate_profitability(
             elif absolute_profit <= 0:
                 reason = f"Unprofitable: Negative profit (€{absolute_profit:.2f})"
             else:
-                reason = (
-                    f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
-                )
+                reason = f"Below threshold: {margin_percent:.1f}% margin < {MIN_MARGIN_THRESHOLD}% required"
 
         response = ProfitabilityCheckResponse(
             profitable=is_profitable,
@@ -530,16 +537,28 @@ async def evaluate_profitability_batch(
 
         # Premium brands worth querying StockX for
         PREMIUM_BRANDS = {
-            "Nike", "Jordan", "Air Jordan", "Adidas", "Yeezy",
-            "New Balance", "Asics", "Puma", "Reebok", "Vans",
-            "Converse", "Supreme", "Off-White", "Bape", "Palace"
+            "Nike",
+            "Jordan",
+            "Air Jordan",
+            "Adidas",
+            "Yeezy",
+            "New Balance",
+            "Asics",
+            "Puma",
+            "Reebok",
+            "Vans",
+            "Converse",
+            "Supreme",
+            "Off-White",
+            "Bape",
+            "Palace",
         }
 
         results = []
         profitable_count = 0
         unprofitable_count = 0
 
-        from sqlalchemy import select, or_
+        from sqlalchemy import or_, select
 
         from shared.database.models import Product
 

@@ -26,6 +26,7 @@ router = APIRouter()
 # Request/Response Models
 class CreateProductRequest(BaseModel):
     """Request model for creating a new product"""
+
     brand: str = Field(..., description="Brand name")
     name: str = Field(..., alias="model", description="Product name/model")
     sku: Optional[str] = Field(None, description="Product SKU")
@@ -40,6 +41,7 @@ class CreateProductRequest(BaseModel):
 
 class CreateProductResponse(BaseModel):
     """Response model for product creation"""
+
     id: UUID
     brand: str
     name: str
@@ -65,9 +67,23 @@ def get_catalog_service(db: AsyncSession = Depends(get_db_session)) -> StockXCat
 
 # Premium brands that should be enriched from StockX
 PREMIUM_BRANDS = {
-    "nike", "jordan", "adidas", "yeezy", "new balance", "asics",
-    "puma", "reebok", "vans", "converse", "supreme", "off-white",
-    "balenciaga", "gucci", "louis vuitton", "dior", "prada"
+    "nike",
+    "jordan",
+    "adidas",
+    "yeezy",
+    "new balance",
+    "asics",
+    "puma",
+    "reebok",
+    "vans",
+    "converse",
+    "supreme",
+    "off-white",
+    "balenciaga",
+    "gucci",
+    "louis vuitton",
+    "dior",
+    "prada",
 }
 
 
