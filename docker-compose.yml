@@ -64,7 +64,7 @@ services:
       STOCKX_CLIENT_ID: ${STOCKX_CLIENT_ID:-}
       STOCKX_CLIENT_SECRET: ${STOCKX_CLIENT_SECRET:-}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - soleflip_logs:/app/logs
     networks:
@@ -82,11 +82,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '1.0'
+          memory: 2G  # Increased from 1G for enrichment tasks
+          cpus: '2.0'  # Increased from 1.0 for better performance
         reservations:
-          memory: 256M
-          cpus: '0.25'
+          memory: 512M  # Increased from 256M
+          cpus: '0.5'  # Increased from 0.25
 
   # n8n - Workflow Automation
   n8n:
@@ -125,7 +125,7 @@ services:
       # Security
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-generate_with_openssl_rand_hex_32}
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
@@ -169,7 +169,7 @@ services:
       # Timezone
       MB_TIMEZONE: ${TIMEZONE:-Europe/Berlin}
     ports:
-      - "6400:3000"
+      - "127.0.0.1:6400:3000"
     volumes:
       - metabase_data:/metabase-data
     networks:
@@ -198,7 +198,7 @@ services:
     restart: unless-stopped
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "${REDIS_PASSWORD}"
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -227,7 +227,7 @@ services:
       ADMINER_DESIGN: nette
       ADMINER_PLUGINS: tables-filter tinymce
     ports:
-      - "8220:8080"
+      - "127.0.0.1:8220:8080"
     networks:
       - soleflip-network
     depends_on:
@@ -272,7 +272,7 @@ services:
       NODE_ENV: production
       WORKER_COUNT: 2
     ports:
-      - "10000:10000"
+      - "127.0.0.1:10000:10000"
     volumes:
       - budibase_data:/data
     networks:
@@ -308,7 +308,7 @@ services:
     profiles:
       - memori  # Optional service, enable with --profile memori
     ports:
-      - "8090:8080"  # Expose HTTP API
+      - "127.0.0.1:8090:8080"  # Expose HTTP API
     environment:
       # Database Configuration
       MEMORI_DATABASE_URL: postgresql://soleflip:${POSTGRES_PASSWORD:-changeme_secure_password}@postgres:5432/memori

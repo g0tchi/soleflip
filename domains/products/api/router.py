@@ -2,6 +2,7 @@
 API Router for Product-related endpoints
 """
 
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -201,10 +202,11 @@ async def create_product(
         logger.info("Product created", product_id=str(product_id))
 
         # Step 4: Auto-enrich premium brands from StockX
+        # ALWAYS query StockX for premium brands to get real market data (highest_bid)
         enriched = False
         final_retail_price = float(initial_retail_price) if initial_retail_price else None
 
-        if request.brand.lower() in PREMIUM_BRANDS and not initial_retail_price:
+        if request.brand.lower() in PREMIUM_BRANDS:
             logger.info("Premium brand detected, enriching from StockX", brand=request.brand)
 
             try:
@@ -238,14 +240,17 @@ async def create_product(
                                     currency_code="EUR",
                                 )
 
+                                highest_bid = market_data.get("highestBidAmount")
                                 lowest_ask = market_data.get("lowestAskAmount")
 
-                                if lowest_ask:
-                                    # Update product with retail price
+                                if highest_bid or lowest_ask:
+                                    # Update product with StockX market data
                                     update_query = text(
                                         """
                                         UPDATE catalog.product
-                                        SET retail_price = :retail_price, updated_at = NOW()
+                                        SET highest_bid = :highest_bid,
+                                            lowest_ask = :lowest_ask,
+                                            updated_at = NOW()
                                         WHERE id = :product_id
                                         """
                                     )
@@ -253,12 +258,21 @@ async def create_product(
                                         update_query,
                                         {
                                             "product_id": product_id,
-                                            "retail_price": Decimal(str(lowest_ask)),
+                                            "highest_bid": (
+                                                Decimal(str(highest_bid)) if highest_bid else None
+                                            ),
+                                            "lowest_ask": (
+                                                Decimal(str(lowest_ask)) if lowest_ask else None
+                                            ),
                                         },
                                     )
                                     await db.commit()
 
-                                    final_retail_price = float(lowest_ask)
+                                    final_retail_price = (
+                                        float(highest_bid)
+                                        if highest_bid
+                                        else float(lowest_ask) if lowest_ask else None
+                                    )
                                     enriched = True
                                     logger.info(
                                         "Product enriched from StockX",
@@ -421,6 +435,8 @@ async def enrich_product_data(
     logger.info("Received request to enrich product data", product_ids=product_ids)
 
     async def run_enrichment_task(product_ids: Optional[List[str]] = None):
+        import gc
+
         from sqlalchemy import text
 
         from shared.database.connection import db_manager
@@ -443,16 +459,17 @@ async def enrich_product_data(
                     result = await bg_session.execute(products_query, {"product_ids": product_ids})
                 else:
                     # Get all products needing enrichment
+                    # REDUCED BATCH SIZE: Memory optimization - process 10 at a time instead of 50
                     products_query = text(
                         """
                         SELECT p.id, p.name, p.sku, b.name as brand_name
-                        FROM catalog.product p  
+                        FROM catalog.product p
                         LEFT JOIN catalog.brand b ON p.brand_id = b.id
-                        WHERE p.sku IS NULL OR p.sku = '' 
-                        OR p.description IS NULL 
+                        WHERE p.sku IS NULL OR p.sku = ''
+                        OR p.description IS NULL
                         OR p.retail_price IS NULL
                         OR p.release_date IS NULL
-                        LIMIT 50
+                        LIMIT 10
                     """
                     )
                     result = await bg_session.execute(products_query)
@@ -460,8 +477,13 @@ async def enrich_product_data(
                 products = result.fetchall()
                 enriched_count = 0
 
-                for product in products:
+                # Memory optimization: Process in smaller chunks and force garbage collection
+                for idx, product in enumerate(products):
                     try:
+                        # Rate limiting: Small delay between products (StockX API has limits)
+                        if idx > 0:
+                            await asyncio.sleep(0.2)  # 200ms between products
+
                         # Search StockX for this product
                         search_query = (
                             f"{product.brand_name} {product.name}"
@@ -518,6 +540,17 @@ async def enrich_product_data(
                             "Failed to enrich product", product_id=product.id, error=str(e)
                         )
                         continue
+
+                    # Memory optimization: Commit and clean up every 5 products
+                    if (idx + 1) % 5 == 0:
+                        await bg_session.commit()
+                        gc.collect()  # Force garbage collection
+                        logger.info(
+                            "Enrichment progress checkpoint",
+                            processed=idx + 1,
+                            total=len(products),
+                            enriched=enriched_count,
+                        )
 
                 await bg_session.commit()
                 logger.info(

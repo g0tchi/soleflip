@@ -592,18 +592,84 @@ async def evaluate_profitability_batch(
                     reason = "Market price from existing catalog entry"
 
                 # Step 2: For unknown products, check if premium brand (worth StockX query)
+                is_premium_brand = False
                 if not existing_product and product_request.brand:
                     brand_normalized = product_request.brand.strip().title()
                     is_premium_brand = any(
                         premium in brand_normalized for premium in PREMIUM_BRANDS
                     )
 
-                    if not is_premium_brand:
+                    if is_premium_brand:
+                        # Premium brand - try StockX lookup for market price
+                        try:
+                            from domains.integration.services.stockx_service import StockXService
+                            from domains.integration.services.stockx_catalog_service import (
+                                StockXCatalogService,
+                            )
+
+                            stockx_service = StockXService(db_session)
+                            catalog_service = StockXCatalogService(stockx_service)
+
+                            # Search StockX
+                            search_query = (
+                                f"{product_request.brand} {product_request.model}"
+                            )
+                            search_results = await catalog_service.search_catalog(
+                                query=search_query, page_number=1, page_size=1
+                            )
+
+                            if search_results and search_results.get("products"):
+                                stockx_product = search_results["products"][0]
+                                stockx_product_id = stockx_product.get("productId")
+
+                                if stockx_product_id:
+                                    # Get variants
+                                    variants = await catalog_service.get_product_variants(
+                                        stockx_product_id
+                                    )
+
+                                    if variants and len(variants) > 0:
+                                        # Use first variant or match by size if provided
+                                        variant = variants[0]
+                                        if product_request.size:
+                                            # Try to find matching size
+                                            for v in variants:
+                                                size_value = v.get("sizeChart", {}).get(
+                                                    "baseSize", ""
+                                                )
+                                                if size_value == product_request.size:
+                                                    variant = v
+                                                    break
+
+                                        variant_id = variant.get("variantId")
+                                        if variant_id:
+                                            # Get market data
+                                            market_data = (
+                                                await catalog_service.get_market_data(
+                                                    product_id=stockx_product_id,
+                                                    variant_id=variant_id,
+                                                    currency_code="EUR",
+                                                )
+                                            )
+
+                                            highest_bid = market_data.get("highestBidAmount")
+                                            if highest_bid:
+                                                market_price = float(highest_bid)
+                                                reason = "Market price from StockX highest_bid"
+
+                        except Exception as stockx_error:
+                            logger.debug(
+                                "StockX lookup failed in batch mode",
+                                brand=product_request.brand,
+                                model=product_request.model,
+                                error=str(stockx_error),
+                            )
+                            # Continue without market_price - will be handled below
+
+                    else:
                         # Non-premium brand - skip without StockX query
                         reason = "Non-premium brand - skipped"
                         # Leave market_price as None - will be marked as should_import=False below
-                    # Note: In batch mode, we skip StockX API calls for performance
-                    # If needed, use single-item endpoint for StockX lookups
 
                 # Step 3: Fallback to estimation only for existing products
                 if not market_price and existing_product:
@@ -612,14 +678,25 @@ async def evaluate_profitability_batch(
 
                 # Calculate profitability metrics (only if we have market price)
                 if market_price is None or market_price == 0:
-                    # No market data - cannot evaluate profitability
-                    absolute_profit = 0.0
-                    margin_percent = 0.0
-                    is_profitable = False
-                    should_import = False
-                    if not reason:
-                        reason = "Cannot evaluate: No market data available"
-                    unprofitable_count += 1
+                    # Special case: Premium brands without market price should still be imported
+                    # The product import endpoint will do StockX enrichment
+                    if is_premium_brand:
+                        absolute_profit = 0.0
+                        margin_percent = 0.0
+                        is_profitable = False
+                        should_import = True  # ✅ Import premium brands for enrichment
+                        if not reason:
+                            reason = "Premium brand - import for StockX enrichment"
+                        profitable_count += 1  # Count as potential profitable
+                    else:
+                        # No market data - cannot evaluate profitability
+                        absolute_profit = 0.0
+                        margin_percent = 0.0
+                        is_profitable = False
+                        should_import = False
+                        if not reason:
+                            reason = "Cannot evaluate: No market data available"
+                        unprofitable_count += 1
                 else:
                     # Calculate profitability with available market data
                     absolute_profit = (

@@ -30,6 +30,7 @@ class StockXCredentials:
 class StockXService:
     """
     A service to interact with the StockX Public API, handling the OAuth2 refresh token flow.
+    Includes intelligent rate limiting to prevent 429 (Too Many Requests) errors.
     """
 
     def __init__(self, db_session: AsyncSession):
@@ -38,6 +39,9 @@ class StockXService:
         self._token_expiry: Optional[datetime] = None
         self._credentials: Optional[StockXCredentials] = None
         self._lock = asyncio.Lock()
+        # Rate limiting: Track last request time to enforce delays
+        self._last_request_time: Optional[datetime] = None
+        self._min_request_interval = 0.5  # Minimum 500ms between requests
 
     async def _load_credentials(self) -> StockXCredentials:
         """
@@ -449,7 +453,18 @@ class StockXService:
     ) -> Dict[str, Any]:
         """
         A generic helper to make a single, non-paginated GET request to the StockX API.
+        Includes rate limiting and exponential backoff for 429 errors.
         """
+        # Rate limiting: Enforce minimum delay between requests
+        if self._last_request_time:
+            elapsed = (datetime.now(timezone.utc) - self._last_request_time).total_seconds()
+            if elapsed < self._min_request_interval:
+                delay = self._min_request_interval - elapsed
+                logger.debug(f"Rate limiting: waiting {delay:.2f}s before request to {endpoint}")
+                await asyncio.sleep(delay)
+
+        self._last_request_time = datetime.now(timezone.utc)
+
         access_token = await self._get_valid_access_token()
         api_key = (await self._load_credentials()).api_key
 
@@ -459,34 +474,68 @@ class StockXService:
             "User-Agent": "SoleFlipperApp/1.0",
         }
 
-        async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
-            try:
-                response = await client.get(endpoint, params=params, headers=headers, timeout=30.0)
+        # Exponential backoff for 429 errors
+        max_retries = 3
+        base_delay = 2.0
 
-                if response.status_code == 401:
-                    logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
-                    access_token = await self._get_valid_access_token()  # Force refresh
-                    headers["Authorization"] = f"Bearer {access_token}"
+        async with httpx.AsyncClient(base_url=STOCKX_API_BASE_URL) as client:
+            for attempt in range(max_retries + 1):
+                try:
                     response = await client.get(
                         endpoint, params=params, headers=headers, timeout=30.0
                     )
 
-                response.raise_for_status()
-                return response.json()
+                    # Handle 401 with token refresh
+                    if response.status_code == 401:
+                        logger.warning(f"Received 401 on {endpoint}. Retrying after token refresh.")
+                        access_token = await self._get_valid_access_token()  # Force refresh
+                        headers["Authorization"] = f"Bearer {access_token}"
+                        response = await client.get(
+                            endpoint, params=params, headers=headers, timeout=30.0
+                        )
 
-            except httpx.HTTPStatusError as e:
-                logger.error(
-                    f"HTTP error on {endpoint}",
-                    status_code=e.response.status_code,
-                    response=e.response.text,
-                )
-                raise
-            except httpx.RequestError as e:
-                logger.error(f"Request error on {endpoint}", error=str(e))
-                raise
-            except asyncio.TimeoutError:
-                logger.error(f"Request timeout on {endpoint}")
-                raise
+                    # Handle 429 with exponential backoff BEFORE raise_for_status()
+                    if response.status_code == 429:
+                        if attempt < max_retries:
+                            delay = base_delay * (2**attempt)  # 2s, 4s, 8s
+                            logger.warning(
+                                f"Rate limit hit on {endpoint}. Retry {attempt + 1}/{max_retries} after {delay}s",
+                                endpoint=endpoint,
+                                attempt=attempt + 1,
+                                max_retries=max_retries,
+                                delay=delay,
+                            )
+                            await asyncio.sleep(delay)
+                            continue  # Retry the request
+                        else:
+                            logger.error(
+                                f"Rate limit exceeded on {endpoint} after {max_retries} retries",
+                                endpoint=endpoint,
+                                max_retries=max_retries,
+                            )
+                            # Fall through to raise_for_status() below
+
+                    # Only raise for non-429 errors or final 429 after retries exhausted
+                    response.raise_for_status()
+                    return response.json()
+
+                except httpx.RequestError as e:
+                    logger.error(f"Request error on {endpoint}", error=str(e))
+                    raise
+                except asyncio.TimeoutError:
+                    logger.error(f"Request timeout on {endpoint}")
+                    raise
+                except httpx.HTTPStatusError as e:
+                    # Only re-raise if it's not a 429 or we've exhausted retries
+                    logger.error(
+                        f"HTTP error on {endpoint}",
+                        status_code=e.response.status_code,
+                        response=e.response.text,
+                    )
+                    raise
+
+            # Should not reach here, but for type safety
+            raise Exception(f"Unexpected error in rate-limited request to {endpoint}")
 
     async def _make_post_request(
         self, endpoint: str, json: Optional[Dict[str, Any]] = None
