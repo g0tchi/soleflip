@@ -1,0 +1,358 @@
+{
+  "name": "StockX Data Sync - Every 4 Hours",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */4 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-1",
+      "name": "Every 4 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://soleflip-api:8000/api/v1/orders/active",
+        "method": "GET",
+        "authentication": "none",
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 5000
+          }
+        }
+      },
+      "id": "fetch-active-orders-1",
+      "name": "Fetch Active Orders (Listed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [450, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-success-1",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200
+            }
+          ]
+        }
+      },
+      "id": "check-orders-success-1",
+      "name": "Orders Fetch Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://soleflip-api:8000/api/v1/orders/stockx-history",
+        "method": "GET",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fromDate",
+              "value": "={{ $now.minus(4, 'hours').toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "toDate",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 5000
+          }
+        }
+      },
+      "id": "fetch-sold-orders-1",
+      "name": "Fetch Sold Orders (Recent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [850, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-sold-success-1",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200
+            }
+          ]
+        }
+      },
+      "id": "check-sold-success-1",
+      "name": "Sold Orders Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "workflow",
+              "name": "workflow",
+              "type": "string",
+              "value": "StockX Data Sync"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "success"
+            },
+            {
+              "id": "active_orders",
+              "name": "active_orders_count",
+              "type": "number",
+              "value": "={{ $('Fetch Active Orders (Listed)').item.json.length || 0 }}"
+            },
+            {
+              "id": "sold_orders",
+              "name": "sold_orders_count",
+              "type": "number",
+              "value": "={{ $('Fetch Sold Orders (Recent)').item.json.length || 0 }}"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "type": "string",
+              "value": "Data sync completed successfully"
+            }
+          ]
+        }
+      },
+      "id": "log-success-1",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 150]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "workflow",
+              "name": "workflow",
+              "type": "string",
+              "value": "StockX Data Sync"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "error_msg",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message || 'Active orders fetch failed' }}"
+            },
+            {
+              "id": "failed_step",
+              "name": "failed_step",
+              "type": "string",
+              "value": "Active Orders"
+            },
+            {
+              "id": "status_code",
+              "name": "status_code",
+              "type": "number",
+              "value": "={{ $json.statusCode || 0 }}"
+            }
+          ]
+        }
+      },
+      "id": "log-error-orders-1",
+      "name": "Log Orders Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "workflow",
+              "name": "workflow",
+              "type": "string",
+              "value": "StockX Data Sync"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "error_msg",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message || 'Sold orders fetch failed' }}"
+            },
+            {
+              "id": "failed_step",
+              "name": "failed_step",
+              "type": "string",
+              "value": "Sold Orders"
+            },
+            {
+              "id": "status_code",
+              "name": "status_code",
+              "type": "number",
+              "value": "={{ $json.statusCode || 0 }}"
+            }
+          ]
+        }
+      },
+      "id": "log-error-sold-1",
+      "name": "Log Sold Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Every 4 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Orders (Listed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Orders (Listed)": {
+      "main": [
+        [
+          {
+            "node": "Orders Fetch Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orders Fetch Success?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sold Orders (Recent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Orders Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sold Orders (Recent)": {
+      "main": [
+        [
+          {
+            "node": "Sold Orders Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sold Orders Success?": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Sold Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true
+  },
+  "pinData": {},
+  "tags": []
+}
