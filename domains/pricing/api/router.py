@@ -602,18 +602,16 @@ async def evaluate_profitability_batch(
                     if is_premium_brand:
                         # Premium brand - try StockX lookup for market price
                         try:
-                            from domains.integration.services.stockx_service import StockXService
                             from domains.integration.services.stockx_catalog_service import (
                                 StockXCatalogService,
                             )
+                            from domains.integration.services.stockx_service import StockXService
 
                             stockx_service = StockXService(db_session)
                             catalog_service = StockXCatalogService(stockx_service)
 
                             # Search StockX
-                            search_query = (
-                                f"{product_request.brand} {product_request.model}"
-                            )
+                            search_query = f"{product_request.brand} {product_request.model}"
                             search_results = await catalog_service.search_catalog(
                                 query=search_query, page_number=1, page_size=1
                             )
@@ -644,12 +642,10 @@ async def evaluate_profitability_batch(
                                         variant_id = variant.get("variantId")
                                         if variant_id:
                                             # Get market data
-                                            market_data = (
-                                                await catalog_service.get_market_data(
-                                                    product_id=stockx_product_id,
-                                                    variant_id=variant_id,
-                                                    currency_code="EUR",
-                                                )
+                                            market_data = await catalog_service.get_market_data(
+                                                product_id=stockx_product_id,
+                                                variant_id=variant_id,
+                                                currency_code="EUR",
                                             )
 
                                             highest_bid = market_data.get("highestBidAmount")

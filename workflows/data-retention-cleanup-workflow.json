@@ -1,0 +1,344 @@
+{
+  "name": "Data Retention Cleanup - Daily at 2 AM",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-cleanup-1",
+      "name": "Every Day at 2 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM cleanup_old_data();",
+        "options": {}
+      },
+      "id": "cleanup-data-1",
+      "name": "Run Data Cleanup",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-postgres",
+          "name": "SoleFlip Database"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-cleanup-success",
+              "operator": {
+                "type": "object",
+                "operation": "exists"
+              },
+              "leftValue": "={{ $json }}"
+            }
+          ]
+        }
+      },
+      "id": "check-cleanup-1",
+      "name": "Cleanup Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "workflow",
+              "name": "workflow",
+              "type": "string",
+              "value": "Data Retention Cleanup"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "success"
+            },
+            {
+              "id": "tables_cleaned",
+              "name": "tables_cleaned",
+              "type": "number",
+              "value": "={{ $('Run Data Cleanup').item.json.length || 0 }}"
+            },
+            {
+              "id": "total_rows_deleted",
+              "name": "total_rows_deleted",
+              "type": "number",
+              "value": "={{ $('Run Data Cleanup').item.json.reduce((sum, item) => sum + (item.rows_affected || 0), 0) }}"
+            },
+            {
+              "id": "details",
+              "name": "details",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Run Data Cleanup').item.json) }}"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "type": "string",
+              "value": "Data retention cleanup completed successfully"
+            }
+          ]
+        }
+      },
+      "id": "log-success-cleanup-1",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "workflow",
+              "name": "workflow",
+              "type": "string",
+              "value": "Data Retention Cleanup"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "error"
+            },
+            {
+              "id": "error_message",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message || 'Data cleanup failed' }}"
+            },
+            {
+              "id": "failed_step",
+              "name": "failed_step",
+              "type": "string",
+              "value": "Run Data Cleanup"
+            }
+          ]
+        }
+      },
+      "id": "log-error-cleanup-1",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO logging.system_logs (level, component, message, details, created_at)\nVALUES (\n  '{{ $json.status === \"success\" ? \"info\" : \"error\" }}',\n  'n8n-data-retention',\n  '{{ $json.message || $json.error_message }}',\n  '{{ JSON.stringify($json) }}',\n  NOW()\n);",
+        "options": {}
+      },
+      "id": "save-log-cleanup-1",
+      "name": "Save Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1050, 300],
+      "credentials": {
+        "postgres": {
+          "id": "soleflip-postgres",
+          "name": "SoleFlip Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "check-high-deletions",
+              "operator": {
+                "type": "number",
+                "operation": "largerEqual"
+              },
+              "leftValue": "={{ $json.total_rows_deleted }}",
+              "rightValue": 10000
+            },
+            {
+              "id": "check-status-error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "error"
+            }
+          ]
+        }
+      },
+      "id": "check-alert-needed-1",
+      "name": "Alert Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "alert_type",
+              "name": "alert_type",
+              "type": "string",
+              "value": "={{ $json.status === 'error' ? 'ERROR' : 'WARNING' }}"
+            },
+            {
+              "id": "alert_message",
+              "name": "alert_message",
+              "type": "string",
+              "value": "={{ $json.status === 'error' ? 'Data cleanup failed: ' + $json.error_message : 'High volume of deletions: ' + $json.total_rows_deleted + ' rows' }}"
+            },
+            {
+              "id": "alert_details",
+              "name": "alert_details",
+              "type": "string",
+              "value": "={{ $json.details }}"
+            }
+          ]
+        }
+      },
+      "id": "prepare-alert-1",
+      "name": "Prepare Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1450, 200]
+    }
+  ],
+  "connections": {
+    "Every Day at 2 AM": {
+      "main": [
+        [
+          {
+            "node": "Run Data Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Data Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Cleanup Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup Successful?": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Save Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Save Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Log to Database": {
+      "main": [
+        [
+          {
+            "node": "Alert Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Needed?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true
+  }
+}
