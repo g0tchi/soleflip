@@ -63,7 +63,8 @@
       "name": "Orders Fetch Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [650, 300]
+      "position": [650, 300],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -123,7 +124,8 @@
       "name": "Sold Orders Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1050, 200]
+      "position": [1050, 200],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -202,7 +204,7 @@
               "id": "error_msg",
               "name": "error_message",
               "type": "string",
-              "value": "={{ $json.error?.message || 'Active orders fetch failed' }}"
+              "value": "={{ ($json.error && $json.error.message) || 'Active orders fetch failed' }}"
             },
             {
               "id": "failed_step",
@@ -252,7 +254,7 @@
               "id": "error_msg",
               "name": "error_message",
               "type": "string",
-              "value": "={{ $json.error?.message || 'Sold orders fetch failed' }}"
+              "value": "={{ ($json.error && $json.error.message) || 'Sold orders fetch failed' }}"
             },
             {
               "id": "failed_step",

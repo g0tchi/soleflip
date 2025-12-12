@@ -27,7 +27,7 @@
       "id": "cleanup-data-1",
       "name": "Run Data Cleanup",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
+      "typeVersion": 2.6,
       "position": [450, 300],
       "credentials": {
         "postgres": {
@@ -60,7 +60,8 @@
       "name": "Cleanup Successful?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [650, 300]
+      "position": [650, 300],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -145,7 +146,7 @@
               "id": "error_message",
               "name": "error_message",
               "type": "string",
-              "value": "={{ $json.error?.message || 'Data cleanup failed' }}"
+              "value": "={{ ($json.error && $json.error.message) || 'Data cleanup failed' }}"
             },
             {
               "id": "failed_step",
@@ -165,20 +166,21 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO logging.system_logs (level, component, message, details, created_at)\nVALUES (\n  '{{ $json.status === \"success\" ? \"info\" : \"error\" }}',\n  'n8n-data-retention',\n  '{{ $json.message || $json.error_message }}',\n  '{{ JSON.stringify($json) }}',\n  NOW()\n);",
+        "query": "=INSERT INTO logging.system_logs (level, component, message, details, created_at)\nVALUES (\n  '{{ $json.status === \"success\" ? \"info\" : \"error\" }}',\n  'n8n-data-retention',\n  '{{ $json.message || $json.error_message }}',\n  '{{ JSON.stringify($json) }}',\n  NOW()\n);",
         "options": {}
       },
       "id": "save-log-cleanup-1",
       "name": "Save Log to Database",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
+      "typeVersion": 2.6,
       "position": [1050, 300],
       "credentials": {
         "postgres": {
           "id": "soleflip-postgres",
           "name": "SoleFlip Database"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -192,7 +194,7 @@
               "id": "check-high-deletions",
               "operator": {
                 "type": "number",
-                "operation": "largerEqual"
+                "operation": "gte"
               },
               "leftValue": "={{ $json.total_rows_deleted }}",
               "rightValue": 10000
@@ -213,7 +215,8 @@
       "name": "Alert Needed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1250, 300]
+      "position": [1250, 300],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
